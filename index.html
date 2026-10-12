@@ -556,40 +556,83 @@ function onResize(){
 function drawShip(x,y,s,t){
   const ctx=sctx;
   ctx.save(); ctx.translate(x,y); ctx.rotate(Math.sin(t*.5)*.03); ctx.scale(s,s);
-  // resplandor del motor
+  // resplandor del motor (núcleo blanco + halo cyan)
   const fl=0.75+0.25*Math.sin(t*28)+Math.random()*0.08;
-  const g=ctx.createRadialGradient(-52,0,2,-52,0,26*fl);
-  g.addColorStop(0,'rgba(165,243,252,.95)'); g.addColorStop(.4,'rgba(34,211,238,.55)'); g.addColorStop(1,'rgba(34,211,238,0)');
-  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(-52,0,26*fl,0,6.29); ctx.fill();
-  // fuselaje (perfil, morro a la derecha)
+  let g=ctx.createRadialGradient(-64,0,1,-64,0,30*fl);
+  g.addColorStop(0,'rgba(255,255,255,.95)'); g.addColorStop(.25,'rgba(165,243,252,.85)'); g.addColorStop(.55,'rgba(34,211,238,.4)'); g.addColorStop(1,'rgba(34,211,238,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(-64,0,30*fl,0,6.29); ctx.fill();
+  // tobera del motor
+  ctx.fillStyle='#0b1220'; ctx.strokeStyle='rgba(103,232,249,.9)'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(-58,-8); ctx.lineTo(-70,-6); ctx.lineTo(-70,6); ctx.lineTo(-58,8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(34,211,238,.75)';
+  ctx.fillRect(-70,-4,3,8);
+  // casco principal (dardo, morro a la derecha)
   ctx.beginPath();
-  ctx.moveTo(-58,-9); ctx.lineTo(20,-11);
-  ctx.quadraticCurveTo(52,-8,62,0);
-  ctx.quadraticCurveTo(52,8,20,10);
-  ctx.lineTo(-58,9); ctx.quadraticCurveTo(-64,0,-58,-9);
-  ctx.closePath();
-  const hull=ctx.createLinearGradient(0,-11,0,10);
-  hull.addColorStop(0,'#3b4a63'); hull.addColorStop(.5,'#1a2438'); hull.addColorStop(1,'#0d1424');
+  ctx.moveTo(-58,-8); ctx.lineTo(16,-10);
+  ctx.quadraticCurveTo(46,-8,64,0);
+  ctx.quadraticCurveTo(46,8,16,9);
+  ctx.lineTo(-58,8); ctx.closePath();
+  const hull=ctx.createLinearGradient(0,-10,0,9);
+  hull.addColorStop(0,'#46566f'); hull.addColorStop(.45,'#1e2a42'); hull.addColorStop(1,'#0b1322');
   ctx.fillStyle=hull; ctx.fill();
-  ctx.strokeStyle='rgba(103,232,249,.85)'; ctx.lineWidth=1.4; ctx.stroke();
-  ctx.strokeStyle='rgba(34,211,238,.5)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(-50,5); ctx.lineTo(40,5); ctx.stroke();
-  // cabina
-  const cg=ctx.createLinearGradient(0,-11,0,-2);
-  cg.addColorStop(0,'rgba(165,243,252,.95)'); cg.addColorStop(1,'rgba(14,116,144,.9)');
-  ctx.fillStyle=cg;
-  ctx.beginPath(); ctx.ellipse(28,-6,11,4.6,-0.12,0,6.29); ctx.fill();
-  ctx.strokeStyle='rgba(165,243,252,.9)'; ctx.stroke();
-  // ala principal y timón
+  ctx.strokeStyle='rgba(103,232,249,.9)'; ctx.lineWidth=1.4; ctx.stroke();
+  // blindaje superior
+  ctx.fillStyle='rgba(148,163,184,.16)';
+  ctx.beginPath(); ctx.moveTo(-52,-8); ctx.lineTo(14,-10); ctx.quadraticCurveTo(38,-8,50,-3); ctx.lineTo(48,-1); ctx.quadraticCurveTo(30,-5,12,-5); ctx.lineTo(-52,-4); ctx.closePath(); ctx.fill();
+  // líneas de paneles
+  ctx.strokeStyle='rgba(2,6,16,.8)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-32,-9); ctx.lineTo(-32,8); ctx.moveTo(-4,-10); ctx.lineTo(-4,9); ctx.moveTo(24,-9); ctx.lineTo(24,7); ctx.stroke();
+  // pinstripe cyan lateral
+  ctx.strokeStyle='rgba(34,211,238,.65)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(-54,2); ctx.quadraticCurveTo(0,4,44,1); ctx.stroke();
+  // greebles: rejillas y remaches
+  ctx.fillStyle='rgba(2,6,16,.85)';
+  ctx.fillRect(-24,3,10,3); ctx.fillRect(-10,3,6,3); ctx.fillRect(30,2,8,2.5);
+  ctx.fillStyle='rgba(148,163,184,.5)';
+  ctx.fillRect(-48,-6,2,2); ctx.fillRect(-40,-6,2,2); ctx.fillRect(8,6,2,2);
+  // puente elevado con ventanas iluminadas
+  ctx.beginPath();
+  ctx.moveTo(0,-8); ctx.lineTo(4,-22); ctx.lineTo(26,-22); ctx.lineTo(32,-7); ctx.closePath();
+  const br=ctx.createLinearGradient(0,-22,0,-10);
+  br.addColorStop(0,'#3b4a63'); br.addColorStop(1,'#162032');
+  ctx.fillStyle=br; ctx.fill();
+  ctx.strokeStyle='rgba(103,232,249,.85)'; ctx.lineWidth=1.2; ctx.stroke();
+  for(let i=0;i<3;i++){
+    const wx=8+i*6;
+    const wg=ctx.createLinearGradient(0,-19,0,-14);
+    wg.addColorStop(0,'rgba(224,250,255,.95)'); wg.addColorStop(1,'rgba(14,116,144,.9)');
+    ctx.fillStyle=wg;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(wx,-19,4.4,5,1); else ctx.rect(wx,-19,4.4,5);
+    ctx.fill();
+  }
+  // sonda de morro
+  ctx.strokeStyle='rgba(103,232,249,.8)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(64,0); ctx.lineTo(79,-3); ctx.stroke();
+  // alerones delanteros (canards)
+  ctx.fillStyle='#141d31'; ctx.strokeStyle='rgba(103,232,249,.7)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(38,5); ctx.lineTo(54,15); ctx.lineTo(46,3); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // ala principal en flecha
+  ctx.beginPath(); ctx.moveTo(2,8); ctx.lineTo(-38,37); ctx.lineTo(-24,37); ctx.lineTo(14,9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle='rgba(34,211,238,.55)';
+  ctx.beginPath(); ctx.moveTo(-4,12); ctx.lineTo(-30,33); ctx.stroke();
+  // doble timón de cola
   ctx.fillStyle='#141d31'; ctx.strokeStyle='rgba(103,232,249,.7)';
-  ctx.beginPath(); ctx.moveTo(6,8); ctx.lineTo(-30,34); ctx.lineTo(-18,34); ctx.lineTo(16,9); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-44,-9); ctx.lineTo(-56,-30); ctx.lineTo(-46,-30); ctx.lineTo(-32,-9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-44,-9); ctx.lineTo(-60,-32); ctx.lineTo(-49,-32); ctx.lineTo(-33,-9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-44,9); ctx.lineTo(-56,27); ctx.lineTo(-46,27); ctx.lineTo(-35,9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // propulsor auxiliar ventral
+  ctx.fillStyle='#0b1220'; ctx.strokeStyle='rgba(103,232,249,.6)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-20,9); ctx.lineTo(-26,15); ctx.lineTo(-14,15); ctx.lineTo(-10,9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(165,243,252,.9)';
+  ctx.fillRect(-24,12,8,1.6);
   // luces de navegación
-  const blink=Math.sin(t*4)>0;
+  const blink=Math.sin(t*4)>0, blink2=Math.sin(t*4+Math.PI)>0;
   ctx.fillStyle=blink?'#ffffff':'#334155';
-  ctx.beginPath(); ctx.arc(62,0,1.8,0,6.29); ctx.fill();
-  ctx.fillStyle=blink?'#334155':'#f87171';
-  ctx.beginPath(); ctx.arc(-58,0,1.8,0,6.29); ctx.fill();
+  ctx.beginPath(); ctx.arc(79,-3,1.8,0,6.29); ctx.fill();
+  ctx.fillStyle=blink2?'#f87171':'#431717';
+  ctx.beginPath(); ctx.arc(-60,-32,1.8,0,6.29); ctx.fill();
+  ctx.fillStyle=blink?'#fbbf24':'#433006';
+  ctx.beginPath(); ctx.arc(-38,37,1.8,0,6.29); ctx.fill();
   ctx.restore();
 }
 function startLoop(){
@@ -615,12 +658,12 @@ function startLoop(){
     const sx=W*0.42, sy=H*0.46+Math.sin(t*.8)*6*sc;
     // estela del motor
     const nEx=warpFactor>1.5?3:2;
-    for(let i=0;i<nEx&&exhaust.length<140;i++) exhaust.push({x:sx-52*sc+(Math.random()-.5)*4,y:sy+(Math.random()-.5)*5*sc,vx:-(110+Math.random()*90)*warpFactor,vy:(Math.random()-.5)*14,life:.5+Math.random()*.4,max:.9,r:1.5+Math.random()*2});
+    for(let i=0;i<nEx&&exhaust.length<140;i++) exhaust.push({x:sx-66*sc+(Math.random()-.5)*4,y:sy+(Math.random()-.5)*5*sc,vx:-(110+Math.random()*90)*warpFactor,vy:(Math.random()-.5)*14,life:.5+Math.random()*.4,max:.9,r:1.5+Math.random()*2,col:Math.random()<.3?'#e0faff':'#22d3ee'});
     sctx.globalCompositeOperation='lighter';
     for(let i=exhaust.length-1;i>=0;i--){
       const p=exhaust[i]; p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
       const k=Math.max(p.life/p.max,0);
-      sctx.globalAlpha=k*.7; sctx.fillStyle='#22d3ee';
+      sctx.globalAlpha=k*.7; sctx.fillStyle=p.col;
       sctx.beginPath(); sctx.arc(p.x,p.y,p.r*k+.4,0,6.29); sctx.fill();
       if(p.life<=0) exhaust.splice(i,1);
     }
