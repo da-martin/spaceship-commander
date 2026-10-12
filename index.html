@@ -64,7 +64,6 @@ tailwind.config = {
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
 </head>
 <body class="min-h-screen">
 
@@ -213,7 +212,29 @@ tailwind.config = {
           <div class="mono text-[11px] text-slate-400 mt-1">SC-01 · en curso</div>
           <div class="mono text-[10px] text-slate-500 mt-1">base para futuras<br>expansiones</div>
         </div>
-        <canvas id="shipMini" width="120" height="120" class="ml-auto rounded-lg border border-cyan-900/60 bg-black/60" style="width:110px;height:110px"></canvas>
+        <svg id="shipMini" viewBox="0 0 120 120" class="ml-auto rounded-lg border border-cyan-900/60 bg-black/60 shrink-0" style="width:110px;height:110px">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#164e63" stroke-width="1" opacity=".6"/>
+          <circle cx="60" cy="60" r="38" fill="none" stroke="#164e63" stroke-width="1" stroke-dasharray="4 4" opacity=".7">
+            <animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="24s" repeatCount="indefinite"/>
+          </circle>
+          <g stroke="#67e8f9" stroke-width="1.6" fill="none">
+            <line x1="60" y1="24" x2="60" y2="92"/>
+            <path d="M60 22 L55 34 L65 34 Z" fill="#0e7490" stroke="#67e8f9"/>
+            <line x1="30" y1="70" x2="90" y2="70"/>
+            <line x1="60" y1="92" x2="52" y2="100"/>
+            <line x1="60" y1="92" x2="68" y2="100"/>
+            <circle cx="60" cy="58" r="4"/>
+          </g>
+          <circle cx="60" cy="22" r="2" fill="#67e8f9">
+            <animate attributeName="opacity" values="1;.2;1" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="30" cy="70" r="1.6" fill="#f0abfc">
+            <animate attributeName="opacity" values="1;.1;1" dur="1.6s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="90" cy="70" r="1.6" fill="#f0abfc">
+            <animate attributeName="opacity" values=".1;1;.1" dur="1.6s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
       </div>
     </div>
   </div>
@@ -273,8 +294,7 @@ tailwind.config = {
 
 <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
-<script type="module">
-import * as THREE from 'three';
+<script>
 
 /* ---------- utils + storage ---------- */
 const KEY = 'spaceship-commander:v1';
@@ -554,61 +574,50 @@ function updateHUD(){
   const sub=document.getElementById('hud-missions-sub'); if(sub)sub.textContent=state.tasks.filter(x=>!x.done&&x.dueDate===todayStr()).length+' vencen hoy';
 }
 
-/* three.js scenes — solo estrellas lejanas, deriva muy lenta */
-let renderer,scene,camera,stars1,stars2,miniRenderer,miniScene,miniCam,shipGroup,clock;
+/* fondo 2D — estrellas lejanas a la deriva (sin dependencias 3D) */
+let sctx=null, stars=[], lastT=0, W=0, H=0;
 function initSpace(){
-  const canvas=document.getElementById('spaceCanvas');
-  renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  scene=new THREE.Scene(); scene.background=new THREE.Color(0x02040a);
-  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,600); camera.position.set(0,0,8);
-  clock=new THREE.Clock();
-  // Estrellas lejanas: siempre en fondo profundo (z muy negativa), nunca cruzan la cámara
-  const mkDistant=(n,size,color,xy,zMin,zMax,opacity)=>{
-    const pos=new Float32Array(n*3);
-    for(let i=0;i<n;i++){pos[i*3]=(Math.random()-.5)*xy;pos[i*3+1]=(Math.random()-.5)*xy;pos[i*3+2]=zMin+Math.random()*(zMax-zMin);}
-    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    return new THREE.Points(g,new THREE.PointsMaterial({size,color,transparent:true,opacity}));
-  };
-  stars1=mkDistant(2400,.6,0xffffff,320,-260,-40,.9);
-  stars2=mkDistant(400,.85,0x9db8dd,280,-240,-40,.7);
-  scene.add(stars1,stars2);
-  // mini nave
-  const mc=document.getElementById('shipMini');
-  miniRenderer=new THREE.WebGLRenderer({canvas:mc,antialias:true,alpha:true});
-  miniScene=new THREE.Scene();
-  miniCam=new THREE.PerspectiveCamera(40,1,.1,100); miniCam.position.set(3.2,1.8,3.2); miniCam.lookAt(0,0,0);
-  miniScene.add(new THREE.AmbientLight(0x88aaff,.7));
-  const dl=new THREE.DirectionalLight(0x67e8f9,1.2); dl.position.set(3,4,2); miniScene.add(dl);
-  const mat=new THREE.MeshBasicMaterial({color:0x67e8f9,wireframe:true});
-  shipGroup=new THREE.Group();
-  const fus=new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,1.6,10),mat); fus.rotation.x=Math.PI/2; shipGroup.add(fus);
-  const nose=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,10),mat); nose.rotation.x=-Math.PI/2; nose.position.z=-1.05; shipGroup.add(nose);
-  const wing=new THREE.Mesh(new THREE.BoxGeometry(1.9,.04,.5),mat); wing.position.z=.35; shipGroup.add(wing);
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(.06,.7,.4),mat); tail.position.z=.6; shipGroup.add(tail);
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(1.3,.015,8,64),new THREE.MeshBasicMaterial({color:0x22d3ee,transparent:true,opacity:.5}));
-  shipGroup.add(ring); miniScene.add(shipGroup);
+  sctx=document.getElementById('spaceCanvas').getContext('2d');
   onResize(); addEventListener('resize',onResize);
 }
+function buildStars(){
+  const n=Math.max(200,Math.min(500,Math.round((W*H||innerWidth*innerHeight)/4500)));
+  stars=[];
+  for(let i=0;i<n;i++) stars.push({x:Math.random()*W,y:Math.random()*H,d:.25+Math.random()*.75,tw:Math.random()*Math.PI*2,blue:Math.random()<.18});
+}
 function onResize(){
-  if(!renderer)return;
-  renderer.setSize(innerWidth,innerHeight,false);
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  miniRenderer.setSize(220,220,false);
+  if(!sctx)return;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  W=innerWidth; H=innerHeight;
+  const c=sctx.canvas; c.width=W*dpr; c.height=H*dpr; sctx.setTransform(dpr,0,0,dpr,0,0);
+  buildStars();
 }
 function startLoop(){
-  cancelAnimationFrame(rafId);
-  const tick=()=>{
-    const dt=Math.min(clock.getDelta(),.05), t=clock.elapsedTime;
-    // Deriva lenta en fondo lejano (parallax sutil, sin efecto warp)
-    const drift=(s,speed)=>{const p=s.geometry.attributes.position;for(let j=0;j<p.count;j++){let z=p.getZ(j)+speed*dt;if(z>-30)z-=220;p.setZ(j,z);}p.needsUpdate=true;};
-    drift(stars1,3.0); drift(stars2,1.5);
-    camera.position.x=Math.sin(t*.08)*.12; camera.position.y=Math.cos(t*.06)*.08; camera.lookAt(0,0,-20);
-    shipGroup.rotation.y+=dt*.8; shipGroup.rotation.x=Math.sin(t*.6)*.25; shipGroup.position.y=Math.sin(t*1.2)*.08;
-    renderer.render(scene,camera); miniRenderer.render(miniScene,miniCam);
+  cancelAnimationFrame(rafId); lastT=performance.now();
+  const tick=(now)=>{
+    const dt=Math.min((now-lastT)/1000,.05); lastT=now;
+    const t=now/1000;
+    sctx.fillStyle='#02040a'; sctx.fillRect(0,0,W,H);
+    // expansión radial lenta desde el centro + vaivén sutil de cabina
+    const ox=W/2+Math.sin(t*.08)*6, oy=H/2+Math.cos(t*.06)*4;
+    const m=Math.min(W,H);
+    for(const s of stars){
+      const f=1+dt*.022*s.d;
+      s.x=ox+(s.x-ox)*f; s.y=oy+(s.y-oy)*f;
+      if(s.x<-20||s.x>W+20||s.y<-20||s.y>H+20){
+        const a=Math.random()*Math.PI*2, r=Math.random()*m*.08;
+        s.x=ox+Math.cos(a)*r; s.y=oy+Math.sin(a)*r; s.d=.25+Math.random()*.75; s.blue=Math.random()<.18;
+      }
+      const tw=.65+.35*Math.sin(t*1.5+s.tw);
+      sctx.globalAlpha=(.35+.55*s.d)*tw;
+      sctx.fillStyle=s.blue?'#9db8dd':'#ffffff';
+      const sz=s.d<.5?1:1.7;
+      sctx.fillRect(s.x,s.y,sz,sz);
+    }
+    sctx.globalAlpha=1;
     rafId=requestAnimationFrame(tick);
   };
-  tick();
+  rafId=requestAnimationFrame(tick);
 }
 function stopLoop(){cancelAnimationFrame(rafId);}
 
