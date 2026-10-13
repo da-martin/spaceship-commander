@@ -80,6 +80,16 @@ tailwind.config = {
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
 
+  <!-- 0) MONEDERO -->
+  <div class="panel px-4 py-2.5 flex flex-wrap items-center gap-1.5">
+    <span class="sys-label mr-1">◉ Monedero</span>
+    <span class="mono text-xs px-2 py-1 rounded border border-amber-700 text-amber-300">◉ <span id="w-mc">0</span></span>
+    <span class="mono text-xs px-2 py-1 rounded border border-violet-700 text-violet-300">∿ <span id="w-ecos">0</span></span>
+    <span class="mono text-xs px-2 py-1 rounded border border-pink-700 text-pink-300">⋈ <span id="w-nexos">0</span></span>
+    <span class="mono text-xs px-2 py-1 rounded border border-cyan-700 text-cyan-300">⚒ <span id="w-ale">0</span></span>
+    <span class="mono text-xs px-2 py-1 rounded border border-emerald-700 text-emerald-300">✚ <span id="w-bio">0</span></span>
+  </div>
+
   <!-- 1+2) Dos columnas en ancho suficiente: hábitos izquierda, tareas derecha -->
   <div class="grid gap-5 lg:grid-cols-2 items-start">
   <!-- 1) MÓDULO HÁBITOS (izquierda en wide) -->
@@ -147,6 +157,19 @@ tailwind.config = {
   </section>
   </div>
 
+  <!-- 3) HANGAR -->
+  <section class="panel p-4 sm:p-5">
+    <div class="sys-label">03 // Hangar</div>
+    <div class="flex items-center gap-2 mt-1">
+      <h2 class="text-lg font-bold">Hangar</h2>
+      <span class="mono text-[11px] text-slate-400">mejoras y cascos · cada nivel +2% ◉</span>
+    </div>
+    <div class="sys-label mt-3 mb-2">Mejoras</div>
+    <div id="upgList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+    <div class="sys-label mt-4 mb-2">Cascos</div>
+    <div id="hullList" class="grid sm:grid-cols-3 gap-3"></div>
+  </section>
+
   <p class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN SERVIDOR · LISTO PARA EXPANSIÓN GAMIFICADA</p>
 </main>
 
@@ -171,6 +194,13 @@ tailwind.config = {
 
   <!-- bottom dashboard -->
   <div class="absolute bottom-0 inset-x-0 p-3">
+    <div class="max-w-5xl mx-auto flex flex-wrap justify-center gap-1.5 mb-2">
+      <span class="hud-box mono text-[11px] px-2 py-1 text-amber-300">◉ <span id="s-mc">0</span></span>
+      <span class="hud-box mono text-[11px] px-2 py-1 text-violet-300">∿ <span id="s-ecos">0</span></span>
+      <span class="hud-box mono text-[11px] px-2 py-1 text-pink-300">⋈ <span id="s-nexos">0</span></span>
+      <span class="hud-box mono text-[11px] px-2 py-1 text-cyan-300">⚒ <span id="s-ale">0</span></span>
+      <span class="hud-box mono text-[11px] px-2 py-1 text-emerald-300">✚ <span id="s-bio">0</span></span>
+    </div>
     <div class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-2 items-stretch">
       <div class="hud-box p-3">
         <div class="mono text-[10px] tracking-[.2em] text-cyan-300">FUEL · HÁBITOS HOY</div>
@@ -264,13 +294,100 @@ const DOW_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const AREAS = ['Spirit','Social','Craft','Health'];
 const AREA_COLORS = {Spirit:'border-violet-700 text-violet-300',Social:'border-pink-700 text-pink-300',Craft:'border-cyan-700 text-cyan-300',Health:'border-emerald-700 text-emerald-300'};
 
-function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return {tasks:[],habits:[]}; const s=JSON.parse(raw); const st={tasks:s.tasks||[],habits:s.habits||[]}; [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; }); return st; }catch{ return {tasks:[],habits:[]}; } }
+/* ---------- gamificación: recursos, mejoras, cascos ---------- */
+const RES = {
+  mc:  {name:'Megacréditos', sym:'◉', chip:'border-amber-700 text-amber-300'},
+  ecos:{name:'Ecos',         sym:'∿', chip:'border-violet-700 text-violet-300', area:'Spirit'},
+  nexos:{name:'Nexos',       sym:'⋈', chip:'border-pink-700 text-pink-300', area:'Social'},
+  ale: {name:'Aleaciones',   sym:'⚒', chip:'border-cyan-700 text-cyan-300', area:'Craft'},
+  bio: {name:'Biomasa',      sym:'✚', chip:'border-emerald-700 text-emerald-300', area:'Health'}
+};
+const AREA_RES = {Spirit:'ecos',Social:'nexos',Craft:'ale',Health:'bio'};
+const UPG = {
+  motor:   {name:'Motor',    res:'ale',  desc:'Sube el tope de velocidad'},
+  casco:   {name:'Casco',    res:'bio',  desc:'Blindaje del casco'},
+  sensores:{name:'Sensores', res:'ecos', desc:'Alcance de sensores'},
+  enlace:  {name:'Enlace',   res:'nexos',desc:'Red de contactos'}
+};
+const UPG_MC = [20,40,80,140,200];
+const HULLS = {
+  sc01:{name:'SC-01 «Avizor»',  mult:1,    cost:null, need:0, scale:1},
+  sc02:{name:'SC-02 «Albatros»',mult:1.25,  cost:{mc:300,ale:5,ecos:3}, need:2, scale:1.15},
+  sc03:{name:'SC-03 «Leviatán»',mult:1.5,   cost:{mc:1000,ale:10,ecos:8,nexos:6,bio:6}, need:4, scale:1.3}
+};
+
+function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},upgrades:{motor:0,casco:0,sensores:0,enlace:0},hulls:{owned:['sc01'],active:'sc01'}}; }
+function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
+function normUpg(u){ const d={motor:0,casco:0,sensores:0,enlace:0}; if(u) for(const k of Object.keys(d)) if(Number.isFinite(+u[k])) d[k]=Math.max(0,Math.min(5,Math.floor(+u[k]))); return d; }
+function normHulls(h){ const keys=Object.keys(HULLS); let owned=Array.isArray(h?.owned)?h.owned.filter(k=>keys.includes(k)):[]; if(!owned.includes('sc01')) owned.unshift('sc01'); let active=keys.includes(h?.active)&&owned.includes(h.active)?h.active:'sc01'; return {owned,active}; }
+function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); const s=JSON.parse(raw); const st={tasks:s.tasks||[],habits:s.habits||[]}; [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; }); st.wallet=normWallet(s.wallet); st.upgrades=normUpg(s.upgrades); st.hulls=normHulls(s.hulls); return st; }catch{ return freshState(); } }
 let state = load();
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),1800); }
 
 function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
+
+/* ---------- economía ---------- */
+const earnMult=()=> (HULLS[state.hulls.active]?.mult||1)*(1+0.02*Object.values(state.upgrades).reduce((a,b)=>a+b,0));
+const addW=(k,n)=>{ state.wallet[k]+=n; };
+const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
+const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
+const gainText=(g)=> `+${g.mc} ◉${g.res?`  +1 ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+function grantTask(x){
+  const m=earnMult();
+  const g={mc:Math.round((x.priority?15:10)*m),res:pickAreaRes(x)};
+  addW('mc',g.mc); if(g.res) addW(g.res,1);
+  x.grant=g; return g;
+}
+function revokeTask(x){
+  if(!x.grant) return;
+  subW('mc',x.grant.mc); if(x.grant.res) subW(x.grant.res,1);
+  delete x.grant;
+}
+function checkHabit(h,k){
+  const m=earnMult();
+  const g={mc:Math.round((h.priority?8:5)*m),res:pickAreaRes(h)};
+  addW('mc',g.mc); if(g.res) addW(g.res,1);
+  h.g=h.g||{}; h.g[k]=g; return g;
+}
+function uncheckHabit(h,k){
+  if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); delete h.g[k]; }
+}
+function tapFree(h,k){
+  const m=earnMult();
+  const first=(h.log?.[k]||0)===0;
+  const g={mc:Math.round(2*m),res:null};
+  addW('mc',g.mc);
+  if(first){ g.res=pickAreaRes(h); if(g.res){ addW(g.res,1); h.g=h.g||{}; h.g[k]={res:g.res}; } }
+  h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
+  return g;
+}
+function untapFree(h,k){
+  const m=earnMult();
+  h.log=h.log||{}; h.log[k]=Math.max(0,(h.log[k]||0)-1);
+  subW('mc',Math.round(2*m));
+  if(h.log[k]===0&&h.g?.[k]?.res){ subW(h.g[k].res,1); delete h.g[k]; }
+}
+const upgCost=(lv,res)=> ({[res]:lv+1, mc:UPG_MC[lv]});
+function fmtCost(c){ return Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + '); }
+const canAfford=(c)=> Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
+const payCost=(c)=> Object.entries(c).forEach(([k,n])=>subW(k,n));
+function buyUpgrade(key){
+  const lv=state.upgrades[key]; if(lv>=5) return;
+  const c=upgCost(lv,UPG[key].res); if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
+  payCost(c); state.upgrades[key]++; save(); render(); toast(`${UPG[key].name} Nv.${state.upgrades[key]} ✓`);
+}
+function buyHull(id){
+  const H=HULLS[id]; if(!H||!H.cost||state.hulls.owned.includes(id)) return;
+  if(state.upgrades.motor<H.need){ toast(`Requiere Motor Nv.${H.need}`); return; }
+  if(!canAfford(H.cost)){ toast('Recursos insuficientes'); return; }
+  payCost(H.cost); state.hulls.owned.push(id); state.hulls.active=id; save(); render(); toast(`${H.name} adquirido ✓`);
+}
+function selectHull(id){
+  if(!state.hulls.owned.includes(id)) return;
+  state.hulls.active=id; save(); render(); updateHUD();
+}
 
 /* ---------- gear menu (un solo botón ⚙ por tarjeta/fila) ---------- */
 const GEAR_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
@@ -310,8 +427,9 @@ function streak(h){
 }
 function toggleHabitToday(h){
   const k=todayStr(); h.log=h.log||{};
-  if(h.type==='free'){ h.log[k]=(h.log[k]||0)+1; }
-  else { if((h.log[k]||0)>=1) h.log[k]=0; else h.log[k]=1; }
+  if(h.type==='free'){ const g=tapFree(h); save(); render(); toast(gainText(g)); return; }
+  if((h.log[k]||0)>=1){ uncheckHabit(h,k); h.log[k]=0; }
+  else { h.log[k]=1; const g=checkHabit(h,k); save(); render(); toast(gainText(g)); return; }
   save(); render();
 }
 
@@ -358,8 +476,8 @@ function render(){
     if(h.type==='free'){
       row.innerHTML=`<button class="flex-1 px-2 py-2 rounded-lg bg-cyan-800 hover:bg-cyan-700 text-sm font-semibold">+ Registrar (${c})</button>
         ${c>0?'<button class="px-2 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" title="Quitar uno">−1</button>':''}`;
-      row.children[0].onclick=()=>{h.log[t]=(h.log[t]||0)+1;save();render();};
-      if(c>0) row.children[1].onclick=()=>{h.log[t]=Math.max(0,(h.log[t]||0)-1);save();render();};
+      row.children[0].onclick=()=>{const g=tapFree(h); save(); render(); toast(gainText(g));};
+      if(c>0) row.children[1].onclick=()=>{untapFree(h,t); save(); render();};
     } else {
       const b=document.createElement('button');
       b.className='flex-1 px-2 py-2 rounded-lg text-sm font-semibold '+(d?'bg-emerald-700 text-white':'bg-slate-800 border border-slate-600 hover:border-emerald-500');
@@ -394,7 +512,10 @@ function render(){
       </div>
       <button data-act="gear" class="text-slate-400 hover:text-cyan-300 p-1 shrink-0 leading-none" title="Opciones">${GEAR_SVG}</button>
       ${gearMenuHTML(x.priority)}`;
-    el.querySelector('[data-act="done"]').onclick=()=>{x.done=!x.done;save();render();};
+    el.querySelector('[data-act="done"]').onclick=()=>{
+      if(!x.done){ x.done=true; const g=grantTask(x); save(); render(); toast(gainText(g)); }
+      else { x.done=false; revokeTask(x); save(); render(); }
+    };
     wireGear(el,{
       pri:()=>{x.priority=!x.priority;save();render();},
       edit:()=>openModal('task',x.id),
@@ -434,7 +555,52 @@ function render(){
   });
   }
 
+  // --- 4) Monedero + Hangar ---
+  renderWallet(); renderHangar();
+
   updateHUD();
+}
+function renderWallet(){
+  for(const k of Object.keys(RES)){
+    const w=document.getElementById('w-'+k); if(w) w.textContent=state.wallet[k];
+  }
+}
+function renderHangar(){
+  const ul=document.getElementById('upgList'); if(!ul) return; ul.innerHTML='';
+  for(const [key,def] of Object.entries(UPG)){
+    const lv=state.upgrades[key], maxed=lv>=5;
+    const cost=maxed?null:upgCost(lv,def.res);
+    const ok=cost&&canAfford(cost);
+    const card=document.createElement('div');
+    card.className='rounded-xl border p-3 bg-slate-900/70 '+(maxed?'border-emerald-800':'border-slate-700');
+    card.innerHTML=`
+      <div class="flex items-center gap-2">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${RES[def.res].chip}">${RES[def.res].sym} ${def.name}</span>
+        <span class="mono text-[11px] ${maxed?'text-emerald-300':'text-slate-400'} ml-auto">${'●'.repeat(lv)}${'○'.repeat(5-lv)}</span>
+      </div>
+      <div class="mono text-[11px] text-slate-500 mt-1.5">${def.desc}</div>
+      <button class="mt-2.5 w-full px-2 py-2 rounded-lg text-sm font-semibold ${maxed?'bg-emerald-900/40 text-emerald-300 cursor-default':ok?'bg-cyan-800 hover:bg-cyan-700':'bg-slate-800 text-slate-500 cursor-not-allowed'}" ${maxed||!ok?'disabled':''}>${maxed?'MAX':`Mejorar · ${fmtCost(cost)}`}</button>`;
+    if(!maxed&&ok) card.querySelector('button').onclick=()=>buyUpgrade(key);
+    ul.appendChild(card);
+  }
+  const hl=document.getElementById('hullList'); hl.innerHTML='';
+  for(const [id,H] of Object.entries(HULLS)){
+    const owned=state.hulls.owned.includes(id), active=state.hulls.active===id;
+    const reqOk=state.upgrades.motor>=H.need, afford=H.cost?canAfford(H.cost):true;
+    const canBuy=owned?false:(reqOk&&afford);
+    const card=document.createElement('div');
+    card.className='rounded-xl border p-3 bg-slate-900/70 '+(active?'border-emerald-800':'border-slate-700');
+    card.innerHTML=`
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-sm">${H.name}</span>
+        ${active?'<span class="mono text-[10px] px-1.5 py-0.5 rounded border border-emerald-700 text-emerald-300 ml-auto">ACTIVO</span>':''}
+      </div>
+      <div class="mono text-[11px] text-slate-400 mt-1">×${H.mult} ◉ ${H.need?`· req. Motor Nv.${H.need}`:'· casco inicial'}</div>
+      <button class="mt-2.5 w-full px-2 py-2 rounded-lg text-sm font-semibold ${active?'bg-emerald-900/40 text-emerald-300 cursor-default':owned?'bg-cyan-800 hover:bg-cyan-700':canBuy?'bg-cyan-800 hover:bg-cyan-700':'bg-slate-800 text-slate-500 cursor-not-allowed'}" ${(active||(!owned&&!canBuy))?'disabled':''}>${active?'En vuelo':owned?'Seleccionar':`Comprar · ${fmtCost(H.cost)}`}</button>`;
+    if(!active&&owned) card.querySelector('button').onclick=()=>selectHull(id);
+    else if(!owned&&canBuy) card.querySelector('button').onclick=()=>buyHull(id);
+    hl.appendChild(card);
+  }
 }
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -523,9 +689,10 @@ function updateHUD(){
   const todays=state.habits.filter(isScheduledToday);
   const done=todays.filter(isDoneToday).length;
   const pct=todays.length?Math.round(done/todays.length*100):0;
-  warpFactor=todays.length?(.5+2*done/todays.length):1;
+  warpFactor=todays.length?Math.min(.5+2*done/todays.length,2.5+.5*state.upgrades.motor):1;
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   set('hud-fuel',pct+'%'); set('hud-speed','×'+warpFactor.toFixed(1)); set('hud-missions',state.tasks.filter(x=>!x.done).length);
+  for(const k of Object.keys(RES)) set('s-'+k,state.wallet[k]);
   set('hud-alerts',state.tasks.filter(x=>x.priority&&!x.done).length+state.habits.filter(h=>h.priority&&isScheduledToday(h)&&!isDoneToday(h)).length);
   const bar=document.getElementById('hud-fuel-bar'); if(bar)bar.style.width=pct+'%';
   const sub=document.getElementById('hud-missions-sub'); if(sub)sub.textContent=state.tasks.filter(x=>!x.done&&x.dueDate===todayStr()).length+' vencen hoy';
@@ -533,8 +700,14 @@ function updateHUD(){
 
 /* fondo 2D — vista exterior: nave en vuelo + estrellas en streaming */
 let sctx=null, stars=[], exhaust=[], lastT=0, W=0, H=0, warpFactor=1;
+let neb=null, planet=null, streaks=[];
 function initSpace(){
   sctx=document.getElementById('spaceCanvas').getContext('2d');
+  // nebulosa prerenderizada (una vez): 3 manchas tenues
+  neb=document.createElement('canvas'); neb.width=neb.height=256;
+  const ng=neb.getContext('2d');
+  const blob=(x,y,r,c)=>{const gr=ng.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,c);gr.addColorStop(1,'rgba(0,0,0,0)');ng.fillStyle=gr;ng.fillRect(0,0,256,256);};
+  blob(70,90,95,'rgba(76,60,180,.20)'); blob(185,150,115,'rgba(20,120,150,.16)'); blob(130,205,70,'rgba(150,60,140,.12)');
   onResize(); addEventListener('resize',onResize);
 }
 function buildStars(){
@@ -553,7 +726,7 @@ function onResize(){
   const c=sctx.canvas; c.width=W*dpr; c.height=H*dpr; sctx.setTransform(dpr,0,0,dpr,0,0);
   buildStars();
 }
-function drawShip(x,y,s,t){
+function drawShip(x,y,s,t,hull){
   const ctx=sctx;
   ctx.save(); ctx.translate(x,y); ctx.rotate(Math.sin(t*.5)*.03); ctx.scale(s,s);
   // resplandor del motor (núcleo blanco + halo cyan)
@@ -572,9 +745,9 @@ function drawShip(x,y,s,t){
   ctx.quadraticCurveTo(46,-8,64,0);
   ctx.quadraticCurveTo(46,8,16,9);
   ctx.lineTo(-58,8); ctx.closePath();
-  const hull=ctx.createLinearGradient(0,-10,0,9);
-  hull.addColorStop(0,'#46566f'); hull.addColorStop(.45,'#1e2a42'); hull.addColorStop(1,'#0b1322');
-  ctx.fillStyle=hull; ctx.fill();
+  const hullG=ctx.createLinearGradient(0,-10,0,9);
+  hullG.addColorStop(0,'#46566f'); hullG.addColorStop(.45,'#1e2a42'); hullG.addColorStop(1,'#0b1322');
+  ctx.fillStyle=hullG; ctx.fill();
   ctx.strokeStyle='rgba(103,232,249,.9)'; ctx.lineWidth=1.4; ctx.stroke();
   // blindaje superior
   ctx.fillStyle='rgba(148,163,184,.16)';
@@ -590,6 +763,19 @@ function drawShip(x,y,s,t){
   ctx.fillRect(-24,3,10,3); ctx.fillRect(-10,3,6,3); ctx.fillRect(30,2,8,2.5);
   ctx.fillStyle='rgba(148,163,184,.5)';
   ctx.fillRect(-48,-6,2,2); ctx.fillRect(-40,-6,2,2); ctx.fillRect(8,6,2,2);
+  // variantes de casco (SC-02 dorsal, SC-03 + pods laterales)
+  if(hull&&hull!=='sc01'){
+    ctx.fillStyle='#141d31'; ctx.strokeStyle='rgba(103,232,249,.7)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(-12,-9); ctx.lineTo(-8,-17); ctx.lineTo(8,-17); ctx.lineTo(12,-9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(165,243,252,.85)';
+    ctx.fillRect(-5,-15,3,2); ctx.fillRect(0,-15,3,2); ctx.fillRect(5,-15,3,2);
+  }
+  if(hull==='sc03'){
+    ctx.fillStyle='#141d31'; ctx.strokeStyle='rgba(103,232,249,.7)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.ellipse(-6,16,10,4,0.15,0,6.29); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(251,191,36,.9)';
+    ctx.beginPath(); ctx.arc(-6,16,1.6,0,6.29); ctx.fill();
+  }
   // puente elevado con ventanas iluminadas
   ctx.beginPath();
   ctx.moveTo(0,-8); ctx.lineTo(4,-22); ctx.lineTo(26,-22); ctx.lineTo(32,-7); ctx.closePath();
@@ -641,6 +827,27 @@ function startLoop(){
     const dt=Math.min((now-lastT)/1000,.05); lastT=now;
     const t=now/1000;
     sctx.fillStyle='#02040a'; sctx.fillRect(0,0,W,H);
+    if(neb) sctx.drawImage(neb,0,0,W,H);
+    // planeta lejano ocasional
+    if(!planet&&Math.random()<dt*0.02) planet={x:W+90,y:H*(0.12+Math.random()*0.4),r:18+Math.random()*42,sp:10+Math.random()*8,hue:Math.random()<.5?'178,80%':'20,65%'};
+    if(planet){
+      planet.x-=planet.sp*warpFactor*dt;
+      const pg=sctx.createRadialGradient(planet.x-planet.r*.35,planet.y-planet.r*.35,planet.r*.1,planet.x,planet.y,planet.r);
+      pg.addColorStop(0,`hsla(${planet.hue},60%,72%,.95)`); pg.addColorStop(.7,`hsla(${planet.hue},45%,26%,.95)`); pg.addColorStop(1,'rgba(2,4,10,.95)');
+      sctx.fillStyle=pg; sctx.beginPath(); sctx.arc(planet.x,planet.y,planet.r,0,6.29); sctx.fill();
+      sctx.strokeStyle='rgba(165,243,252,.35)'; sctx.lineWidth=1.5;
+      sctx.beginPath(); sctx.ellipse(planet.x,planet.y,planet.r*1.5,planet.r*.42,-.3,0,6.29); sctx.stroke();
+      if(planet.x<-planet.r*2.2) planet=null;
+    }
+    // líneas de velocidad a warp alto
+    if(warpFactor>1.8){ for(let i=0;i<2&&streaks.length<24;i++) streaks.push({x:W+Math.random()*200,y:Math.random()*H,len:40+Math.random()*90,sp:500+Math.random()*300}); }
+    else if(streaks.length) streaks.length=0;
+    sctx.strokeStyle='rgba(224,250,255,.18)'; sctx.lineWidth=1;
+    for(let i=streaks.length-1;i>=0;i--){
+      const L=streaks[i]; L.x-=L.sp*warpFactor*dt*0.5;
+      sctx.beginPath(); sctx.moveTo(L.x,L.y); sctx.lineTo(L.x+L.len,L.y); sctx.stroke();
+      if(L.x+L.len<0) streaks.splice(i,1);
+    }
     // estrellas en streaming (la nave vuela hacia la derecha)
     for(const s of stars){
       const v=s.sp*warpFactor;
@@ -653,8 +860,9 @@ function startLoop(){
       else sctx.fillRect(s.x,s.y,s.sz,s.sz);
     }
     sctx.globalAlpha=1;
-    // nave
-    const sc=Math.max(.7,Math.min(1.4,Math.min(W,H)/420));
+    // nave (tamaño y detalle según casco activo)
+    const hd=HULLS[state.hulls.active]||HULLS.sc01;
+    const sc=Math.max(.7,Math.min(1.4,Math.min(W,H)/420))*hd.scale;
     const sx=W*0.42, sy=H*0.46+Math.sin(t*.8)*6*sc;
     // estela del motor
     const nEx=warpFactor>1.5?3:2;
@@ -668,7 +876,13 @@ function startLoop(){
       if(p.life<=0) exhaust.splice(i,1);
     }
     sctx.globalCompositeOperation='source-over'; sctx.globalAlpha=1;
-    drawShip(sx,sy,sc,t);
+    drawShip(sx,sy,sc,t,state.hulls.active);
+    // luz del motor proyectada sobre el casco
+    sctx.globalCompositeOperation='lighter';
+    const lg=sctx.createRadialGradient(sx-40*sc,sy,0,sx-40*sc,sy,60*sc);
+    lg.addColorStop(0,'rgba(34,211,238,.14)'); lg.addColorStop(1,'rgba(34,211,238,0)');
+    sctx.fillStyle=lg; sctx.beginPath(); sctx.arc(sx-40*sc,sy,60*sc,0,6.29); sctx.fill();
+    sctx.globalCompositeOperation='source-over'; sctx.globalAlpha=1;
     rafId=requestAnimationFrame(tick);
   };
   rafId=requestAnimationFrame(tick);
