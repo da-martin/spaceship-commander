@@ -80,16 +80,6 @@ tailwind.config = {
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
 
-  <!-- 0) MONEDERO -->
-  <div class="panel px-4 py-2.5 flex flex-wrap items-center gap-1.5">
-    <span class="sys-label mr-1">◉ Monedero</span>
-    <span class="mono text-xs px-2 py-1 rounded border border-amber-700 text-amber-300">◉ <span id="w-mc">0</span></span>
-    <span class="mono text-xs px-2 py-1 rounded border border-violet-700 text-violet-300">∿ <span id="w-ecos">0</span></span>
-    <span class="mono text-xs px-2 py-1 rounded border border-pink-700 text-pink-300">⋈ <span id="w-nexos">0</span></span>
-    <span class="mono text-xs px-2 py-1 rounded border border-cyan-700 text-cyan-300">⚒ <span id="w-ale">0</span></span>
-    <span class="mono text-xs px-2 py-1 rounded border border-emerald-700 text-emerald-300">✚ <span id="w-bio">0</span></span>
-  </div>
-
   <!-- 1+2) Dos columnas en ancho suficiente: hábitos izquierda, tareas derecha -->
   <div class="grid gap-5 lg:grid-cols-2 items-start">
   <!-- 1) MÓDULO HÁBITOS (izquierda en wide) -->
@@ -157,20 +147,7 @@ tailwind.config = {
   </section>
   </div>
 
-  <!-- 3) HANGAR -->
-  <section class="panel p-4 sm:p-5">
-    <div class="sys-label">03 // Hangar</div>
-    <div class="flex items-center gap-2 mt-1">
-      <h2 class="text-lg font-bold">Hangar</h2>
-      <span class="mono text-[11px] text-slate-400">mejoras y cascos · cada nivel +2% ◉</span>
-    </div>
-    <div class="sys-label mt-3 mb-2">Mejoras</div>
-    <div id="upgList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
-    <div class="sys-label mt-4 mb-2">Cascos</div>
-    <div id="hullList" class="grid sm:grid-cols-3 gap-3"></div>
-  </section>
-
-  <p class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN SERVIDOR · LISTO PARA EXPANSIÓN GAMIFICADA</p>
+  <p class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN SERVIDOR · GAMIFICACIÓN EN MODO SPACESHIP</p>
 </main>
 
 <!-- SPACESHIP VIEW -->
@@ -183,6 +160,7 @@ tailwind.config = {
     <div class="hud-box px-3 py-2 mx-auto flex items-center gap-3 pointer-events-auto max-w-[calc(100vw-24px)]">
       <span class="mono text-[10px] tracking-[.2em] text-cyan-300 hidden sm:inline">EXTERIOR VIEW // EN VUELO</span>
       <span id="hud-date" class="mono text-[11px] text-slate-300 hidden sm:inline"></span>
+      <button id="btnHangar" class="pointer-events-auto text-xs px-3 py-1.5 rounded-md bg-slate-800 border border-slate-600 hover:border-cyan-500 text-white font-medium">Hangar</button>
       <button id="btnBack" class="pointer-events-auto text-xs px-3 py-1.5 rounded-md bg-cyan-700 hover:bg-cyan-600 text-white font-medium">← Commander</button>
     </div>
   </div>
@@ -222,6 +200,31 @@ tailwind.config = {
         <div id="hud-speed" class="text-2xl font-bold mt-1">×1.0</div>
         <div class="mono text-[11px] text-slate-400">según hábitos de hoy</div>
       </div>
+    </div>
+  </div>
+
+  <!-- hangar overlay -->
+  <div id="hangarPanel" class="hidden absolute inset-0 z-50 overflow-y-auto bg-black/75 p-4">
+    <div class="panel max-w-3xl mx-auto p-4 sm:p-5 my-6">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <div>
+          <div class="sys-label">Hangar // Mejoras y cascos</div>
+          <h2 class="text-lg font-bold mt-1">Hangar</h2>
+        </div>
+        <button id="btnHangarClose" class="ml-auto px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-sm">Cerrar ✕</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 mb-2">
+        <span class="mono text-xs px-2 py-1 rounded border border-amber-700 text-amber-300">◉ <span id="w-mc">0</span></span>
+        <span class="mono text-xs px-2 py-1 rounded border border-violet-700 text-violet-300">∿ <span id="w-ecos">0</span></span>
+        <span class="mono text-xs px-2 py-1 rounded border border-pink-700 text-pink-300">⋈ <span id="w-nexos">0</span></span>
+        <span class="mono text-xs px-2 py-1 rounded border border-cyan-700 text-cyan-300">⚒ <span id="w-ale">0</span></span>
+        <span class="mono text-xs px-2 py-1 rounded border border-emerald-700 text-emerald-300">✚ <span id="w-bio">0</span></span>
+      </div>
+      <div class="mono text-[11px] text-slate-500 mb-3">Cada nivel +2% ◉ · los cascos cambian la nave y multiplican ganancias</div>
+      <div class="sys-label mb-2">Mejoras</div>
+      <div id="upgList" class="grid sm:grid-cols-2 gap-3 mb-4"></div>
+      <div class="sys-label mb-2">Cascos</div>
+      <div id="hullList" class="grid sm:grid-cols-3 gap-3"></div>
     </div>
   </div>
 </div>
@@ -652,7 +655,7 @@ document.getElementById('modalSave').onclick=()=>{
 };
 document.getElementById('modalCancel').onclick=closeModal;
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));document.getElementById('hangarPanel').classList.add('hidden');if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
 document.addEventListener('click',()=>document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden')));
 document.getElementById('fType').onchange=syncDayPicker;
 document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.day);pickedDays.has(d)?pickedDays.delete(d):pickedDays.add(d);syncDayPicker();});
@@ -679,11 +682,14 @@ function setMode(mode){
   document.getElementById('btnCommander').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(!ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   document.getElementById('btnSpaceship').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   localStorage.setItem(UIKEY,mode);
+  document.getElementById('hangarPanel').classList.add('hidden');
   if(ship){ if(!spaceInit){initSpace();spaceInit=true;} startLoop(); updateHUD(); } else stopLoop();
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
 document.getElementById('btnBack').onclick=()=>setMode('commander');
+document.getElementById('btnHangar').onclick=()=>{document.getElementById('hangarPanel').classList.remove('hidden');renderWallet();renderHangar();};
+document.getElementById('btnHangarClose').onclick=()=>document.getElementById('hangarPanel').classList.add('hidden');
 
 function updateHUD(){
   const todays=state.habits.filter(isScheduledToday);
