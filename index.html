@@ -123,6 +123,13 @@ tailwind.config = {
         <input id="quickTaskDate" type="date" class="flex-1 sm:flex-none min-w-0 bg-slate-900/80 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:border-cyan-600 sm:w-[132px]">
         <button id="btnQuickAdd" class="shrink-0 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm">Añadir</button>
       </div>
+      <div id="quickAreaPicker" class="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
+        <span class="mono text-[10px] text-slate-500 mr-1">ÁREAS DE LA NUEVA TAREA:</span>
+        <button data-qarea="Spirit" class="area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Spirit</button>
+        <button data-qarea="Social" class="area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
+        <button data-qarea="Craft" class="area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Craft</button>
+        <button data-qarea="Health" class="area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Health</button>
+      </div>
       <div class="flex gap-1.5 mb-3 text-xs">
         <button data-tfilter="all" class="tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todas</button>
         <button data-tfilter="today" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Hoy</button>
@@ -919,7 +926,10 @@ document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.onclick=()=>{co
 /* ---------- wiring ---------- */
 document.getElementById('btnNewTask').onclick=()=>openModal('task');
 document.getElementById('btnNewHabit').onclick=()=>openModal('habit');
-const quickAdd=()=>{const i=document.getElementById('quickTaskTitle');const v=i.value.trim();if(!v)return;state.tasks.push({id:uid(),title:v,dueDate:document.getElementById('quickTaskDate').value||null,priority:false,done:false,areas:[],createdAt:Date.now()});i.value='';save();render();};
+const quickAdd=()=>{const i=document.getElementById('quickTaskTitle');const v=i.value.trim();if(!v)return;state.tasks.push({id:uid(),title:v,dueDate:document.getElementById('quickTaskDate').value||null,priority:false,done:false,areas:[...quickAreas],createdAt:Date.now()});i.value='';quickAreas.clear();syncQuickAreas();save();render();};
+const quickAreas=new Set();
+function syncQuickAreas(){ document.querySelectorAll('#quickAreaPicker [data-qarea]').forEach(b=>b.classList.toggle('on',quickAreas.has(b.dataset.qarea))); }
+document.querySelectorAll('#quickAreaPicker [data-qarea]').forEach(b=>b.onclick=()=>{const a=b.dataset.qarea; quickAreas.has(a)?quickAreas.delete(a):quickAreas.add(a); syncQuickAreas();});
 document.getElementById('btnQuickAdd').onclick=quickAdd;
 document.getElementById('quickTaskTitle').addEventListener('keydown',e=>{if(e.key==='Enter')quickAdd();});
 document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.dataset.tfilter;document.querySelectorAll('.tfilter').forEach(x=>x.className='tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
