@@ -44,6 +44,9 @@ tailwind.config = {
   .gear-menu button:hover{background:#1e293b}
   .gear-menu button.danger{color:#fca5a5}
   .gear-menu button.danger:hover{background:#3b1212}
+  .acc-chev{transition:transform .15s}
+  .acc.open .acc-chev{transform:rotate(90deg)}
+  .acc-head:hover h2{color:#67e8f9}
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
@@ -142,7 +145,6 @@ tailwind.config = {
 <main id="spaceship-view" class="hidden max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
   <div id="walletBar" class="flex flex-wrap gap-1.5"></div>
 
-  <div class="grid gap-5 lg:grid-cols-2 items-start">
   <!-- 3) Esquema de la nave -->
   <section class="panel corner p-4 sm:p-5">
     <div class="sys-label">03 // Esquema de la nave</div>
@@ -159,32 +161,50 @@ tailwind.config = {
     </div>
   </section>
 
-  <!-- 4) Tablón de contratos -->
-  <section class="panel p-4 sm:p-5">
-    <div class="sys-label">04 // Tablón de contratos</div>
-    <div class="flex items-center gap-2 mt-1 mb-3">
-      <h2 class="text-lg font-bold">Contratos</h2>
-      <button id="btnReroll" class="ml-auto px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button>
+  <!-- Módulos (acordeón) -->
+  <section class="panel acc p-4 sm:p-5" data-acc="mods">
+    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
+      <div class="flex-1 min-w-0">
+        <div class="sys-label">04 // Módulos</div>
+        <h2 class="text-lg font-bold mt-1">Módulos</h2>
+      </div>
+      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
+    </button>
+    <div class="acc-body hidden mt-3">
+      <p class="mono text-[11px] text-slate-500 mb-3">El descuido desgasta los módulos y reduce su bonus. Completar hábitos y tareas los repara poco a poco.</p>
+      <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
     </div>
-    <div id="activeContract"></div>
-    <div id="offerList" class="space-y-2"></div>
-  </section>
-  </div>
-
-  <!-- 5) Módulos -->
-  <section class="panel p-4 sm:p-5">
-    <div class="sys-label">05 // Módulos</div>
-    <h2 class="text-lg font-bold mt-1">Módulos</h2>
-    <p class="mono text-[11px] text-slate-500 mt-1 mb-3">El descuido desgasta los módulos y reduce su bonus. Completar hábitos y tareas los repara poco a poco.</p>
-    <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
   </section>
 
-  <!-- 6) Mercado -->
-  <section class="panel p-4 sm:p-5">
-    <div class="sys-label">06 // Mercado</div>
-    <h2 class="text-lg font-bold mt-1">Mercado <span class="text-slate-400 font-medium text-sm">· precios de hoy</span></h2>
-    <p class="mono text-[11px] text-slate-500 mt-1 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
-    <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+  <!-- Mercado (acordeón) -->
+  <section class="panel acc p-4 sm:p-5" data-acc="market">
+    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
+      <div class="flex-1 min-w-0">
+        <div class="sys-label">05 // Mercado</div>
+        <h2 class="text-lg font-bold mt-1">Mercado <span class="text-slate-400 font-medium text-sm">· precios de hoy</span></h2>
+      </div>
+      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
+    </button>
+    <div class="acc-body hidden mt-3">
+      <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
+      <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+    </div>
+  </section>
+
+  <!-- Tablón de contratos (acordeón) -->
+  <section class="panel acc p-4 sm:p-5" data-acc="contracts">
+    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
+      <div class="flex-1 min-w-0">
+        <div class="sys-label">06 // Tablón de contratos</div>
+        <h2 class="text-lg font-bold mt-1">Contratos</h2>
+      </div>
+      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
+    </button>
+    <div class="acc-body hidden mt-3">
+      <div class="flex mb-3"><button id="btnReroll" class="ml-auto px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button></div>
+      <div id="activeContract"></div>
+      <div id="offerList" class="space-y-2"></div>
+    </div>
   </section>
 </main>
 
@@ -911,6 +931,16 @@ document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(
 document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.onclick=()=>{const a=b.dataset.area;pickedAreas.has(a)?pickedAreas.delete(a):pickedAreas.add(a);syncAreaPicker();});
 
 /* ---------- wiring ---------- */
+// acordeón de la vista nave: todas empiezan colapsadas y solo una abierta a la vez
+document.querySelectorAll('.acc-head').forEach(h=>h.onclick=()=>{
+  const sec=h.closest('.acc'), willOpen=!sec.classList.contains('open');
+  document.querySelectorAll('.acc').forEach(s=>{
+    const on=s===sec&&willOpen;
+    s.classList.toggle('open',on);
+    s.querySelector('.acc-body').classList.toggle('hidden',!on);
+    s.querySelector('.acc-head').setAttribute('aria-expanded',on);
+  });
+});
 document.getElementById('btnNewTask').onclick=()=>openModal('task');
 document.getElementById('btnNewHabit').onclick=()=>openModal('habit');
 document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.dataset.tfilter;document.querySelectorAll('.tfilter').forEach(x=>x.className='tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
