@@ -312,7 +312,7 @@ const AREA_COLORS = {Spirit:'border-violet-700 text-violet-300',Social:'border-p
 
 /* ---------- gamificación: recursos ---------- */
 const RES = {
-  mc:  {name:'Megacréditos', sym:'◉', chip:'border-amber-700 text-amber-300'},
+  mc:  {name:'Megacréditos', sym:'¢', chip:'border-amber-700 text-amber-300'},
   ecos:{name:'Ecos',         sym:'∿', chip:'border-violet-700 text-violet-300', area:'Spirit'},
   nexos:{name:'Nexos',       sym:'⋈', chip:'border-pink-700 text-pink-300', area:'Social'},
   ale: {name:'Aleaciones',   sym:'⬢', chip:'border-cyan-700 text-cyan-300', area:'Craft'},
@@ -325,7 +325,7 @@ const MATS = ['ecos','nexos','ale','bio'];
 const MODS = {
   bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 oferta en el tablón por nivel'},
   engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de contrato por nivel'},
-  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ◉ en recompensas de contrato por nivel'},
+  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de contrato por nivel'},
   comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+1 renovación gratis del tablón al día por nivel'},
   spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
   social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
@@ -383,7 +383,7 @@ const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 const addW=(k,n)=>{ state.wallet[k]+=n; };
 const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
 const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
-const gainText=(g)=> `+${g.mc} ◉${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
 function grantTask(x){
   const g={mc:x.priority?15:10,res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
@@ -465,7 +465,7 @@ function onUndo(g){
   if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,sh.contract.progress-1);
 }
 
-const rewardText=(r)=>[`${r.mc} ◉`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
+const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
 function finishContract(frac){
   const c=state.ship.contract; if(!c) return null;
   const p={mc:Math.floor(c.reward.mc*frac),mats:{}};
@@ -559,11 +559,11 @@ const priceOf=(k,d=todayStr())=>Math.round(25*(0.6+hash01(d+':'+k)));
 const sellOf=(k)=>Math.floor(priceOf(k)*0.6);
 function buyMat(k,n){
   const c=priceOf(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
-  subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ◉`);
+  subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
 }
 function sellMat(k){
   if(state.wallet[k]<1) return;
-  const p=sellOf(k); subW(k,1); addW('mc',p); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ◉`);
+  const p=sellOf(k); subW(k,1); addW('mc',p); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ¢`);
 }
 
 /* ---------- gear menu (un solo botón ⚙ por tarjeta/fila) ---------- */
@@ -766,7 +766,7 @@ function shipSVG(){
 }
 function renderShip(){
   const sh=state.ship, c=sh.contract, w=state.wallet;
-  document.getElementById('shipChip').innerHTML=`◉ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
+  document.getElementById('shipChip').innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-500">${r.name}</span></span>`).join('');
@@ -780,7 +780,7 @@ function renderShip(){
   // tablón
   const b=sh.board, free=Math.max(0,freeRerolls()-b.rerolls);
   const rr=document.getElementById('btnReroll');
-  rr.textContent=free?`↻ Renovar (gratis ×${free})`:`↻ Renovar · ${REROLL_MC} ◉`;
+  rr.textContent=free?`↻ Renovar (gratis ×${free})`:`↻ Renovar · ${REROLL_MC} ¢`;
   rr.onclick=reroll;
   const ac=document.getElementById('activeContract');
   if(c){
@@ -825,7 +825,7 @@ function renderShip(){
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
     const m=mod(k), built=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
-    const effTxt={bridge:`${offersN()} ofertas en el tablón`,engines:`contratos de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ◉ en contratos`,comms:`${freeRerolls()} renovaciones gratis/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
+    const effTxt={bridge:`${offersN()} ofertas en el tablón`,engines:`contratos de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en contratos`,comms:`${freeRerolls()} renovaciones gratis/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
     const el=document.createElement('div'); el.id='mod-'+k;
     el.className='rounded-xl border p-3 bg-slate-900/70 '+(!built?'border-slate-700 border-dashed':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
     el.innerHTML=`
@@ -842,7 +842,7 @@ function renderShip(){
       <div class="mono text-[11px] text-cyan-200 mt-1">Ahora: ${effTxt}</div>`:''}
       <div class="flex flex-col gap-1.5 mt-2.5">
         <button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`${built?'Mejorar':'Construir'} · ${fmtCost(cost)}`}</button>
-        ${built&&m.cond<100?`<button data-act="repair" class="${btnCls(w.mc>=REPAIR_MC)}" ${w.mc>=REPAIR_MC?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ◉</button>`:''}
+        ${built&&m.cond<100?`<button data-act="repair" class="${btnCls(w.mc>=REPAIR_MC)}" ${w.mc>=REPAIR_MC?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>`:''}
       </div>`;
     if(m.lv<5&&ok) el.querySelector('[data-act="build"]').onclick=()=>buildMod(k);
     const rb=el.querySelector('[data-act="repair"]'); if(rb&&w.mc>=REPAIR_MC) rb.onclick=()=>repairMod(k);
@@ -861,8 +861,8 @@ function renderShip(){
         <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${r.chip}">${r.sym} ${r.name}</span>
         <span class="mono text-[11px] text-slate-400 ml-auto">tienes ${w[k]}</span>
       </div>
-      <div class="text-xl font-bold mt-1.5">${p} ◉ <span class="mono text-xs font-normal ${p>py?'text-red-300':p<py?'text-emerald-300':'text-slate-500'}">${p>py?'▲':p<py?'▼':'='}</span></div>
-      <div class="mono text-[11px] text-slate-500">ayer ${py} ◉ · venta ${sp} ◉</div>
+      <div class="text-xl font-bold mt-1.5">${p} ¢ <span class="mono text-xs font-normal ${p>py?'text-red-300':p<py?'text-emerald-300':'text-slate-500'}">${p>py?'▲':p<py?'▼':'='}</span></div>
+      <div class="mono text-[11px] text-slate-500">ayer ${py} ¢ · venta ${sp} ¢</div>
       <div class="grid grid-cols-3 gap-1.5 mt-2">
         <button data-act="b1" class="${btnCls(w.mc>=p)} px-1" ${w.mc>=p?'':'disabled'}>+1</button>
         <button data-act="b5" class="${btnCls(w.mc>=p*5)} px-1" ${w.mc>=p*5?'':'disabled'}>+5</button>
@@ -986,7 +986,7 @@ function readBackup(){ try{ const b=JSON.parse(localStorage.getItem(BACKUPKEY));
 const relDays=(ms)=>{ const d=Math.floor((Date.now()-ms)/864e5); return d<=0?'hoy':d===1?'ayer':`hace ${d} días`; };
 const fmtStamp=(ms)=>new Date(ms).toLocaleString('es-ES',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
-const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ◉ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/40`;
+const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ¢ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/40`;
 function markExport(){ try{ localStorage.setItem(EXPKEY,String(Date.now())); }catch{} paintSaveModal(); }
 
 function exportFile(){
