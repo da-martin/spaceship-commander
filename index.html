@@ -424,7 +424,7 @@ const addDays=(s,n)=>{ const d=dayParse(s); d.setDate(d.getDate()+n); return tod
 const pick=(a)=>a[Math.floor(Math.random()*a.length)];
 const mod=(k)=>state.ship.modules[k];
 const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado
-const offersN=()=>3+Math.floor(eff('bridge'));
+const offersN=()=>1+Math.floor(eff('bridge'));
 const maxDays=()=>Math.min(7,2+Math.floor(eff('engines')));
 const cargoMult=()=>1+0.1*eff('cargo');
 const freeRerolls=()=>Math.floor(eff('comms'));
@@ -513,6 +513,7 @@ function dailyTick(){
   const c=sh.contract;
   if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Contrato ${c.topic} expirado · cobro parcial: +${rewardText(p)}`; }
   if(sh.board.date!==t) sh.board={date:t,offers:newOffers(),rerolls:0};
+  else while(sh.board.offers.length>offersN()) sh.board.offers.pop();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
   save(); if(msg) toast(msg);
 }
