@@ -60,6 +60,9 @@ tailwind.config = {
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
       <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · SYS // PRODUCTIVITY</p>
     </div>
+    <button id="btnSaveGame" class="w-8 h-8 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center shrink-0" title="Guardar / cargar partida">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    </button>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
     <div class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
@@ -243,7 +246,42 @@ tailwind.config = {
   </div>
 </div>
 
-<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
+<!-- GUARDAR / CARGAR PARTIDA -->
+<div id="saveModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div class="panel w-full max-w-md p-5 mx-auto my-8">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Partida // Guardar y cargar</div>
+        <h3 class="text-lg font-bold mt-1">Guardar / cargar partida</h3>
+      </div>
+      <button id="saveClose" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <p class="mono text-[11px] text-slate-500 mt-1 mb-4">Para usar tu progreso en otro dispositivo: guarda aquí y carga allí.</p>
+
+    <div class="sys-label mb-2">Guardar</div>
+    <div class="flex gap-2">
+      <button id="btnExportFile" class="flex-1 btn-primary px-3 py-2 rounded-lg text-sm font-medium">⬇ Descargar archivo</button>
+      <button id="btnCopyCode" class="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">⧉ Copiar código</button>
+    </div>
+    <textarea id="exportCode" readonly class="hidden mt-2 w-full h-20 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 mono text-[11px] break-all outline-none focus:border-cyan-600"></textarea>
+    <div id="lastExport" class="mono text-[11px] text-slate-500 mt-1.5"></div>
+
+    <div class="border-t border-slate-800 my-4"></div>
+
+    <div class="sys-label mb-2">Cargar</div>
+    <button id="btnPickFile" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">📂 Elegir archivo…</button>
+    <input id="importFile" type="file" accept=".json,application/json" class="hidden">
+    <textarea id="importCode" placeholder="…o pega aquí el código (SC1z:…)" class="mt-2 w-full h-20 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 mono text-[11px] break-all outline-none focus:border-cyan-600"></textarea>
+    <button id="btnReview" class="mt-2 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">Revisar código</button>
+    <div id="importMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
+    <div id="importPreview" class="hidden mt-3"></div>
+    <div id="undoRow" class="hidden mt-4 pt-3 border-t border-slate-800">
+      <button id="btnUndoLoad" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-amber-500 text-sm text-amber-200"></button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
 <script>
 
@@ -310,7 +348,15 @@ function normShip(s){
 }
 function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null)}; }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); const s=JSON.parse(raw); const st={tasks:s.tasks||[],habits:s.habits||[]}; [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; }); st.wallet=normWallet(s.wallet); st.ship=normShip(s.ship); return st; }catch{ return freshState(); } }
+// normaliza un estado guardado (localStorage o partida importada)
+function normState(s){
+  const items=(a)=>Array.isArray(a)?a.filter(x=>x&&typeof x==='object'&&typeof x.title==='string'):[];
+  const st={tasks:items(s?.tasks),habits:items(s?.habits)};
+  [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
+  st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship);
+  return st;
+}
+function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
 let state = load();
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 let toastExtra=null;
@@ -864,7 +910,7 @@ document.getElementById('modalSave').onclick=()=>{
 };
 document.getElementById('modalCancel').onclick=closeModal;
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));closeSaveModal();if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
 document.addEventListener('click',()=>document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden')));
 document.getElementById('fType').onchange=syncDayPicker;
 document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.day);pickedDays.has(d)?pickedDays.delete(d):pickedDays.add(d);syncDayPicker();});
@@ -880,6 +926,115 @@ document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.datase
 document.querySelectorAll('.hfilter').forEach(b=>b.onclick=()=>{hFilter=b.dataset.hfilter;document.querySelectorAll('.hfilter').forEach(x=>x.className='hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
 document.querySelectorAll('.tafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.tarea; if(a==='__all') aFilterTasks.clear(); else aFilterTasks.has(a)?aFilterTasks.delete(a):aFilterTasks.add(a); render();});
 document.querySelectorAll('.hafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.harea; if(a==='__all') aFilterHabits.clear(); else aFilterHabits.has(a)?aFilterHabits.delete(a):aFilterHabits.add(a); render();});
+
+/* ---------- guardar / cargar partida ---------- */
+const BACKUPKEY = 'spaceship-commander:backup', EXPKEY = 'spaceship-commander:lastExport';
+const b64enc=(bytes)=>{ let s=''; for(let i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode(...bytes.subarray(i,i+0x8000)); return btoa(s); };
+const b64dec=(str)=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));
+const pipeBytes=async(bytes,stream)=>new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+const userErr=(msg)=>Object.assign(new Error(msg),{user:true});
+function buildSave(){ return {app:'spaceship-commander',v:1,savedAt:new Date().toISOString(),data:state}; }
+async function toCode(obj){
+  const bytes=new TextEncoder().encode(JSON.stringify(obj));
+  if(typeof CompressionStream==='function') return 'SC1z:'+b64enc(await pipeBytes(bytes,new CompressionStream('gzip')));
+  return 'SC1:'+b64enc(bytes);
+}
+// acepta el JSON del archivo, un código SC1z: (gzip) o SC1: (sin comprimir)
+async function parseSave(text){
+  text=(text||'').trim();
+  if(!text) throw userErr('Pega un código o elige un archivo.');
+  let obj;
+  try{
+    if(text.startsWith('{')) obj=JSON.parse(text);
+    else{
+      const m=text.replace(/\s+/g,'').match(/^SC1(z?):(.+)$/);
+      if(!m) throw userErr('Código no válido.');
+      let bytes=b64dec(m[2]);
+      if(m[1]){
+        if(typeof DecompressionStream!=='function') throw userErr('Este navegador no puede leer códigos comprimidos.');
+        bytes=await pipeBytes(bytes,new DecompressionStream('gzip'));
+      }
+      obj=JSON.parse(new TextDecoder().decode(bytes));
+    }
+  }catch(e){ throw e.user?e:userErr('Código no válido.'); }
+  if(obj?.app!=='spaceship-commander'||!obj.data||!Array.isArray(obj.data.tasks)||!Array.isArray(obj.data.habits))
+    throw userErr('No es una partida de Spaceship Commander.');
+  return obj;
+}
+function readBackup(){ try{ const b=JSON.parse(localStorage.getItem(BACKUPKEY)); return b?.data?b:null; }catch{ return null; } }
+const relDays=(ms)=>{ const d=Math.floor((Date.now()-ms)/864e5); return d<=0?'hoy':d===1?'ayer':`hace ${d} días`; };
+const fmtStamp=(ms)=>new Date(ms).toLocaleString('es-ES',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
+const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ◉ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/40`;
+function markExport(){ try{ localStorage.setItem(EXPKEY,String(Date.now())); }catch{} paintSaveModal(); }
+
+function exportFile(){
+  const blob=new Blob([JSON.stringify(buildSave(),null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spaceship-commander-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  markExport(); toast('Archivo descargado ✓');
+}
+async function copyCode(){
+  const code=await toCode(buildSave()), ta=document.getElementById('exportCode');
+  ta.value=code; ta.classList.remove('hidden'); markExport();
+  try{ await navigator.clipboard.writeText(code); toast('Código copiado ✓'); }
+  catch{ ta.focus(); ta.select(); toast('Copia el código seleccionado'); }
+}
+
+let pendingSave=null;
+async function reviewSave(text){
+  const msg=document.getElementById('importMsg'), pv=document.getElementById('importPreview');
+  msg.classList.add('hidden'); pv.classList.add('hidden'); pendingSave=null;
+  try{ pendingSave=await parseSave(text); }
+  catch(e){ msg.textContent=e.message; msg.classList.remove('hidden'); return; }
+  const at=Date.parse(pendingSave.savedAt);
+  pv.innerHTML=`<div class="rounded-xl border border-cyan-700 bg-cyan-950/30 p-3">
+    <div class="mono text-[10px] tracking-[.18em] text-cyan-300">PARTIDA ENCONTRADA</div>
+    <div class="text-sm font-medium mt-1">Guardada ${Number.isFinite(at)?'el '+fmtStamp(at):'(fecha desconocida)'}</div>
+    <div class="mono text-[11px] text-slate-300 mt-1">${summary(normState(pendingSave.data))}</div>
+    <div class="text-xs text-amber-200 mt-2">Reemplazará tu partida actual (${summary(state)}). Se guarda una copia por si quieres deshacer.</div>
+    <div class="flex gap-2 mt-3">
+      <button data-act="cancel" class="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm">Cancelar</button>
+      <button data-act="apply" class="flex-1 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold">Reemplazar mi partida</button>
+    </div>
+  </div>`;
+  pv.classList.remove('hidden');
+  pv.querySelector('[data-act="cancel"]').onclick=()=>{ pendingSave=null; pv.classList.add('hidden'); };
+  pv.querySelector('[data-act="apply"]').onclick=()=>applySave(pendingSave);
+}
+function applySave(sv){
+  try{ localStorage.setItem(BACKUPKEY,JSON.stringify({at:Date.now(),data:state})); }catch{}
+  state=normState(sv.data); save(); dailyTick(); render();
+  closeSaveModal(); toast('Partida cargada ✓');
+}
+function undoLoad(){
+  const b=readBackup(); if(!b) return;
+  state=normState(b.data); localStorage.removeItem(BACKUPKEY); save(); dailyTick(); render();
+  paintSaveModal(); toast('Carga deshecha ✓');
+}
+function paintSaveModal(){
+  const le=Number(localStorage.getItem(EXPKEY));
+  document.getElementById('lastExport').textContent='Última exportación en este dispositivo: '+(le?relDays(le):'nunca');
+  const b=readBackup();
+  document.getElementById('undoRow').classList.toggle('hidden',!b);
+  if(b) document.getElementById('btnUndoLoad').textContent=`↶ Deshacer última carga (copia del ${fmtStamp(b.at)})`;
+}
+function openSaveModal(){
+  pendingSave=null;
+  for(const id of ['importMsg','importPreview','exportCode']) document.getElementById(id).classList.add('hidden');
+  document.getElementById('importCode').value='';
+  paintSaveModal(); document.getElementById('saveModal').classList.remove('hidden');
+}
+function closeSaveModal(){ document.getElementById('saveModal').classList.add('hidden'); }
+document.getElementById('btnSaveGame').onclick=openSaveModal;
+document.getElementById('saveClose').onclick=closeSaveModal;
+document.getElementById('saveModal').addEventListener('click',e=>{ if(e.target.id==='saveModal') closeSaveModal(); });
+document.getElementById('btnExportFile').onclick=exportFile;
+document.getElementById('btnCopyCode').onclick=copyCode;
+document.getElementById('btnPickFile').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=async(e)=>{ const f=e.target.files[0]; e.target.value=''; if(f) reviewSave(await f.text()); };
+document.getElementById('btnReview').onclick=()=>reviewSave(document.getElementById('importCode').value);
+document.getElementById('btnUndoLoad').onclick=undoLoad;
 
 /* ---------- mode toggle ---------- */
 const UIKEY = 'spaceship-commander:ui';
