@@ -212,12 +212,54 @@ const RES = {
   bio: {name:'Biomasa',      sym:'✚', chip:'border-emerald-700 text-emerald-300', area:'Health'}
 };
 const AREA_RES = {Spirit:'ecos',Social:'nexos',Craft:'ale',Health:'bio'};
-function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0}}; }
+const MATS = ['ecos','nexos','ale','bio'];
+
+/* ---------- nave: módulos y contratos (todos los números ajustables) ---------- */
+const MODS = {
+  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 oferta en el tablón por nivel'},
+  engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de contrato por nivel'},
+  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ◉ en recompensas de contrato por nivel'},
+  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+1 renovación gratis del tablón al día por nivel'},
+  spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
+  social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
+  craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'+10% prob. de ⚒ extra en items Craft por nivel'},
+  health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+10% prob. de ✚ extra en items Health por nivel'}
+};
+const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
+const MOD_MC = [80,160,300,500,800], MOD_MAT = [1,2,4,6,9];
+const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2, REROLL_MC = 15;
+const TOPICS = {
+  'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
+  'Minería':       ['Extraer hielo de un cinturón de asteroides','Escoltar una draga minera','Perforar un núcleo metálico'],
+  'Transporte':    ['Llevar suministros médicos a una colonia','Mover carga sellada entre estaciones','Entregar semillas a un mundo agrícola'],
+  'Chárter':       ['Llevar a un científico excéntrico','Viaje de turistas a los anillos','Trasladar una delegación diplomática'],
+  'Patrulla':      ['Vigilar una ruta comercial','Barrer un campo de minas antiguo','Ronda por el perímetro de la estación'],
+  'Escolta':       ['Proteger a un magnate en tránsito','Cubrir un convoy de refugiados','Acompañar a una heredera a una gala'],
+  'Rescate':       ['Remolcar un carguero averiado','Buscar una cápsula de escape','Evacuar una base minera'],
+  'Reconocimiento':['Observar una flota desconocida','Fotografiar una anomalía','Registrar tráfico en un punto de salto']
+};
+
+const clampInt=(v,lo,hi,dflt)=> Number.isFinite(+v)?Math.max(lo,Math.min(hi,Math.floor(+v))):dflt;
+function normShip(s){
+  const modules={};
+  for(const k of Object.keys(MODS)){ const m=s?.modules?.[k]; modules[k]={lv:clampInt(m?.lv,0,5,0),cond:clampInt(m?.cond,0,100,100)}; }
+  const c=s?.contract, b=s?.board;
+  return {
+    modules,
+    contract:(c&&c.id&&c.endsOn&&c.quota>0)?c:null,
+    board:(b&&Array.isArray(b.offers))?{date:b.date||null,offers:b.offers,rerolls:clampInt(b.rerolls,0,99,0)}:{date:null,offers:[],rerolls:0},
+    activity:(s?.activity&&typeof s.activity==='object')?s.activity:{},
+    lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
+    rot:clampInt(s?.rot,0,1e9,0)
+  };
+}
+function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null)}; }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
-function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); const s=JSON.parse(raw); const st={tasks:s.tasks||[],habits:s.habits||[]}; [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; }); st.wallet=normWallet(s.wallet); return st; }catch{ return freshState(); } }
+function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); const s=JSON.parse(raw); const st={tasks:s.tasks||[],habits:s.habits||[]}; [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; }); st.wallet=normWallet(s.wallet); st.ship=normShip(s.ship); return st; }catch{ return freshState(); } }
 let state = load();
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
-function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),1800); }
+let toastExtra=null;
+function toast(msg){ if(toastExtra){ msg=msg?msg+' · '+toastExtra:toastExtra; toastExtra=null; } const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),msg.length>40?3500:1800); }
 
 function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
@@ -226,37 +268,183 @@ const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 const addW=(k,n)=>{ state.wallet[k]+=n; };
 const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
 const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
-const gainText=(g)=> `+${g.mc} ◉${g.res?`  +1 ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+const gainText=(g)=> `+${g.mc} ◉${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
 function grantTask(x){
   const g={mc:x.priority?15:10,res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  x.grant=g; return g;
+  x.grant=g; x.doneOn=todayStr(); onComplete(x,g); return g;
 }
 function revokeTask(x){
+  delete x.doneOn;
   if(!x.grant) return;
   subW('mc',x.grant.mc); if(x.grant.res) subW(x.grant.res,1);
-  delete x.grant;
+  onUndo(x.grant); delete x.grant;
 }
 function checkHabit(h,k){
   const g={mc:h.priority?8:5,res:pickAreaRes(h)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  h.g=h.g||{}; h.g[k]=g; return g;
+  h.g=h.g||{}; h.g[k]=g; onComplete(h,g); return g;
 }
 function uncheckHabit(h,k){
-  if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); delete h.g[k]; }
+  if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
 function tapFree(h,k){
   const first=(h.log?.[k]||0)===0;
   const g={mc:2,res:null};
   addW('mc',g.mc);
-  if(first){ g.res=pickAreaRes(h); if(g.res){ addW(g.res,1); h.g=h.g||{}; h.g[k]={res:g.res}; } }
+  // solo el primer registro del día cuenta como actividad (material, contrato, reparación)
+  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); h.g=h.g||{}; h.g[k]=g; onComplete(h,g); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   return g;
 }
 function untapFree(h,k){
   h.log=h.log||{}; h.log[k]=Math.max(0,(h.log[k]||0)-1);
   subW('mc',2);
-  if(h.log[k]===0&&h.g?.[k]?.res){ subW(h.g[k].res,1); delete h.g[k]; }
+  if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
+}
+
+/* ---------- nave: lógica ---------- */
+const dayParse=(s)=>{ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const addDays=(s,n)=>{ const d=dayParse(s); d.setDate(d.getDate()+n); return todayStr(d); };
+const pick=(a)=>a[Math.floor(Math.random()*a.length)];
+const mod=(k)=>state.ship.modules[k];
+const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado
+const offersN=()=>3+Math.floor(eff('bridge'));
+const maxDays=()=>Math.min(7,2+Math.floor(eff('engines')));
+const cargoMult=()=>1+0.1*eff('cargo');
+const freeRerolls=()=>Math.floor(eff('comms'));
+const daysLeft=(c)=>Math.round((dayParse(c.endsOn)-dayParse(todayStr()))/864e5)+1;
+
+// módulo afectado por un item: el de su área si está construido, si no uno general
+function areaModFor(x){ for(const a of x.areas||[]){ const k=AREA_MOD[a]; if(k&&mod(k).lv>0) return k; } return null; }
+const builtGeneral=()=>Object.keys(MODS).filter(k=>MODS[k].kind==='gen'&&mod(k).lv>0);
+function wear(x,n){
+  let k=areaModFor(x);
+  if(!k){ const g=builtGeneral(); if(!g.length) return; k=g[state.ship.rot++%g.length]; }
+  mod(k).cond=Math.max(0,mod(k).cond-n);
+}
+function healFor(x){
+  let k=areaModFor(x);
+  if(!k){ const g=builtGeneral(); if(!g.length) return null; k=g.reduce((a,b)=>mod(b).cond<mod(a).cond?b:a); }
+  const before=mod(k).cond; mod(k).cond=Math.min(100,before+HEAL);
+  return mod(k).cond>before?{k,n:mod(k).cond-before}:null;
+}
+
+function onComplete(x,g){
+  const sh=state.ship, t=todayStr();
+  sh.activity[t]=(sh.activity[t]||0)+1;
+  const h=healFor(x); if(h) g.heal=h;
+  if(g.res){ const mk=AREA_MOD[RES[g.res].area]; if(mk&&Math.random()<0.1*eff(mk)){ addW(g.res,1); g.bonus=1; } }
+  const c=sh.contract;
+  if(c){
+    c.progress++; g.c=c.id;
+    if(c.progress>=c.quota){ const p=finishContract(1); toastExtra=`✔ Contrato ${c.topic} completado: +${rewardText(p)}`; }
+  }
+}
+function onUndo(g){
+  if(!g) return;
+  const sh=state.ship, t=todayStr();
+  sh.activity[t]=Math.max(0,(sh.activity[t]||0)-1);
+  if(g.bonus&&g.res) subW(g.res,g.bonus);
+  if(g.heal) mod(g.heal.k).cond=Math.max(0,mod(g.heal.k).cond-g.heal.n);
+  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,sh.contract.progress-1);
+}
+
+const rewardText=(r)=>[`${r.mc} ◉`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
+function finishContract(frac){
+  const c=state.ship.contract; if(!c) return null;
+  const p={mc:Math.floor(c.reward.mc*frac),mats:{}};
+  addW('mc',p.mc);
+  for(const [k,n] of Object.entries(c.reward.mats||{})){ const q=Math.floor(n*frac); if(q){ addW(k,q); p.mats[k]=q; } }
+  state.ship.contract=null;
+  return p;
+}
+function avgDaily(){ const t=todayStr(); let s=0; for(let i=1;i<=14;i++) s+=state.ship.activity[addDays(t,-i)]||0; return Math.max(1.5,s/14); }
+function genOffer(){
+  const topic=pick(Object.keys(TOPICS)), days=1+Math.floor(Math.random()*maxDays());
+  const quota=Math.max(2,Math.round(days*avgDaily()));
+  const mc=Math.round(quota*12*(1+0.08*(days-1))*cargoMult());
+  const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3);
+  for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
+  return {id:uid(),topic,flavor:pick(TOPICS[topic]),days,quota,reward:{mc,mats}};
+}
+const newOffers=()=>Array.from({length:offersN()},()=>genOffer());
+
+// días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
+function decayDay(day){
+  const start=dayParse(day).getTime(), end=start+864e5, dow=dayParse(day).getDay();
+  for(const h of state.habits){
+    if(h.type==='free'||(h.createdAt||0)>=start) continue;
+    if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
+    if((h.log?.[day]||0)<1) wear(h,WEAR_HABIT);
+  }
+  for(const x of state.tasks){
+    if(!x.dueDate||x.dueDate>=day||(x.createdAt||0)>=end) continue;
+    if(x.done&&(!x.doneOn||x.doneOn<=day)) continue;
+    wear(x,WEAR_TASK);
+  }
+}
+function dailyTick(){
+  const sh=state.ship, t=todayStr(), y=addDays(t,-1);
+  if(!sh.lastTick||sh.lastTick>y) sh.lastTick=y;
+  let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
+  for(;day<t;day=addDays(day,1)) decayDay(day);
+  sh.lastTick=y;
+  let msg=null;
+  const c=sh.contract;
+  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Contrato ${c.topic} expirado · cobro parcial: +${rewardText(p)}`; }
+  if(sh.board.date!==t) sh.board={date:t,offers:newOffers(),rerolls:0};
+  const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
+  save(); if(msg) toast(msg);
+}
+
+/* acciones del tablón, módulos y mercado */
+function acceptOffer(id){
+  const sh=state.ship; if(sh.contract) return;
+  const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
+  const t=todayStr();
+  sh.contract={...o,acceptedOn:t,endsOn:addDays(t,o.days-1),progress:0};
+  sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
+  save(); render(); toast(`Contrato aceptado: ${o.topic}`);
+}
+function abandonContract(){ state.ship.contract=null; save(); render(); toast('Contrato abandonado'); }
+function reroll(){
+  const b=state.ship.board, free=b.rerolls<freeRerolls();
+  if(!free){ if(state.wallet.mc<REROLL_MC){ toast('Recursos insuficientes'); return; } subW('mc',REROLL_MC); }
+  b.rerolls++; b.offers=newOffers(); save(); render(); toast('Tablón renovado');
+}
+const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:MOD_MC[lv],[MODS[k].res]:MOD_MAT[lv]}; };
+const fmtCost=(c)=>Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + ');
+const canAfford=(c)=>Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
+function buildMod(k){
+  const c=modCost(k); if(!c) return;
+  if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
+  for(const [r,n] of Object.entries(c)) subW(r,n);
+  const m=mod(k); if(m.lv===0) m.cond=100; m.lv++;
+  if(k==='bridge'){ const b=state.ship.board; while(b.offers.length<offersN()) b.offers.push(genOffer()); }
+  save(); render(); toast(`${MODS[k].name} Nv.${m.lv} ✓`);
+}
+const repairCost=(k)=>(100-mod(k).cond)*REPAIR_MC;
+function repairMod(k){
+  const m=mod(k), pts=Math.min(100-m.cond,Math.floor(state.wallet.mc/REPAIR_MC));
+  if(pts<=0){ toast('Recursos insuficientes'); return; }
+  subW('mc',pts*REPAIR_MC); m.cond+=pts; save(); render(); toast(`${MODS[k].name} reparado +${pts}%`);
+}
+// precios del mercado: deterministas por día y material
+function hash01(s){
+  let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  h^=h>>>16; h=Math.imul(h,0x85ebca6b); h^=h>>>13; h=Math.imul(h,0xc2b2ae35); h^=h>>>16;
+  return (h>>>0)/4294967296;
+}
+const priceOf=(k,d=todayStr())=>Math.round(25*(0.6+hash01(d+':'+k)));
+const sellOf=(k)=>Math.floor(priceOf(k)*0.6);
+function buyMat(k,n){
+  const c=priceOf(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
+  subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ◉`);
+}
+function sellMat(k){
+  if(state.wallet[k]<1) return;
+  const p=sellOf(k); subW(k,1); addW('mc',p); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ◉`);
 }
 
 /* ---------- gear menu (un solo botón ⚙ por tarjeta/fila) ---------- */
@@ -492,8 +680,9 @@ document.querySelectorAll('.tafilter').forEach(b=>b.onclick=()=>{const a=b.datas
 document.querySelectorAll('.hafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.harea; if(a==='__all') aFilterHabits.clear(); else aFilterHabits.has(a)?aFilterHabits.delete(a):aFilterHabits.add(a); render();});
 
 /* ---------- boot ---------- */
+dailyTick();
 render();
-localStorage.removeItem('spaceship-commander:ui');
+addEventListener('focus',()=>{ dailyTick(); render(); });
 </script>
 </body>
 </html>
