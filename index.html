@@ -336,8 +336,8 @@ tailwind.config = {
       <div id="rowHabitType" class="hidden">
         <label class="mono text-[11px] text-slate-400">TIPO DE HÁBITO</label>
         <select id="fType" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none">
-          <option value="free">Libre — sin frecuencia, múltiples veces/día</option>
           <option value="daily">Diario — cada jornada</option>
+          <option value="free">Libre — sin frecuencia, múltiples veces/día</option>
           <option value="weekly">Semanal — elige días</option>
         </select>
         <div id="dayPicker" class="hidden mt-2 grid grid-cols-7 gap-1">
@@ -444,7 +444,7 @@ const MODS = {
   health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+10% prob. de ❀ extra en items Health por nivel'}
 };
 const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
-const MOD_MC = [80,160,300,500,800], MOD_MAT = [1,2,4,6,9];
+const MOD_MC = [50,100,200,400,800], MOD_MAT = [1,2,4,6,9];
 const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2, REROLL_MC = 15;
 const TOPICS = {
   'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
@@ -1011,7 +1011,7 @@ function openModal(mode,id=null){
   document.getElementById('rowTaskDate').classList.toggle('hidden',mode!=='task');
   document.getElementById('rowHabitType').classList.toggle('hidden',mode!=='habit');
   const t=document.getElementById('fTitle'), d=document.getElementById('fDate'), p=document.getElementById('fPriority'), ty=document.getElementById('fType');
-  t.value='';d.value='';p.checked=false;ty.value='free';syncDayPicker();syncAreaPicker();
+  t.value='';d.value='';p.checked=false;ty.value='daily';syncDayPicker();syncAreaPicker();
   if(isEdit){
     if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker();}
     else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
@@ -1286,7 +1286,15 @@ function renderFocus(){
     ?`<button type="button" data-phase="work" class="btn-primary w-full h-12 rounded-xl border border-cyan-400 text-[15px] font-semibold">Empezar a trabajar · ${plural(dots,'marcada','marcadas')} →</button>`
     :`<div class="flex flex-wrap items-center justify-between gap-2.5"><p class="mono text-[11px] leading-relaxed text-slate-400 flex-1 basis-64">Lo tachado queda como registro de la sesión. Lo que avanzaste vuelve al final, sin punto.</p><button type="button" data-phase="prep" class="h-11 px-4 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:text-white">Volver a preparar</button></div>`;
 }
-function setFocusPhase(p){ state.focus.phase=p; save(); render(); }
+// al volver a Preparar desde Trabajar se limpian las líneas ya trabajadas (tachadas)
+function setFocusPhase(p){ const f=state.focus; if(p==='prep'&&f.phase==='work') f.lines=f.lines.filter(l=>!l.status); f.phase=p; save(); render(); }
+// tras Progreso o Completado sobre una línea con punto: si ya no queda ninguna, la ronda termina
+function focusRoundDone(wasDotted){
+  const f=state.focus;
+  if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return '';
+  setFocusPhase('prep'); scrollTo(0,0);
+  return ' · ¡Ronda completada! Prepara la siguiente.';
+}
 function enterFocus(){ state.focus.phase='prep'; save(); setMode('focus'); }
 function moveFocusLine(id,tid,after){
   const L=state.focus.lines, i=L.findIndex(l=>l.id===id); if(i<0) return;
@@ -1296,17 +1304,20 @@ function moveFocusLine(id,tid,after){
 
 // acciones del modal de una línea
 function focusProgress(l){
-  const f=state.focus; l.status='progress';
+  const f=state.focus, dotted=l.dotted; l.status='progress';
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
-  f.session.progress++; closeFocusModal(); save(); render(); toast('Progreso anotado · vuelve al final de la lista');
+  f.session.progress++; closeFocusModal(); save(); render();
+  const round=focusRoundDone(dotted);
+  toast(round?'Progreso anotado'+round:'Progreso anotado · vuelve al final de la lista');
 }
 function focusComplete(l){
-  const it=focusItem(l), k=todayStr(); let g=null;
+  const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
   if(l.kind==='task'){ it.done=true; g=grantTask(it); }
   else if(l.kind==='habit'){ if(it.type==='free') g=tapFree(it,k); else { it.log=it.log||{}; it.log[k]=1; g=checkHabit(it,k); } }
   for(const x of state.focus.lines) if(x.ref===l.ref&&!x.status) x.status='done';
   const se=state.focus.session; se.done++; if(g) se.mc+=g.mc;
-  closeFocusModal(); save(); render(); toast(g?gainText(g):'Acción hecha');
+  closeFocusModal(); save(); render();
+  toast((g?gainText(g):'Acción hecha')+focusRoundDone(dotted));
 }
 function focusDelete(l){
   closeFocusModal();
