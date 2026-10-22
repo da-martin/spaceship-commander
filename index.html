@@ -446,6 +446,7 @@ const MODS = {
 const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
 const MOD_MC = [50,100,200,400,800], MOD_MAT = [1,2,4,6,9];
 const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2, REROLL_MC = 15;
+const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
 const TOPICS = {
   'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
   'Minería':       ['Extraer hielo de un cinturón de asteroides','Escoltar una draga minera','Perforar un núcleo metálico'],
@@ -1306,9 +1307,9 @@ function moveFocusLine(id,tid,after){
 function focusProgress(l){
   const f=state.focus, dotted=l.dotted; l.status='progress';
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
-  f.session.progress++; closeFocusModal(); save(); render();
+  addW('mc',PROGRESS_MC); f.session.progress++; f.session.mc+=PROGRESS_MC; closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
-  toast(round?'Progreso anotado'+round:'Progreso anotado · vuelve al final de la lista');
+  toast(`+${PROGRESS_MC} ¢ · Progreso anotado`+(round||' · vuelve al final de la lista'));
 }
 function focusComplete(l){
   const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
@@ -1344,7 +1345,7 @@ function paintFocusModal(){
     const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. No da recursos: no está vinculada.';
     html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
       <div class="grid grid-cols-2 gap-2.5">
-        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span></button>
+        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${PROGRESS_MC} ¢</span></button>
         <button type="button" data-fm="done" class="f-opt border-emerald-900 bg-[#0b211c]"><span class="flex items-center gap-2 text-emerald-300 text-[15px] font-semibold">${FOPT_ICON.done} Completado</span><span class="text-xs leading-snug text-slate-300">${doneDesc}</span>${reward}</button>
         <button type="button" data-fm="edit" class="f-opt border-slate-700 bg-slate-900"><span class="flex items-center gap-2 text-slate-200 text-[15px] font-semibold">${FOPT_ICON.edit} Editar</span><span class="text-xs leading-snug text-slate-300">${isA?'Cambia el texto de la acción.':'Abre el editor: los cambios se guardan aquí y en el original.'}</span></button>
         <button type="button" data-fm="delete" class="f-opt border-red-900 bg-[#1c0d10]"><span class="flex items-center gap-2 text-red-300 text-[15px] font-semibold">${FOPT_ICON.del} Eliminar</span><span class="text-xs leading-snug text-slate-300">${isA?'Quita la acción de esta sesión.':'Borra el original para siempre. Pide confirmación.'}</span></button>
