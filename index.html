@@ -219,7 +219,8 @@ tailwind.config = {
   <section class="panel p-4 sm:p-5">
     <div class="sys-label">04 // Tripulación</div>
     <h2 class="text-lg font-bold mt-1 mb-1">A bordo <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
-    <p class="mono text-[11px] text-slate-500 mb-3">Contratos de 7 días pagados por adelantado. Se renuevan en los últimos 3 días, también en misión; si no renuevas, el tripulante se marcha sin penalización.</p>
+    <p class="mono text-[11px] text-slate-500 mb-3">Contratos semanales que se renuevan solos y cobran el sueldo cada 7 días. Si cancelas, el tripulante trabaja hasta el final de lo pagado. Sin ¢ el día del cobro, se marcha.</p>
+    <p id="crewWarn" class="hidden mono text-[11px] text-amber-300 border border-amber-700/60 bg-amber-950/30 rounded-lg px-3 py-2 mb-3"></p>
     <div id="crewList" class="grid sm:grid-cols-2 gap-3"></div>
   </section>
 
@@ -511,7 +512,7 @@ const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teniente',5
   ['Capitán de navío',2400],['Comodoro',3700],['Contraalmirante',5500],['Vicealmirante',8000],['Almirante',11500]];
 
 /* ---------- tripulación: contratos semanales prepagados ---------- */
-const BERTHS = 2, CANDS_N = 4, CREW_DAYS = 7, RENEW_WINDOW = 3;
+const BERTHS = 2, CANDS_N = 4, CREW_DAYS = 7;
 // nivel del tripulante: salario semanal y rango mínimo del comandante para contratarlo
 const CREW_LV = [{name:'Aprendiz',wage:45,rank:0},{name:'Oficial',wage:90,rank:2},{name:'Élite',wage:150,rank:4}];
 const pctTxt = (v) => Math.round(v*100)+'%';
@@ -551,7 +552,7 @@ function normShip(s){
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
     rot:clampInt(s?.rot,0,1e9,0),
     crew:(Array.isArray(s?.crew)?s.crew:[]).filter(m=>m&&ROLES[m.role]&&typeof m.name==='string'&&typeof m.until==='string')
-      .map(m=>({id:String(m.id||uid()),name:m.name,role:m.role,lv:clampInt(m.lv,1,3,1),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until})),
+      .map(m=>({id:String(m.id||uid()),name:m.name,role:m.role,lv:clampInt(m.lv,1,3,1),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,idle:!!m.idle})),
     crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
       ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,3,1)}))}
       :{week:null,cands:[]}
@@ -601,7 +602,7 @@ function addXP(n){
   if(after>before){ const m=`★ Ascenso: ahora eres ${RANKS[after][0]}`; toastExtra=toastExtra?toastExtra+' · '+m:m; }
 }
 const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
-const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>m.until>=t); };
+const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>!m.idle&&m.until>=t); };   // a bordo sin contrato no da bono
 // ventaja de una especialidad: la del mejor tripulante a bordo con ese rol (0 si no hay)
 const perk=(role)=>crewActive().reduce((a,m)=>m.role===role?Math.max(a,ROLES[role].eff[m.lv-1]):a,0);
 
@@ -681,7 +682,7 @@ function onComplete(x,g){
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; toastExtra=`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`; addXP(XP_CONTRACT); }
+    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; toastExtra=[`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); addXP(XP_CONTRACT); }
   }
   g.xp=('type' in x)?XP_HABIT:XP_TASK; addXP(g.xp);
 }
@@ -741,14 +742,9 @@ function dailyTick(){
   sh.lastTick=y;
   let msg=null;
   const c=sh.contract;
-  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`; }
-  // tripulación: los contratos vencidos terminan; el tablón de candidatos se renueva cada domingo
-  const gone=sh.crew.filter(m=>m.until<t);
-  if(gone.length){
-    sh.crew=sh.crew.filter(m=>m.until>=t);
-    const m2=`Fin de contrato: ${gone.map(m=>m.name).join(', ')} ${gone.length>1?'dejan':'deja'} la nave`;
-    msg=msg?msg+' · '+m2:m2;
-  }
+  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=[`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
+  // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
+  const pay=crewPayroll(t); if(pay) msg=msg?msg+' · '+pay:pay;
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(sh.board.date!==t) sh.board={date:t,offers:newOffers(),rerolls:0};
   else while(sh.board.offers.length>offersN()) sh.board.offers.pop();
@@ -758,7 +754,6 @@ function dailyTick(){
 
 /* tripulación */
 const weekStart=(t=todayStr())=>addDays(t,-dayParse(t).getDay());   // domingo de la semana
-const crewDaysLeft=(m)=>Math.round((dayParse(m.until)-dayParse(todayStr()))/864e5)+1;
 function genCandidates(){
   const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
   return roles.map(role=>{ const r=Math.random(); return {id:uid(),name:pick(CREW_FIRST)+' '+pick(CREW_LAST),role,lv:r<0.5?1:r<0.85?2:3}; });
@@ -778,19 +773,50 @@ function hireCrew(id){
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage;
   subW('mc',wage);
-  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1)});
+  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
   state.cmd.stats.hires++;
-  save(); render(); toast(`${x.name} se une a la tripulación · −${wage} ¢ (${CREW_DAYS} días)`);
+  save(); render(); toast(`${x.name} se une a la tripulación · −${wage} ¢/sem, se renueva solo`);
 }
-function renewCrew(id){
-  const m=state.ship.crew.find(c=>c.id===id); if(!m||crewDaysLeft(m)>RENEW_WINDOW) return;
+// cobra cada semana vencida mientras haya saldo; si el contrato termina (cancelado o sin ¢),
+// el tripulante se va, salvo en misión: entonces sigue a bordo sin bono hasta volver
+function crewPayroll(t){
+  const sh=state.ship, notes=[]; let paid=0;
+  for(const m of sh.crew){
+    if(m.idle) continue;
+    while(m.until<t){
+      if(!m.cancel&&state.wallet.mc>=m.wage){ subW('mc',m.wage); paid+=m.wage; m.until=addDays(m.until,CREW_DAYS); continue; }
+      const why=m.cancel?'termina su contrato':'no había ¢ para su sueldo';
+      if(sh.contract){ m.idle=true; notes.push(`${m.name}: ${why}; sigue a bordo sin contrato hasta volver`); }
+      else { m.gone=true; notes.push(m.cancel?`${m.name} termina su contrato y se marcha`:`${m.name} se marcha: no había ¢ para su sueldo`); }
+      break;
+    }
+  }
+  sh.crew=sh.crew.filter(m=>!m.gone);
+  if(paid) notes.unshift(`Sueldos: −${paid} ¢`);
+  return notes.join(' · ')||null;
+}
+// al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato
+function returnHome(){
+  const sh=state.ship, off=sh.crew.filter(m=>m.idle);
+  if(!off.length) return null;
+  sh.crew=sh.crew.filter(m=>!m.idle);
+  return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
+}
+function toggleCancel(id){
+  const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
+  m.cancel=!m.cancel;
+  save(); render(); toast(m.cancel?`${m.name} trabajará hasta el ${fDate(m.until)} y se marchará`:`Contrato de ${m.name} mantenido · se renueva solo`);
+}
+function rehireCrew(id){
+  const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;
   if(state.wallet.mc<m.wage){ toast('Recursos insuficientes'); return; }
-  subW('mc',m.wage); m.until=addDays(m.until,CREW_DAYS);
-  save(); render(); toast(`Contrato de ${m.name} renovado · −${m.wage} ¢`);
+  subW('mc',m.wage); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
+  save(); render(); toast(`${m.name} vuelve a contrato · −${m.wage} ¢`);
 }
-let crewReleasing=null;   // primer toque de «Liberar litera» pide confirmación
+let crewReleasing=null;   // primer toque de «Despedir ya» pide confirmación
 function releaseCrew(id){
+  if(!atHome()) return;
   if(crewReleasing!==id){ crewReleasing=id; render(); return; }
   const m=state.ship.crew.find(c=>c.id===id); crewReleasing=null; if(!m) return;
   state.ship.crew=state.ship.crew.filter(c=>c.id!==id);
@@ -809,7 +835,7 @@ function acceptOffer(id){
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
   save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
 }
-function abandonContract(){ state.ship.contract=null; save(); render(); toast('Misión abandonada · de vuelta en el Sistema Madre'); }
+function abandonContract(){ state.ship.contract=null; const r=returnHome(); save(); render(); toast('Misión abandonada · de vuelta en el Sistema Madre'+(r?' · '+r:'')); }
 function reroll(){
   if(!atHome()) return;
   const b=state.ship.board, free=b.rerolls<freeRerolls();
@@ -1077,11 +1103,19 @@ function renderRank(){
 }
 function renderCrew(){
   const sh=state.ship, w=state.wallet;
-  document.getElementById('crewBerths').textContent=`· literas ${sh.crew.length}/${BERTHS}`;
-  const cl=document.getElementById('crewList');
+  const wages=sh.crew.filter(m=>!m.idle&&!m.cancel).reduce((a,m)=>a+m.wage,0), short=state.wallet.mc<wages;
+  document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${BERTHS}${wages?` · sueldos ${wages} ¢/sem`:''}`;
+  const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre se marchará.`:'';
+  const cl=document.getElementById('crewList'), home=atHome();
   cl.innerHTML=sh.crew.map(m=>{
-    const d=crewDaysLeft(m), R=ROLES[m.role], canRenew=d<=RENEW_WINDOW, conf=crewReleasing===m.id;
-    return `<div class="rounded-xl border ${d<=1?'border-amber-600':'border-slate-700'} bg-slate-900/70 p-3">
+    const R=ROLES[m.role], conf=crewReleasing===m.id;
+    const fire=home?`<button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${conf?'¿Seguro? Pierdes lo pagado':'Despedir ya'}</button>`:'';
+    const status=m.idle?'<span class="text-slate-400">Sin contrato · desembarca al volver al Sistema Madre</span>'
+      :m.cancel?`<span class="text-amber-300">Contrato cancelado · se marcha el ${fDate(addDays(m.until,1))}</span>`
+      :`<span class="text-slate-400">Próximo cobro: ${fDate(addDays(m.until,1))} · ${m.wage} ¢ · se renueva solo</span>`;
+    const main=m.idle?`<button data-crew="rehire" data-id="${m.id}" class="${btnCls(state.wallet.mc>=m.wage)} flex-1" ${state.wallet.mc>=m.wage?'':'disabled'}>Recontratar ${CREW_DAYS} días · ${m.wage} ¢</button>`
+      :`<button data-crew="cancel" data-id="${m.id}" class="flex-1 px-2.5 py-2 rounded-lg text-sm bg-slate-800 border ${m.cancel?'border-amber-600 text-amber-200 hover:border-amber-400':'border-slate-700 text-slate-300 hover:border-slate-500'}">${m.cancel?'Mantener contrato':'Cancelar contrato'}</button>`;
+    return `<div class="rounded-xl border ${m.idle?'border-slate-700 border-dashed':m.cancel?'border-amber-600':'border-slate-700'} bg-slate-900/70 p-3">
       <div class="flex items-start gap-3">
         ${roleTile(m.role)}
         <div class="min-w-0 flex-1">
@@ -1089,13 +1123,9 @@ function renderCrew(){
           <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[m.lv-1]}">${CREW_LV[m.lv-1].name}</span></div>
         </div>
       </div>
-      <div class="text-sm text-cyan-200 mt-2">${R.desc(R.eff[m.lv-1])}</div>
-      <div class="mono text-[11px] ${d<=1?'text-amber-300':'text-slate-400'} mt-1">${d<=1?'último día de contrato':`contrato hasta ${fDate(m.until)} · quedan ${d} días`}</div>
-      <div class="flex flex-wrap gap-1.5 mt-2.5">
-        ${canRenew?`<button data-crew="renew" data-id="${m.id}" class="${btnCls(w.mc>=m.wage)} flex-1" ${w.mc>=m.wage?'':'disabled'}>Renovar ${CREW_DAYS} días · ${m.wage} ¢</button>`
-          :`<span class="flex-1 mono text-[11px] text-slate-500 self-center">Renovable en los últimos ${RENEW_WINDOW} días</span>`}
-        <button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'bg-slate-800 border border-slate-700 text-slate-300 hover:border-red-600'}">${conf?'¿Seguro? Pierdes lo pagado':'Liberar litera'}</button>
-      </div>
+      <div class="text-sm mt-2 ${m.idle?'text-slate-500 line-through':'text-cyan-200'}">${R.desc(R.eff[m.lv-1])}</div>
+      <div class="mono text-[11px] mt-1">${status}</div>
+      <div class="flex flex-wrap items-center gap-1.5 mt-2.5">${main}${m.idle?'':fire}</div>
     </div>`;
   }).join('')+Array.from({length:Math.max(0,BERTHS-sh.crew.length)},()=>atHome()
     ?`<button type="button" data-crew="board" class="rounded-xl border border-dashed border-slate-700 hover:border-cyan-600 p-3 grid place-items-center text-sm text-slate-500 hover:text-cyan-300 min-h-[120px]">Litera libre · ver candidatos</button>`
@@ -1119,7 +1149,7 @@ function renderCrew(){
     </div>`;
   }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
   const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
-    if(a==='hire') hireCrew(id); else if(a==='renew') renewCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
+    if(a==='hire') hireCrew(id); else if(a==='cancel') toggleCancel(id); else if(a==='rehire') rehireCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
   cl.onclick=act; cand.onclick=act;
 }
 
@@ -1149,7 +1179,7 @@ function renderMission(c){
       <span class="mono text-sm text-cyan-200">${c.progress}/${c.quota}</span>
     </div>
     <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText(c.reward)}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · si expira, cobro parcial</div>
-    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación a bordo se puede renovar.</p>
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación sigue a bordo y cobra su sueldo cada semana.</p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), ok=w.mc>=REPAIR_MC;
       return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
