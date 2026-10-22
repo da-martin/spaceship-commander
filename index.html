@@ -47,6 +47,28 @@ tailwind.config = {
   .acc-chev{transition:transform .15s}
   .acc.open .acc-chev{transform:rotate(90deg)}
   .acc-head:hover h2{color:#67e8f9}
+  /* Protocolo Forster */
+  .fphase{color:#cbd5e1}.fphase:hover{color:#fff}.fphase.on{background:#0e7490;color:#fff;font-weight:500}
+  .f-tile{width:30px;height:30px;flex:none;display:grid;place-items:center;box-sizing:border-box}
+  .f-habit{color:#6ee7b7;background:#0b211c;border:1.5px solid #065f46;border-radius:999px}
+  .f-task{color:#7dd3fc;background:#0c1f33;border:1.5px solid #0e7490;border-radius:6px}
+  .f-acc{color:#e2e8f0;border:1.5px dashed #64748b;border-radius:6px}
+  .f-row{display:flex;align-items:stretch;border-radius:10px;border:1px solid #1f2a3d;background:#0f1729}
+  .f-row.dot{background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4)}
+  .f-row.dim{opacity:.6}.f-row.struck{opacity:.5}
+  .f-row.struck .f-title{text-decoration:line-through;color:#94a3b8}
+  .f-row.dragging{opacity:.35}
+  .f-row.drop-before{box-shadow:0 -3px 0 #22d3ee}.f-row.drop-after{box-shadow:0 3px 0 #22d3ee}
+  .f-dot{width:10px;height:10px;border-radius:999px;flex:none;box-sizing:border-box;border:1.5px solid transparent}
+  .f-row.dot .f-dot{background:#fbbf24;border-color:#fbbf24}
+  .f-prep .f-row:not(.dot) .f-dot{border-color:#64748b}
+  .f-grip{flex:none;display:grid;place-items:center;width:30px;color:#64748b;cursor:grab;touch-action:none;border-radius:10px 0 0 10px}
+  .f-grip:hover,.f-grip:focus-visible{color:#67e8f9}
+  .f-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:58px;text-align:left;border-radius:10px}
+  .f-main:not(:disabled):hover{background:rgba(103,232,249,.04)}
+  .f-main:disabled{cursor:default}
+  .f-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px;min-height:112px;border-radius:12px;border-width:1px;border-style:solid;text-align:left}
+  .f-opt:hover{filter:brightness(1.15)}
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
@@ -59,7 +81,7 @@ tailwind.config = {
     <div class="w-9 h-9 rounded-lg bg-cyan-900/60 border border-cyan-700/50 grid place-items-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="1.6"><path d="M12 2 L15 9 L22 12 L15 15 L12 22 L9 15 L2 12 L9 9 Z"/></svg>
     </div>
-    <div class="min-w-0 flex-1">
+    <div id="brandText" class="min-w-0 flex-1">
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
       <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · SYS // PRODUCTIVITY</p>
     </div>
@@ -67,15 +89,32 @@ tailwind.config = {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
     </button>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
-    <div class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
+    <div id="navToggle" class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
       <button id="btnSpaceship" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
+    </div>
+    <div id="focusNav" class="hidden items-center gap-2 shrink-0 ml-auto">
+      <div role="group" aria-label="Fase del Protocolo Forster" class="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+        <button id="btnFocusPrep" aria-pressed="true" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Preparar</button>
+        <button id="btnFocusWork" aria-pressed="false" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Trabajar</button>
+      </div>
+      <button id="btnFocusExit" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-cyan-600" title="Salir del Protocolo Forster">Salir</button>
     </div>
   </div>
 </header>
 
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
+
+  <!-- 0) Entrada al Protocolo Forster -->
+  <section class="panel corner p-4 sm:p-5 flex flex-wrap items-center gap-3">
+    <div class="min-w-0 flex-1">
+      <div class="sys-label">00 // Sistema de enfoque</div>
+      <h2 class="text-lg font-normal mt-1">Protocolo Forster</h2>
+      <p class="mono text-[11px] text-slate-400 mt-1">Una sola lista: marca con punto lo que vas a trabajar y ve anotando el avance.</p>
+    </div>
+    <button id="btnFocus" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold">Iniciar Protocolo Forster</button>
+  </section>
 
   <!-- 1+2) Dos columnas en ancho suficiente: hábitos izquierda, tareas derecha -->
   <div class="grid gap-5 lg:grid-cols-2 items-start">
@@ -208,8 +247,80 @@ tailwind.config = {
   </section>
 </main>
 
+<!-- FOCUS VIEW: PROTOCOLO FORSTER -->
+<main id="focus-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-6 space-y-4">
+  <section class="flex flex-wrap items-end gap-4">
+    <div class="min-w-0 flex-1 basis-72">
+      <div class="sys-label">00 // Sistema de enfoque</div>
+      <h2 class="text-3xl font-normal tracking-tight text-slate-50 mt-1.5">Protocolo Forster</h2>
+      <p class="mono text-[11px] text-slate-400 mt-1.5">En memoria de Mark Forster · una lista, puntos y re‑entrada</p>
+    </div>
+    <div id="focusChips" class="flex flex-wrap gap-1.5"></div>
+  </section>
+
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#1f2a3d] bg-[#0d1526] px-3.5 py-3">
+    <span id="focusPhaseLabel" class="mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border"></span>
+    <p id="focusPhaseHint" class="text-[13px] leading-relaxed text-slate-300 flex-1 basis-64"></p>
+  </div>
+
+  <section class="panel p-3.5" aria-label="Lista larga">
+    <div class="flex items-center justify-between px-1 pb-2">
+      <span class="sys-label">Lista larga</span>
+      <span id="focusCount" class="mono text-[11px] text-slate-400"></span>
+    </div>
+    <ol id="focusList" class="space-y-1.5"></ol>
+    <form id="focusAddForm" class="flex gap-2 mt-3 pt-3 border-t border-dashed border-slate-700" autocomplete="off">
+      <label for="focusAddInput" class="sr-only">Nueva acción rápida</label>
+      <input id="focusAddInput" type="text" maxlength="200" placeholder="Añade una acción rápida y pulsa Enter…" class="flex-1 min-w-0 h-11 px-3.5 rounded-lg border-[1.5px] border-dashed border-slate-600 bg-[#0a0f1a] text-sm outline-none focus:border-cyan-600">
+      <button type="submit" class="btn-primary h-11 px-4 rounded-lg text-sm font-semibold shrink-0">+ Añadir</button>
+    </form>
+  </section>
+
+  <div id="focusCta"></div>
+
+  <section aria-label="Leyenda" class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+    <div class="flex gap-2.5 items-start"><span class="f-tile" aria-hidden="true"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span></span><div class="text-xs leading-snug text-slate-400"><b class="block text-amber-300 font-semibold">Punto</b>Planeas trabajar en ello.</div></div>
+    <div class="flex gap-2.5 items-start"><span class="f-tile f-habit" data-ficon="habit" aria-hidden="true"></span><div class="text-xs leading-snug text-slate-400"><b class="block text-emerald-300 font-semibold">Hábito</b>Círculo. Completar marca el día.</div></div>
+    <div class="flex gap-2.5 items-start"><span class="f-tile f-task" data-ficon="task" aria-hidden="true"></span><div class="text-xs leading-snug text-slate-400"><b class="block text-sky-300 font-semibold">Tarea</b>Cuadrado. Con fecha límite.</div></div>
+    <div class="flex gap-2.5 items-start"><span class="f-tile f-acc" data-ficon="acc" aria-hidden="true"></span><div class="text-xs leading-snug text-slate-400"><b class="block text-slate-200 font-semibold">Acción</b>Discontinuo. Al salir puede ser tarea.</div></div>
+  </section>
+</main>
+
+<!-- PROTOCOLO FORSTER: opciones de una línea -->
+<div id="focusModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="fmTitle" class="panel w-full max-w-lg mx-auto mt-16 sm:mt-24 mb-8">
+    <div class="flex items-start gap-3 p-4 pb-3">
+      <span id="fmTile" class="f-tile" aria-hidden="true"></span>
+      <div class="min-w-0 flex-1">
+        <div id="fmMeta" class="mono text-[11px] flex flex-wrap gap-x-2"></div>
+        <h3 id="fmTitle" class="text-lg font-semibold leading-snug mt-1 break-words"></h3>
+      </div>
+      <button id="fmClose" aria-label="Cerrar" class="w-10 h-10 -mt-1.5 -mr-1.5 rounded-lg text-slate-400 hover:text-white grid place-items-center shrink-0">✕</button>
+    </div>
+    <div id="fmBody" class="px-4 pb-4"></div>
+  </div>
+</div>
+
+<!-- PROTOCOLO FORSTER: salir -->
+<div id="focusExitModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="fxTitle" class="panel w-full max-w-lg mx-auto mt-16 sm:mt-24 mb-8 p-4 sm:p-5 space-y-4">
+    <div>
+      <div class="sys-label">Cierre de sesión · Protocolo Forster</div>
+      <h3 id="fxTitle" class="text-xl font-bold mt-1.5">¿Guardar acciones como tareas?</h3>
+    </div>
+    <div id="fxChips" class="flex flex-wrap gap-1.5"></div>
+    <p class="text-[13px] leading-relaxed text-slate-300">Añadiste estas acciones rápidas. Marca las que quieras guardar como tareas en Commander; las demás se descartan.</p>
+    <ul id="fxList" class="space-y-1.5"></ul>
+    <div class="flex flex-wrap justify-end gap-2 pt-1">
+      <button id="fxBack" class="px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm">Seguir trabajando</button>
+      <button id="fxDiscard" class="px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm">Salir sin guardar</button>
+      <button id="fxSave" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold"></button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL -->
-<div id="modal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm">
+<div id="modal"class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm">
   <div class="panel w-full max-w-md p-5">
     <div class="sys-label" id="modalKicker">Nuevo</div>
     <h3 id="modalTitle" class="text-lg font-bold mt-1 mb-3">—</h3>
@@ -360,14 +471,22 @@ function normShip(s){
     rot:clampInt(s?.rot,0,1e9,0)
   };
 }
-function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null)}; }
+function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null)}; }
+// Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
+function normFocus(f){
+  const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
+    .map(l=>({id:l.id,kind:l.kind,ref:l.ref,...(l.kind==='acc'?{title:l.title}:{}),dotted:!!l.dotted,status:['progress','done'].includes(l.status)?l.status:null,re:clampInt(l.re,0,999,0),added:Number.isFinite(+l.added)?+l.added:Date.now()}));
+  const se=f?.session;
+  return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,
+    session:{progress:clampInt(se?.progress,0,1e6,0),done:clampInt(se?.done,0,1e6,0),mc:clampInt(se?.mc,0,1e9,0)}};
+}
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // normaliza un estado guardado (localStorage o partida importada)
 function normState(s){
   const items=(a)=>Array.isArray(a)?a.filter(x=>x&&typeof x==='object'&&typeof x.title==='string'):[];
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
   [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
-  st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship);
+  st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus);
   return st;
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
@@ -611,6 +730,10 @@ function toggleHabitToday(h){
   save(); render();
 }
 
+function completeTask(x){ x.done=true; const g=grantTask(x); save(); render(); toast(gainText(g)); return g; }
+function deleteTask(id){ state.tasks=state.tasks.filter(y=>y.id!==id); dropFocusRef(id); save(); render(); toast('Tarea eliminada'); }
+function deleteHabit(id){ state.habits=state.habits.filter(y=>y.id!==id); dropFocusRef(id); save(); render(); toast('Hábito eliminado'); }
+
 /* ---------- render ---------- */
 function render(){
   const dow=DOW(), t=todayStr();
@@ -647,7 +770,7 @@ function render(){
     wireGear(card,{
       pri:()=>{h.priority=!h.priority;save();render();},
       edit:()=>openModal('habit',h.id),
-      del:()=>{state.habits=state.habits.filter(y=>y.id!==h.id);save();render();toast('Hábito eliminado');}
+      del:()=>deleteHabit(h.id)
     });
     const row=card.lastElementChild;
     if(h.type==='free'){
@@ -690,13 +813,13 @@ function render(){
       <button data-act="gear" class="text-slate-400 hover:text-cyan-300 p-1 shrink-0 leading-none" title="Opciones">${GEAR_SVG}</button>
       ${gearMenuHTML(x.priority)}`;
     el.querySelector('[data-act="done"]').onclick=()=>{
-      if(!x.done){ x.done=true; const g=grantTask(x); save(); render(); toast(gainText(g)); }
+      if(!x.done) completeTask(x);
       else { x.done=false; revokeTask(x); save(); render(); }
     };
     wireGear(el,{
       pri:()=>{x.priority=!x.priority;save();render();},
       edit:()=>openModal('task',x.id),
-      del:()=>{state.tasks=state.tasks.filter(y=>y.id!==x.id);save();render();toast('Tarea eliminada');}
+      del:()=>deleteTask(x.id)
     });
     el.querySelector('[data-act="body"]').ondblclick=()=>openModal('task',x.id);
     tl.appendChild(el);
@@ -726,13 +849,14 @@ function render(){
     wireGear(el,{
       pri:()=>{h.priority=!h.priority;save();render();},
       edit:()=>openModal('habit',h.id),
-      del:()=>{state.habits=state.habits.filter(y=>y.id!==h.id);save();render();toast('Hábito eliminado');}
+      del:()=>deleteHabit(h.id)
     });
     al.appendChild(el);
   });
   }
 
   renderShip();
+  if(uiMode==='focus') renderFocus();
 }
 
 /* ---------- render: nave ---------- */
@@ -1058,25 +1182,325 @@ document.getElementById('importFile').onchange=async(e)=>{ const f=e.target.file
 document.getElementById('btnReview').onclick=()=>reviewSave(document.getElementById('importCode').value);
 document.getElementById('btnUndoLoad').onclick=undoLoad;
 
+/* ---------- Protocolo Forster (modo focus, en memoria de Mark Forster) ---------- */
+const FICON={
+  habit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  task:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>',
+  acc:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+};
+const FOPT_ICON={
+  progress:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>',
+  done:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  edit:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  del:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  warn:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 mt-0.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
+const GRIP_SVG='<svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/></svg>';
+const FKIND={habit:{label:'HÁBITO',cls:'text-emerald-300'},task:{label:'TAREA',cls:'text-sky-300'},acc:{label:'ACCIÓN',cls:'text-slate-200'}};
+const FDAY=['dom','lun','mar','mié','jue','vie','sáb'];
+const fDate=(s)=>FDAY[dayParse(s).getDay()]+' '+fmtDate(s);
+const fClock=(ms)=>new Date(ms).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+const chip=(txt,cls)=>`<span class="mono text-[11px] px-2 py-1 rounded border ${cls}">${txt}</span>`;
+const newLine=(kind,ref,extra)=>({id:uid(),kind,ref,dotted:false,status:null,re:0,added:Date.now(),...extra});
+const focusItem=(l)=>l.kind==='task'?state.tasks.find(x=>x.id===l.ref):l.kind==='habit'?state.habits.find(h=>h.id===l.ref):null;
+const focusTitle=(l)=>l.kind==='acc'?l.title:(focusItem(l)?.title||'');
+
+// lo pendiente de hoy: tareas abiertas + hábitos que tocan hoy sin cumplir (los libres siempre)
+function focusEligible(){
+  const hs=state.habits.filter(h=>isScheduledToday(h)&&(h.type==='free'||!isDoneToday(h))).sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
+  const ts=state.tasks.filter(x=>!x.done).sort((a,b)=>(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
+  return [...hs.map(h=>({kind:'habit',ref:h.id})),...ts.map(x=>({kind:'task',ref:x.id}))];
+}
+function syncFocus(){
+  const f=state.focus, t=todayStr(), sig=()=>f.day+'|'+f.lines.map(l=>l.id).join();
+  const before=sig();
+  if(f.day!==t){ f.lines=f.lines.filter(l=>!l.status); f.session={progress:0,done:0,mc:0}; f.day=t; }
+  const elig=focusEligible(), ok=new Set(elig.map(e=>e.kind+':'+e.ref));
+  f.lines=f.lines.filter(l=>l.kind==='acc'||(focusItem(l)&&(l.status||ok.has(l.kind+':'+l.ref))));
+  const have=new Set(f.lines.map(l=>l.kind+':'+l.ref));
+  for(const e of elig) if(!have.has(e.kind+':'+e.ref)) f.lines.push(newLine(e.kind,e.ref));
+  if(sig()!==before) save();
+}
+function dropFocusRef(ref){ state.focus.lines=state.focus.lines.filter(l=>l.ref!==ref); }
+
+function focusMeta(l){
+  const it=focusItem(l);
+  if(l.kind==='task'){
+    if(!it.dueDate) return {text:'Sin fecha límite',cls:'text-slate-400'};
+    const e=etaDays(it.dueDate), d=fDate(it.dueDate);
+    if(e<0) return {text:`Atrasada ${-e} d · ${d}`,cls:'text-orange-300'};
+    if(e===0) return {text:'Vence hoy · '+d,cls:'text-amber-300'};
+    if(e===1) return {text:'Vence mañana · '+d,cls:'text-slate-200'};
+    return {text:`Vence en ${e} d · ${d}`,cls:'text-slate-400'};
+  }
+  if(l.kind==='habit'){
+    const c=countToday(it);
+    const sc=it.type==='free'?`Libre · llevas ${c} ${c===1?'vez':'veces'}`:it.type==='daily'?'Diario':'Semanal ('+(it.days||[]).map(d=>DOW_NAMES[d]).join(' ')+')';
+    return {text:sc+' · hoy, '+fDate(todayStr()),cls:'text-slate-400'};
+  }
+  return {text:`Añadida a las ${fClock(l.added)} · sin vincular`,cls:'text-slate-400'};
+}
+const focusMetaHTML=(l)=>{ const k=FKIND[l.kind], m=focusMeta(l), it=focusItem(l);
+  return `<span class="font-bold tracking-wider ${k.cls}">${k.label}</span><span class="${m.cls}">${escapeHtml(m.text)}</span>`
+    +(l.re?`<span class="text-cyan-300">${l.re+1}.ª vuelta</span>`:'')+(it?areaBadges(it.areas):''); };
+
+function renderFocus(){
+  syncFocus();
+  const f=state.focus, prep=f.phase==='prep', live=f.lines.filter(l=>!l.status), dots=live.filter(l=>l.dotted).length, se=f.session;
+  for(const [id,on] of [['btnFocusPrep',prep],['btnFocusWork',!prep]]){ const b=document.getElementById(id); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }
+  const pl=document.getElementById('focusPhaseLabel');
+  pl.textContent=prep?'FASE 1 · PREPARAR':'FASE 2 · TRABAJAR';
+  pl.className='mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border '+(prep?'border-amber-800 text-amber-300':'border-cyan-800 text-cyan-300');
+  document.getElementById('focusPhaseHint').textContent=prep
+    ?'Toca una línea para marcarla con un punto: es lo que planeas trabajar. Arrastra desde el asa para reordenar.'
+    :'Toca una línea para anotar progreso, completarla, editarla o eliminarla. Las marcadas con punto van primero en tu atención.';
+  const workChips=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${se.mc} ¢`,'border-amber-800 text-amber-300');
+  document.getElementById('focusChips').innerHTML=prep
+    ?chip('● '+plural(dots,'marcada','marcadas'),'border-amber-800 text-amber-300')+chip(plural(live.length,'línea','líneas')+' en la lista','border-slate-700 text-slate-300')
+    :workChips;
+  document.getElementById('focusCount').textContent=plural(live.length,'pendiente','pendientes')+' · '+plural(f.lines.length-live.length,'tachada','tachadas');
+
+  const ol=document.getElementById('focusList');
+  ol.className='space-y-1.5'+(prep?' f-prep':'');
+  ol.innerHTML=f.lines.map(l=>{
+    const it=focusItem(l), struck=!!l.status, title=escapeHtml(focusTitle(l)), kl=FKIND[l.kind].label.toLowerCase();
+    const cls='f-row'+(l.dotted&&!struck?' dot':'')+(struck?' struck':(!prep&&!l.dotted?' dim':''));
+    const stamp=l.status==='done'?'<span class="mono text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-emerald-600 text-emerald-300 shrink-0">COMPLETADO</span>'
+      :l.status==='progress'?'<span class="mono text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-cyan-600 text-cyan-300 shrink-0">PROGRESO</span>':'';
+    const label=(prep?(l.dotted?'Quitar punto de ':'Marcar con punto ')+kl:'Opciones de '+kl)+': '+title;
+    return `<li class="${cls}" data-id="${l.id}">
+      ${prep?`<button type="button" class="f-grip" data-grip aria-label="Mover ${title} (flechas arriba y abajo)">${GRIP_SVG}</button>`:''}
+      <button type="button" class="f-main" data-main ${!prep&&struck?'disabled':''} ${prep?`aria-pressed="${l.dotted}"`:'aria-haspopup="dialog"'} aria-label="${label}">
+        <span class="f-dot" aria-hidden="true"></span>
+        <span class="f-tile f-${l.kind}" aria-hidden="true">${FICON[l.kind]}</span>
+        <span class="min-w-0 flex-1 flex flex-col gap-1">
+          <span class="f-title text-[15px] font-medium leading-snug break-words ${l.dotted&&!struck?'text-slate-50':'text-slate-300'}">${it?.priority?'<span class="text-amber-300">★ </span>':''}${title}</span>
+          <span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${focusMetaHTML(l)}</span>
+        </span>
+        ${stamp}
+      </button>
+    </li>`;
+  }).join('')||'<li class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada pendiente hoy. Añade una acción rápida abajo.</li>';
+
+  document.getElementById('focusCta').innerHTML=prep
+    ?`<button type="button" data-phase="work" class="btn-primary w-full h-12 rounded-xl border border-cyan-400 text-[15px] font-semibold">Empezar a trabajar · ${plural(dots,'marcada','marcadas')} →</button>`
+    :`<div class="flex flex-wrap items-center justify-between gap-2.5"><p class="mono text-[11px] leading-relaxed text-slate-400 flex-1 basis-64">Lo tachado queda como registro de la sesión. Lo que avanzaste vuelve al final, sin punto.</p><button type="button" data-phase="prep" class="h-11 px-4 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:text-white">Volver a preparar</button></div>`;
+}
+function setFocusPhase(p){ state.focus.phase=p; save(); render(); }
+function enterFocus(){ state.focus.phase='prep'; save(); setMode('focus'); }
+function moveFocusLine(id,tid,after){
+  const L=state.focus.lines, i=L.findIndex(l=>l.id===id); if(i<0) return;
+  const [m]=L.splice(i,1); let j=L.findIndex(l=>l.id===tid); if(j<0){ L.splice(i,0,m); return; }
+  L.splice(after?j+1:j,0,m); save(); render();
+}
+
+// acciones del modal de una línea
+function focusProgress(l){
+  const f=state.focus; l.status='progress';
+  f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
+  f.session.progress++; closeFocusModal(); save(); render(); toast('Progreso anotado · vuelve al final de la lista');
+}
+function focusComplete(l){
+  const it=focusItem(l), k=todayStr(); let g=null;
+  if(l.kind==='task'){ it.done=true; g=grantTask(it); }
+  else if(l.kind==='habit'){ if(it.type==='free') g=tapFree(it,k); else { it.log=it.log||{}; it.log[k]=1; g=checkHabit(it,k); } }
+  for(const x of state.focus.lines) if(x.ref===l.ref&&!x.status) x.status='done';
+  const se=state.focus.session; se.done++; if(g) se.mc+=g.mc;
+  closeFocusModal(); save(); render(); toast(g?gainText(g):'Acción hecha');
+}
+function focusDelete(l){
+  closeFocusModal();
+  if(l.kind==='task') deleteTask(l.ref);
+  else if(l.kind==='habit') deleteHabit(l.ref);
+  else { dropFocusRef(l.ref); save(); render(); toast('Acción quitada de la sesión'); }
+}
+
+let fmId=null, fmStep='menu';
+function openFocusModal(id){ fmId=id; fmStep='menu'; paintFocusModal(); document.getElementById('focusModal').classList.remove('hidden'); document.querySelector('#fmBody button')?.focus(); }
+function closeFocusModal(){ document.getElementById('focusModal').classList.add('hidden'); fmId=null; }
+function paintFocusModal(){
+  const l=state.focus.lines.find(x=>x.id===fmId); if(!l){ closeFocusModal(); return; }
+  const it=focusItem(l), isT=l.kind==='task', isH=l.kind==='habit', isA=l.kind==='acc', title=escapeHtml(focusTitle(l));
+  const tile=document.getElementById('fmTile'); tile.className='f-tile f-'+l.kind; tile.innerHTML=FICON[l.kind];
+  document.getElementById('fmMeta').innerHTML=focusMetaHTML(l);
+  document.getElementById('fmTitle').textContent=(it?.priority?'★ ':'')+focusTitle(l);
+  const btn2='px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm';
+  let html;
+  if(fmStep==='menu'){
+    const mc=isT?(it.priority?15:10):isH?(it.type==='free'?2:it.priority?8:5):0;
+    const mats=it&&!(isH&&it.type==='free'&&countToday(it)>0)?[...new Set((it.areas||[]).map(a=>RES[AREA_RES[a]].sym))]:[];
+    const reward=mc?`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${mc} ¢${mats.length?' · +1 '+mats.join(' o '):''}</span>`:'';
+    const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. No da recursos: no está vinculada.';
+    html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span></button>
+        <button type="button" data-fm="done" class="f-opt border-emerald-900 bg-[#0b211c]"><span class="flex items-center gap-2 text-emerald-300 text-[15px] font-semibold">${FOPT_ICON.done} Completado</span><span class="text-xs leading-snug text-slate-300">${doneDesc}</span>${reward}</button>
+        <button type="button" data-fm="edit" class="f-opt border-slate-700 bg-slate-900"><span class="flex items-center gap-2 text-slate-200 text-[15px] font-semibold">${FOPT_ICON.edit} Editar</span><span class="text-xs leading-snug text-slate-300">${isA?'Cambia el texto de la acción.':'Abre el editor: los cambios se guardan aquí y en el original.'}</span></button>
+        <button type="button" data-fm="delete" class="f-opt border-red-900 bg-[#1c0d10]"><span class="flex items-center gap-2 text-red-300 text-[15px] font-semibold">${FOPT_ICON.del} Eliminar</span><span class="text-xs leading-snug text-slate-300">${isA?'Quita la acción de esta sesión.':'Borra el original para siempre. Pide confirmación.'}</span></button>
+      </div>`;
+  } else if(fmStep==='delete'){
+    const head=isT?'¿Eliminar la tarea para siempre?':isH?'¿Eliminar el hábito para siempre?':'¿Quitar la acción de la sesión?';
+    const warn=isT?`«${title}» desaparecerá de esta lista y de Commander. No se puede deshacer.`
+      :isH?`«${title}» se borrará con todo su historial y su racha. No se puede deshacer.`
+      :`«${title}» no se guardará como tarea al salir.`;
+    html=`<div class="flex gap-3 items-start p-3.5 rounded-xl bg-[#1c0d10] border border-red-800">${FOPT_ICON.warn}<div><b class="block text-[15px] text-red-200">${head}</b><span class="text-[13px] leading-relaxed text-red-300">${warn}</span></div></div>
+      <div class="flex flex-wrap justify-end gap-2 mt-3.5"><button type="button" data-fm="back" class="${btn2}">Cancelar</button><button type="button" data-fm="confirm-delete" class="px-4 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm font-semibold">${isA?'Quitar acción':'Eliminar definitivamente'}</button></div>`;
+  } else {
+    html=`<form data-fm-form class="space-y-3">
+      <div><label for="fmEditInput" class="mono text-[11px] text-slate-400">TEXTO DE LA ACCIÓN</label>
+      <input id="fmEditInput" type="text" maxlength="200" value="${title}" class="mt-1 w-full h-11 bg-slate-900 border border-slate-700 rounded-lg px-3 text-sm outline-none focus:border-cyan-600"></div>
+      <p class="text-xs text-slate-400">Solo cambia en esta sesión. Al salir podrás guardarla como tarea.</p>
+      <div class="flex justify-end gap-2"><button type="button" data-fm="back" class="${btn2}">Cancelar</button><button type="submit" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold">Guardar</button></div></form>`;
+  }
+  document.getElementById('fmBody').innerHTML=html;
+  if(fmStep==='edit') setTimeout(()=>document.getElementById('fmEditInput')?.focus(),30);
+}
+
+// salir: ofrecer guardar las acciones rápidas como tareas
+let fxTarget='commander', fxPicks=new Set();
+function focusCandidates(){
+  const L=state.focus.lines, seen=new Set(), out=[];
+  for(const l of L){
+    if(l.kind!=='acc'||seen.has(l.ref)) continue; seen.add(l.ref);
+    if(!L.some(x=>x.ref===l.ref&&x.status==='done')) out.push(l);
+  }
+  return out;
+}
+function requestFocusExit(target='commander'){
+  closeFocusModal(); fxTarget=target;
+  const c=focusCandidates();
+  if(!c.length){ finishFocusExit(new Set()); return; }
+  fxPicks=new Set(c.map(l=>l.ref)); paintFocusExit();
+  document.getElementById('focusExitModal').classList.remove('hidden');
+}
+function closeFocusExit(){ document.getElementById('focusExitModal').classList.add('hidden'); }
+function paintFocusExit(){
+  const se=state.focus.session;
+  document.getElementById('fxChips').innerHTML=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${se.mc} ¢`,'border-amber-800 text-amber-300');
+  document.getElementById('fxList').innerHTML=focusCandidates().map(l=>`<li><label class="flex items-center gap-3 min-h-[52px] px-3 py-2 rounded-lg border border-[#1f2a3d] bg-[#0d1526] cursor-pointer">
+      <input type="checkbox" data-ref="${l.ref}" ${fxPicks.has(l.ref)?'checked':''} class="w-[18px] h-[18px] accent-cyan-600 shrink-0">
+      <span class="f-tile f-acc" aria-hidden="true">${FICON.acc}</span>
+      <span class="min-w-0 flex-1"><span class="block text-sm text-slate-100 break-words">${escapeHtml(l.title)}</span><span class="mono text-[11px] text-slate-400">añadida a las ${fClock(l.added)} · pasará a TAREA sin fecha</span></span>
+    </label></li>`).join('');
+  paintFocusExitBtn();
+}
+function paintFocusExitBtn(){ const n=fxPicks.size; document.getElementById('fxSave').textContent=n===0?'Salir':n===1?'Crear 1 tarea y salir':`Crear ${n} tareas y salir`; }
+function finishFocusExit(keep){
+  const f=state.focus, se=f.session, conv={};
+  f.lines=f.lines.filter(l=>!l.status);
+  for(const ref of keep){
+    const l=f.lines.find(x=>x.ref===ref); if(!l) continue;
+    const id=uid(); state.tasks.push({id,title:l.title,dueDate:null,priority:false,done:false,areas:[],createdAt:Date.now()}); conv[ref]=id;
+  }
+  // las acciones guardadas se quedan en su sitio de la lista larga, ya como tareas
+  f.lines=f.lines.filter(l=>l.kind!=='acc'||conv[l.ref]).map(({title,...l})=>l.kind==='acc'?{...l,kind:'task',ref:conv[l.ref]}:(title!==undefined?{...l,title}:l));
+  const n=Object.keys(conv).length;
+  const msg=`Sesión cerrada · ${plural(se.progress,'progreso','progresos')} · ${plural(se.done,'completado','completados')} · +${se.mc} ¢`+(n?` · ${plural(n,'tarea nueva','tareas nuevas')}`:'');
+  f.session={progress:0,done:0,mc:0}; f.phase='prep';
+  closeFocusExit(); save(); setMode(fxTarget); toast(msg);
+}
+
+(()=>{
+  const ol=document.getElementById('focusList');
+  ol.addEventListener('click',e=>{
+    const b=e.target.closest('[data-main]'); if(!b||b.disabled) return;
+    const id=b.closest('li').dataset.id, l=state.focus.lines.find(x=>x.id===id); if(!l) return;
+    if(state.focus.phase==='prep'){ l.dotted=!l.dotted; save(); render(); ol.querySelector(`li[data-id="${id}"] [data-main]`)?.focus(); }
+    else openFocusModal(id);
+  });
+  // reordenar con el asa: Pointer Events (ratón y táctil) + flechas del teclado
+  let drag=null;
+  const clearMarks=()=>ol.querySelectorAll('.drop-before,.drop-after').forEach(x=>x.classList.remove('drop-before','drop-after'));
+  ol.addEventListener('pointerdown',e=>{
+    const g=e.target.closest('[data-grip]'); if(!g||e.button>0) return;
+    e.preventDefault(); const li=g.closest('li');
+    drag={id:li.dataset.id,li,target:null,after:false}; g.setPointerCapture(e.pointerId); li.classList.add('dragging');
+  });
+  ol.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('#focusList > li[data-id]');
+    clearMarks();
+    if(e.clientY<70) scrollBy(0,-14); else if(e.clientY>innerHeight-70) scrollBy(0,14);
+    if(!el||el===drag.li){ drag.target=null; return; }
+    const r=el.getBoundingClientRect(), after=e.clientY>r.top+r.height/2;
+    el.classList.add(after?'drop-after':'drop-before'); drag.target=el.dataset.id; drag.after=after;
+  });
+  const endDrag=(commit)=>{ if(!drag) return; const d=drag; drag=null; clearMarks(); d.li.classList.remove('dragging'); if(commit&&d.target) moveFocusLine(d.id,d.target,d.after); };
+  ol.addEventListener('pointerup',()=>endDrag(true));
+  ol.addEventListener('pointercancel',()=>endDrag(false));
+  ol.addEventListener('keydown',e=>{
+    const g=e.target.closest('[data-grip]'); if(!g||(e.key!=='ArrowUp'&&e.key!=='ArrowDown')) return;
+    e.preventDefault();
+    const id=g.closest('li').dataset.id, L=state.focus.lines, i=L.findIndex(l=>l.id===id), j=i+(e.key==='ArrowUp'?-1:1);
+    if(i<0||j<0||j>=L.length) return;
+    [L[i],L[j]]=[L[j],L[i]]; save(); render(); ol.querySelector(`li[data-id="${id}"] [data-grip]`)?.focus();
+  });
+
+  document.getElementById('focusAddForm').addEventListener('submit',e=>{
+    e.preventDefault(); const inp=document.getElementById('focusAddInput'), t=inp.value.trim(); if(!t) return;
+    state.focus.lines.push(newLine('acc',uid(),{title:t})); inp.value=''; save(); render(); inp.focus();
+  });
+  document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(b){ setFocusPhase(b.dataset.phase); scrollTo(0,0); } });
+  document.getElementById('btnFocusPrep').onclick=()=>setFocusPhase('prep');
+  document.getElementById('btnFocusWork').onclick=()=>setFocusPhase('work');
+  document.getElementById('btnFocusExit').onclick=()=>requestFocusExit('commander');
+  document.getElementById('btnFocus').onclick=enterFocus;
+  document.querySelectorAll('[data-ficon]').forEach(el=>el.innerHTML=FICON[el.dataset.ficon]);
+
+  const fm=document.getElementById('focusModal'), body=document.getElementById('fmBody');
+  document.getElementById('fmClose').onclick=closeFocusModal;
+  fm.addEventListener('click',e=>{ if(e.target===fm) closeFocusModal(); });
+  body.addEventListener('click',e=>{
+    const b=e.target.closest('[data-fm]'); if(!b) return;
+    const l=state.focus.lines.find(x=>x.id===fmId); if(!l){ closeFocusModal(); return; }
+    const a=b.dataset.fm;
+    if(a==='progress') focusProgress(l);
+    else if(a==='done') focusComplete(l);
+    else if(a==='edit'){ if(l.kind==='acc'){ fmStep='edit'; paintFocusModal(); } else { closeFocusModal(); openModal(l.kind,l.ref); } }
+    else if(a==='delete'){ fmStep='delete'; paintFocusModal(); }
+    else if(a==='back'){ fmStep='menu'; paintFocusModal(); }
+    else if(a==='confirm-delete') focusDelete(l);
+  });
+  body.addEventListener('submit',e=>{
+    e.preventDefault();
+    const l=state.focus.lines.find(x=>x.id===fmId), t=document.getElementById('fmEditInput').value.trim();
+    if(!l) return closeFocusModal();
+    if(t) state.focus.lines.forEach(x=>{ if(x.ref===l.ref) x.title=t; });
+    closeFocusModal(); save(); render(); toast('Acción editada');
+  });
+
+  const fx=document.getElementById('focusExitModal');
+  fx.addEventListener('click',e=>{ if(e.target===fx) closeFocusExit(); });
+  document.getElementById('fxList').addEventListener('change',e=>{ const r=e.target.dataset.ref; if(!r) return; e.target.checked?fxPicks.add(r):fxPicks.delete(r); paintFocusExitBtn(); });
+  document.getElementById('fxBack').onclick=closeFocusExit;
+  document.getElementById('fxDiscard').onclick=()=>finishFocusExit(new Set());
+  document.getElementById('fxSave').onclick=()=>finishFocusExit(new Set(fxPicks));
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeFocusModal(); closeFocusExit(); } });
+})();
+
 /* ---------- mode toggle ---------- */
 const UIKEY = 'spaceship-commander:ui';
 let uiMode = 'commander';
 function setMode(m){
-  uiMode=m; const ship=m==='ship';
-  document.getElementById('commander-view').classList.toggle('hidden',ship);
+  uiMode=m; const ship=m==='ship', focus=m==='focus';
+  document.getElementById('commander-view').classList.toggle('hidden',ship||focus);
   document.getElementById('spaceship-view').classList.toggle('hidden',!ship);
-  document.getElementById('btnCommander').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(!ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
+  document.getElementById('focus-view').classList.toggle('hidden',!focus);
+  document.getElementById('navToggle').classList.toggle('hidden',focus);
+  document.getElementById('brandText').classList.toggle('max-sm:hidden',focus);
+  const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
+  document.getElementById('btnCommander').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(m==='commander'?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   document.getElementById('btnSpaceship').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   try{ localStorage.setItem(UIKEY,m); }catch{}
   render(); scrollTo(0,0);
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
-document.getElementById('shipChip').onclick=()=>setMode('ship');
+document.getElementById('shipChip').onclick=()=>uiMode==='focus'?requestFocusExit('ship'):setMode('ship');
 
 /* ---------- boot ---------- */
 dailyTick();
-setMode(localStorage.getItem(UIKEY)==='ship'?'ship':'commander');
+{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'?m:'commander'); }
 addEventListener('focus',()=>{ dailyTick(); render(); });
 </script>
 </body>
