@@ -96,7 +96,7 @@ tailwind.config = {
     <div id="focusNav" class="hidden items-center gap-2 shrink-0 ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
         <button id="btnFocusPrep" aria-pressed="true" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Preparar</button>
-        <button id="btnFocusWork" aria-pressed="false" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Trabajar</button>
+        <button id="btnFocusWork" aria-pressed="false" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md whitespace-nowrap">Trabajar<span id="focusClock" class="mono tabular-nums"></span></button>
       </div>
       <button id="btnFocusExit" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:border-cyan-600" title="Salir del Protocolo Forster">Salir</button>
     </div>
@@ -478,7 +478,7 @@ function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
     .map(l=>({id:l.id,kind:l.kind,ref:l.ref,...(l.kind==='acc'?{title:l.title}:{}),dotted:!!l.dotted,status:['progress','done'].includes(l.status)?l.status:null,re:clampInt(l.re,0,999,0),added:Number.isFinite(+l.added)?+l.added:Date.now()}));
   const se=f?.session;
-  return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,
+  return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,workStart:Number.isFinite(+f?.workStart)&&f?.workStart!==null?+f.workStart:null,
     session:{progress:clampInt(se?.progress,0,1e6,0),done:clampInt(se?.done,0,1e6,0),mc:clampInt(se?.mc,0,1e9,0)}};
 }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
@@ -1215,7 +1215,7 @@ function focusEligible(){
 function syncFocus(){
   const f=state.focus, t=todayStr(), sig=()=>f.day+'|'+f.lines.map(l=>l.id).join();
   const before=sig();
-  if(f.day!==t){ f.lines=f.lines.filter(l=>!l.status); f.session={progress:0,done:0,mc:0}; f.day=t; }
+  if(f.day!==t){ f.lines=f.lines.filter(l=>!l.status); f.session={progress:0,done:0,mc:0}; f.day=t; if(f.phase==='work') f.workStart=Date.now(); }
   const elig=focusEligible(), ok=new Set(elig.map(e=>e.kind+':'+e.ref));
   f.lines=f.lines.filter(l=>l.kind==='acc'||(focusItem(l)&&(l.status||ok.has(l.kind+':'+l.ref))));
   const have=new Set(f.lines.map(l=>l.kind+':'+l.ref));
@@ -1247,6 +1247,8 @@ const focusMetaHTML=(l)=>{ const k=FKIND[l.kind], m=focusMeta(l), it=focusItem(l
 
 function renderFocus(){
   syncFocus();
+  if(state.focus.phase==='work'&&state.focus.workStart===null){ state.focus.workStart=Date.now(); save(); }
+  paintFocusClock();
   const f=state.focus, prep=f.phase==='prep', live=f.lines.filter(l=>!l.status), dots=live.filter(l=>l.dotted).length, se=f.session;
   for(const [id,on] of [['btnFocusPrep',prep],['btnFocusWork',!prep]]){ const b=document.getElementById(id); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }
   const pl=document.getElementById('focusPhaseLabel');
@@ -1288,15 +1290,31 @@ function renderFocus(){
     :`<div class="flex flex-wrap items-center justify-between gap-2.5"><p class="mono text-[11px] leading-relaxed text-slate-400 flex-1 basis-64">Lo tachado queda como registro de la sesión. Lo que avanzaste vuelve al final, sin punto.</p><button type="button" data-phase="prep" class="h-11 px-4 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:text-white">Volver a preparar</button></div>`;
 }
 // al volver a Preparar desde Trabajar se limpian las líneas ya trabajadas (tachadas)
-function setFocusPhase(p){ const f=state.focus; if(p==='prep'&&f.phase==='work') f.lines=f.lines.filter(l=>!l.status); f.phase=p; save(); render(); }
+// cada ronda de Trabajar lleva su propio reloj (workStart)
+function setFocusPhase(p){
+  const f=state.focus;
+  if(p==='prep'&&f.phase==='work') f.lines=f.lines.filter(l=>!l.status);
+  if(p==='work'&&f.phase!=='work') f.workStart=Date.now();
+  if(p==='prep') f.workStart=null;
+  f.phase=p; save(); render();
+}
+const fmtDur=(ms)=>{ const s=Math.max(0,Math.floor(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=String(s%60).padStart(2,'0'); return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`; };
+let fClockT=null;
+function paintFocusClock(){
+  const f=state.focus, on=uiMode==='focus'&&f.phase==='work'&&f.workStart!==null;
+  document.getElementById('focusClock').textContent=on?' · '+fmtDur(Date.now()-f.workStart):'';
+  if(on&&!fClockT) fClockT=setInterval(paintFocusClock,1000);
+  if(!on&&fClockT){ clearInterval(fClockT); fClockT=null; }
+}
 // tras Progreso o Completado sobre una línea con punto: si ya no queda ninguna, la ronda termina
 function focusRoundDone(wasDotted){
   const f=state.focus;
   if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return '';
+  const dur=f.workStart!==null?' en '+fmtDur(Date.now()-f.workStart):'';
   setFocusPhase('prep'); scrollTo(0,0);
-  return ' · ¡Ronda completada! Prepara la siguiente.';
+  return ` · ¡Ronda completada${dur}! Prepara la siguiente.`;
 }
-function enterFocus(){ state.focus.phase='prep'; save(); setMode('focus'); }
+function enterFocus(){ state.focus.phase='prep'; state.focus.workStart=null; save(); setMode('focus'); }
 function moveFocusLine(id,tid,after){
   const L=state.focus.lines, i=L.findIndex(l=>l.id===id); if(i<0) return;
   const [m]=L.splice(i,1); let j=L.findIndex(l=>l.id===tid); if(j<0){ L.splice(i,0,m); return; }
@@ -1408,7 +1426,7 @@ function finishFocusExit(keep){
   f.lines=f.lines.filter(l=>l.kind!=='acc'||conv[l.ref]).map(({title,...l})=>l.kind==='acc'?{...l,kind:'task',ref:conv[l.ref]}:(title!==undefined?{...l,title}:l));
   const n=Object.keys(conv).length;
   const msg=`Sesión cerrada · ${plural(se.progress,'progreso','progresos')} · ${plural(se.done,'completado','completados')} · +${se.mc} ¢`+(n?` · ${plural(n,'tarea nueva','tareas nuevas')}`:'');
-  f.session={progress:0,done:0,mc:0}; f.phase='prep';
+  f.session={progress:0,done:0,mc:0}; f.phase='prep'; f.workStart=null;
   closeFocusExit(); save(); setMode(fxTarget); toast(msg);
 }
 
@@ -1500,11 +1518,12 @@ function setMode(m){
   document.getElementById('focus-view').classList.toggle('hidden',!focus);
   document.getElementById('navToggle').classList.toggle('hidden',focus);
   document.getElementById('brandText').classList.toggle('max-sm:hidden',focus);
+  document.getElementById('btnSaveGame').classList.toggle('max-sm:hidden',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
   document.getElementById('btnCommander').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(m==='commander'?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   document.getElementById('btnSpaceship').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
   try{ localStorage.setItem(UIKEY,m); }catch{}
-  render(); scrollTo(0,0);
+  render(); paintFocusClock(); scrollTo(0,0);
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
