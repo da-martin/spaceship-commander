@@ -1360,17 +1360,28 @@ function paintFocusClock(){
 function focusRoundDone(wasDotted){
   const f=state.focus;
   if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return null;
-  const r={dur:f.workStart!==null?fmtDur(Date.now()-f.workStart):null,...f.round};
+  return endWork();
+}
+// termina la ronda de Trabajar y devuelve su resumen (tiempo y contadores) para el modal
+function endWork(){
+  const f=state.focus, r={dur:f.workStart!==null?fmtDur(Date.now()-f.workStart):null,...f.round};
   setFocusPhase('prep'); scrollTo(0,0);
   return r;
 }
+// volver a Preparar a mano: si se estaba trabajando, también se muestra el resumen
+function backToPrep(){
+  if(state.focus.phase!=='work'){ setFocusPhase('prep'); return; }
+  openRoundModal(endWork(),null,false);
+}
 // suma a la sesión (diálogo de salida) y a la ronda actual (modal de fin de ronda)
 function focusCount(k,n){ state.focus.session[k]+=n; state.focus.round[k]+=n; }
-function openRoundModal(r,last){
+function openRoundModal(r,last,completed=true){
   const extra=toastExtra; toastExtra=null;   // p. ej. un contrato completado con esta acción
   document.getElementById('rmDur').textContent=r.dur?`Tiempo de la ronda · ${r.dur}`:'';
   document.getElementById('rmChips').innerHTML=chip(plural(r.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(r.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${r.mc} ¢`,'border-amber-800 text-amber-300');
-  document.getElementById('rmLast').textContent='Última acción: '+last+(extra?' · '+extra:'');
+  document.getElementById('rmTitle').textContent=completed?'¡Ronda completada!':'Ronda terminada';
+  const lastTxt=[last&&'Última acción: '+last,extra].filter(Boolean).join(' · ');
+  const rl=document.getElementById('rmLast'); rl.textContent=lastTxt; rl.classList.toggle('hidden',!lastTxt);
   document.getElementById('toast').classList.add('hidden');   // el modal sustituye al aviso pequeño
   document.getElementById('roundModal').classList.remove('hidden');
   document.getElementById('rmGo').focus();
@@ -1538,8 +1549,8 @@ function finishFocusExit(keep){
     e.preventDefault(); const inp=document.getElementById('focusAddInput'), t=inp.value.trim(); if(!t) return;
     state.focus.lines.push(newLine('acc',uid(),{title:t})); inp.value=''; save(); render(); inp.focus();
   });
-  document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(!b) return; if(b.dataset.phase==='work') requestWork(); else { setFocusPhase('prep'); scrollTo(0,0); } });
-  document.getElementById('btnFocusPrep').onclick=()=>setFocusPhase('prep');
+  document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(!b) return; if(b.dataset.phase==='work') requestWork(); else backToPrep(); });
+  document.getElementById('btnFocusPrep').onclick=backToPrep;
   document.getElementById('btnFocusWork').onclick=requestWork;
   const fc=document.getElementById('focusConfirm');
   fc.addEventListener('click',e=>{ if(e.target===fc) closeFocusConfirm(); });
