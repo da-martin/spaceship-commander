@@ -71,6 +71,10 @@ tailwind.config = {
   .f-prep .f-row:not(.dot) .f-dot{border-color:#64748b}
   .f-grip{flex:none;display:grid;place-items:center;width:30px;color:#64748b;cursor:grab;touch-action:none;border-radius:10px 0 0 10px}
   .f-grip:hover,.f-grip:focus-visible{color:#67e8f9}
+  /* sin anillo de foco en clics; con teclado se rodea la línea entera */
+  .f-main:focus,.f-grip:focus{outline:none}
+  .f-row:has(.f-main:focus-visible),.f-row:has(.f-grip:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
+  .f-mode-prep .f-row:has(.f-main:focus-visible),.f-mode-prep .f-row:has(.f-grip:focus-visible){outline-color:#fbbf24}
   .f-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:58px;text-align:left;border-radius:10px}
   .f-main:not(:disabled):hover{background:rgba(103,232,249,.04)}
   .f-main:disabled{cursor:default}
@@ -260,7 +264,7 @@ tailwind.config = {
     <div class="min-w-0 flex-1 basis-72">
       <div class="sys-label">00 // Sistema de enfoque</div>
       <h2 class="text-3xl font-normal tracking-tight text-slate-50 mt-1.5">Protocolo Forster</h2>
-      <p class="mono text-[11px] text-slate-400 mt-1.5">En memoria de Mark Forster · una lista, puntos y re‑entrada</p>
+      <p class="mono text-[11px] text-slate-400 mt-1.5">En memoria de Mark Forster · Marca, trabaja un poco, repite</p>
     </div>
     <div id="focusChips" class="flex flex-wrap gap-1.5"></div>
   </section>
@@ -1463,7 +1467,11 @@ function finishFocusExit(keep){
   ol.addEventListener('click',e=>{
     const b=e.target.closest('[data-main]'); if(!b||b.disabled) return;
     const id=b.closest('li').dataset.id, l=state.focus.lines.find(x=>x.id===id); if(!l) return;
-    if(state.focus.phase==='prep'){ l.dotted=!l.dotted; save(); render(); ol.querySelector(`li[data-id="${id}"] [data-main]`)?.focus(); }
+    if(state.focus.phase==='prep'){
+      l.dotted=!l.dotted; save(); render();
+      // solo se devuelve el foco si se usó el teclado (Enter/Espacio): con ratón o dedo no hay anillo
+      if(e.detail===0) ol.querySelector(`li[data-id="${id}"] [data-main]`)?.focus();
+    }
     else openFocusModal(id);
   });
   // reordenar con el asa: Pointer Events (ratón y táctil) + flechas del teclado
