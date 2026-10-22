@@ -325,6 +325,24 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- PROTOCOLO FORSTER: fin de ronda -->
+<div id="roundModal" class="hidden fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="rmTitle" aria-describedby="rmText" class="panel corner w-full max-w-md p-6 sm:p-8 text-center flex flex-col items-center gap-4" style="border-color:#92400e">
+    <span aria-hidden="true" class="w-16 h-16 rounded-full grid place-items-center bg-amber-950/60 border-2 border-amber-500 text-amber-300">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </span>
+    <div>
+      <div class="sys-label">Protocolo Forster</div>
+      <h3 id="rmTitle" class="text-2xl font-bold mt-1.5 text-slate-50">¡Ronda completada!</h3>
+      <p id="rmDur" class="mono text-sm text-amber-300 mt-1.5"></p>
+    </div>
+    <div id="rmChips" class="flex flex-wrap justify-center gap-1.5"></div>
+    <p id="rmLast" class="mono text-[11px] text-slate-400"></p>
+    <p id="rmText" class="text-[15px] leading-relaxed text-slate-200">Volvemos a la fase <b class="text-amber-300">Preparar</b>: marca con punto lo siguiente que vas a trabajar.</p>
+    <button id="rmGo" class="w-full h-12 rounded-xl text-white text-[15px] font-semibold bg-[#b45309] hover:bg-[#c2410c] border border-amber-500">Preparar la siguiente ronda</button>
+  </div>
+</div>
+
 <!-- PROTOCOLO FORSTER: salir -->
 <div id="focusExitModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
   <div role="dialog" aria-modal="true" aria-labelledby="fxTitle" class="panel w-full max-w-lg mx-auto mt-16 sm:mt-24 mb-8 p-4 sm:p-5 space-y-4">
@@ -501,9 +519,9 @@ function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,al
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
     .map(l=>({id:l.id,kind:l.kind,ref:l.ref,...(l.kind==='acc'?{title:l.title}:{}),dotted:!!l.dotted,status:['progress','done'].includes(l.status)?l.status:null,re:clampInt(l.re,0,999,0),added:Number.isFinite(+l.added)?+l.added:Date.now()}));
-  const se=f?.session;
+  const counts=(o)=>({progress:clampInt(o?.progress,0,1e6,0),done:clampInt(o?.done,0,1e6,0),mc:clampInt(o?.mc,0,1e9,0)});
   return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,workStart:Number.isFinite(+f?.workStart)&&f?.workStart!==null?+f.workStart:null,
-    session:{progress:clampInt(se?.progress,0,1e6,0),done:clampInt(se?.done,0,1e6,0),mc:clampInt(se?.mc,0,1e9,0)}};
+    session:counts(f?.session),round:counts(f?.round)};
 }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // normaliza un estado guardado (localStorage o partida importada)
@@ -1326,7 +1344,7 @@ const closeFocusConfirm=()=>document.getElementById('focusConfirm').classList.ad
 function setFocusPhase(p){
   const f=state.focus;
   if(p==='prep'&&f.phase==='work') f.lines=f.lines.filter(l=>!l.status);
-  if(p==='work'&&f.phase!=='work') f.workStart=Date.now();
+  if(p==='work'&&f.phase!=='work'){ f.workStart=Date.now(); f.round={progress:0,done:0,mc:0}; }
   if(p==='prep') f.workStart=null;
   f.phase=p; save(); render();
 }
@@ -1341,11 +1359,23 @@ function paintFocusClock(){
 // tras Progreso o Completado sobre una línea con punto: si ya no queda ninguna, la ronda termina
 function focusRoundDone(wasDotted){
   const f=state.focus;
-  if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return '';
-  const dur=f.workStart!==null?' en '+fmtDur(Date.now()-f.workStart):'';
+  if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return null;
+  const r={dur:f.workStart!==null?fmtDur(Date.now()-f.workStart):null,...f.round};
   setFocusPhase('prep'); scrollTo(0,0);
-  return ` · ¡Ronda completada${dur}! Prepara la siguiente.`;
+  return r;
 }
+// suma a la sesión (diálogo de salida) y a la ronda actual (modal de fin de ronda)
+function focusCount(k,n){ state.focus.session[k]+=n; state.focus.round[k]+=n; }
+function openRoundModal(r,last){
+  const extra=toastExtra; toastExtra=null;   // p. ej. un contrato completado con esta acción
+  document.getElementById('rmDur').textContent=r.dur?`Tiempo de la ronda · ${r.dur}`:'';
+  document.getElementById('rmChips').innerHTML=chip(plural(r.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(r.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${r.mc} ¢`,'border-amber-800 text-amber-300');
+  document.getElementById('rmLast').textContent='Última acción: '+last+(extra?' · '+extra:'');
+  document.getElementById('toast').classList.add('hidden');   // el modal sustituye al aviso pequeño
+  document.getElementById('roundModal').classList.remove('hidden');
+  document.getElementById('rmGo').focus();
+}
+const closeRoundModal=()=>document.getElementById('roundModal').classList.add('hidden');
 function enterFocus(){ state.focus.phase='prep'; state.focus.workStart=null; save(); setMode('focus'); }
 function moveFocusLine(id,tid,after){
   const L=state.focus.lines, i=L.findIndex(l=>l.id===id); if(i<0) return;
@@ -1357,18 +1387,20 @@ function moveFocusLine(id,tid,after){
 function focusProgress(l){
   const f=state.focus, dotted=l.dotted; l.status='progress';
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
-  addW('mc',PROGRESS_MC); f.session.progress++; f.session.mc+=PROGRESS_MC; closeFocusModal(); save(); render();
+  addW('mc',PROGRESS_MC); focusCount('progress',1); focusCount('mc',PROGRESS_MC); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
-  toast(`+${PROGRESS_MC} ¢ · Progreso anotado`+(round||' · vuelve al final de la lista'));
+  if(round) openRoundModal(round,`+${PROGRESS_MC} ¢ por el progreso`);
+  else toast(`+${PROGRESS_MC} ¢ · Progreso anotado · vuelve al final de la lista`);
 }
 function focusComplete(l){
   const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
   if(l.kind==='task'){ it.done=true; g=grantTask(it); }
   else if(l.kind==='habit'){ if(it.type==='free') g=tapFree(it,k); else { it.log=it.log||{}; it.log[k]=1; g=checkHabit(it,k); } }
   for(const x of state.focus.lines) if(x.ref===l.ref&&!x.status) x.status='done';
-  const se=state.focus.session; se.done++; if(g) se.mc+=g.mc;
+  focusCount('done',1); if(g) focusCount('mc',g.mc);
   closeFocusModal(); save(); render();
-  toast((g?gainText(g):'Acción hecha')+focusRoundDone(dotted));
+  const round=focusRoundDone(dotted), gain=g?gainText(g):'Acción hecha';
+  if(round) openRoundModal(round,gain); else toast(gain);
 }
 function focusDelete(l){
   closeFocusModal();
@@ -1545,7 +1577,10 @@ function finishFocusExit(keep){
   document.getElementById('fxBack').onclick=closeFocusExit;
   document.getElementById('fxDiscard').onclick=()=>finishFocusExit(new Set());
   document.getElementById('fxSave').onclick=()=>finishFocusExit(new Set(fxPicks));
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeFocusModal(); closeFocusExit(); closeFocusConfirm(); } });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeFocusModal(); closeFocusExit(); closeFocusConfirm(); closeRoundModal(); } });
+  const rm=document.getElementById('roundModal');
+  rm.addEventListener('click',e=>{ if(e.target===rm) closeRoundModal(); });
+  document.getElementById('rmGo').onclick=closeRoundModal;
 })();
 
 /* ---------- mode toggle ---------- */
