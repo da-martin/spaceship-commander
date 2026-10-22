@@ -49,6 +49,13 @@ tailwind.config = {
   .acc-head:hover h2{color:#67e8f9}
   /* Protocolo Forster */
   .fphase{color:#cbd5e1}.fphase:hover{color:#fff}.fphase.on{background:#0e7490;color:#fff;font-weight:500}
+  /* cada fase con su color: Preparar ámbar (el del punto), Trabajar cian */
+  #btnFocusPrep.on{background:#b45309}
+  .f-mode-prep #focusPhaseBox{background:rgba(251,191,36,.08);border-color:#92400e}
+  .f-mode-work #focusPhaseBox{background:rgba(34,211,238,.06);border-color:#155e75}
+  .f-mode-prep #focusPanel{border-color:rgba(180,83,9,.55)}
+  .f-mode-work #focusPanel{border-color:rgba(14,116,144,.55)}
+  .f-mode-prep #focusPanel .sys-label{color:#fcd34d}
   .f-tile{width:30px;height:30px;flex:none;display:grid;place-items:center;box-sizing:border-box}
   .f-habit{color:#6ee7b7;background:#0b211c;border:1.5px solid #065f46;border-radius:999px}
   .f-task{color:#7dd3fc;background:#0c1f33;border:1.5px solid #0e7490;border-radius:6px}
@@ -258,12 +265,12 @@ tailwind.config = {
     <div id="focusChips" class="flex flex-wrap gap-1.5"></div>
   </section>
 
-  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#1f2a3d] bg-[#0d1526] px-3.5 py-3">
+  <div id="focusPhaseBox" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#1f2a3d] bg-[#0d1526] px-3.5 py-3">
     <span id="focusPhaseLabel" class="mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border"></span>
     <p id="focusPhaseHint" class="text-[13px] leading-relaxed text-slate-300 flex-1 basis-64"></p>
   </div>
 
-  <section class="panel p-3.5" aria-label="Lista larga">
+  <section id="focusPanel" class="panel p-3.5" aria-label="Lista larga">
     <div class="flex items-center justify-between px-1 pb-2">
       <span class="sys-label">Lista larga</span>
       <span id="focusCount" class="mono text-[11px] text-slate-400"></span>
@@ -298,6 +305,19 @@ tailwind.config = {
       <button id="fmClose" aria-label="Cerrar" class="w-10 h-10 -mt-1.5 -mr-1.5 rounded-lg text-slate-400 hover:text-white grid place-items-center shrink-0">✕</button>
     </div>
     <div id="fmBody" class="px-4 pb-4"></div>
+  </div>
+</div>
+
+<!-- PROTOCOLO FORSTER: pasar a Trabajar sin puntos -->
+<div id="focusConfirm" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="fcTitle" aria-describedby="fcText" class="panel w-full max-w-md mx-auto mt-24 mb-8 p-4 sm:p-5 space-y-3">
+    <div class="sys-label">Protocolo Forster</div>
+    <h3 id="fcTitle" class="text-lg font-bold">No has marcado ninguna tarea</h3>
+    <p id="fcText" class="text-[13px] leading-relaxed text-slate-300">¿Seguro que quieres pasar al modo Trabajar? En esta fase se trabaja sobre lo marcado con punto.</p>
+    <div class="flex flex-wrap justify-end gap-2 pt-1">
+      <button id="fcBack" class="px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm">Marcar primero</button>
+      <button id="fcGo" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold">Trabajar igualmente</button>
+    </div>
   </div>
 </div>
 
@@ -1251,6 +1271,7 @@ function renderFocus(){
   paintFocusClock();
   const f=state.focus, prep=f.phase==='prep', live=f.lines.filter(l=>!l.status), dots=live.filter(l=>l.dotted).length, se=f.session;
   for(const [id,on] of [['btnFocusPrep',prep],['btnFocusWork',!prep]]){ const b=document.getElementById(id); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }
+  const fv=document.getElementById('focus-view'); fv.classList.toggle('f-mode-prep',prep); fv.classList.toggle('f-mode-work',!prep);
   const pl=document.getElementById('focusPhaseLabel');
   pl.textContent=prep?'FASE 1 · PREPARAR':'FASE 2 · TRABAJAR';
   pl.className='mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border '+(prep?'border-amber-800 text-amber-300':'border-cyan-800 text-cyan-300');
@@ -1291,6 +1312,13 @@ function renderFocus(){
 }
 // al volver a Preparar desde Trabajar se limpian las líneas ya trabajadas (tachadas)
 // cada ronda de Trabajar lleva su propio reloj (workStart)
+// pasar a Trabajar sin ninguna línea con punto pide confirmación
+function requestWork(){
+  const f=state.focus;
+  if(f.phase==='prep'&&!f.lines.some(l=>!l.status&&l.dotted)){ document.getElementById('focusConfirm').classList.remove('hidden'); document.getElementById('fcBack').focus(); return; }
+  setFocusPhase('work'); scrollTo(0,0);
+}
+const closeFocusConfirm=()=>document.getElementById('focusConfirm').classList.add('hidden');
 function setFocusPhase(p){
   const f=state.focus;
   if(p==='prep'&&f.phase==='work') f.lines=f.lines.filter(l=>!l.status);
@@ -1470,9 +1498,13 @@ function finishFocusExit(keep){
     e.preventDefault(); const inp=document.getElementById('focusAddInput'), t=inp.value.trim(); if(!t) return;
     state.focus.lines.push(newLine('acc',uid(),{title:t})); inp.value=''; save(); render(); inp.focus();
   });
-  document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(b){ setFocusPhase(b.dataset.phase); scrollTo(0,0); } });
+  document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(!b) return; if(b.dataset.phase==='work') requestWork(); else { setFocusPhase('prep'); scrollTo(0,0); } });
   document.getElementById('btnFocusPrep').onclick=()=>setFocusPhase('prep');
-  document.getElementById('btnFocusWork').onclick=()=>setFocusPhase('work');
+  document.getElementById('btnFocusWork').onclick=requestWork;
+  const fc=document.getElementById('focusConfirm');
+  fc.addEventListener('click',e=>{ if(e.target===fc) closeFocusConfirm(); });
+  document.getElementById('fcBack').onclick=closeFocusConfirm;
+  document.getElementById('fcGo').onclick=()=>{ closeFocusConfirm(); setFocusPhase('work'); scrollTo(0,0); };
   document.getElementById('btnFocusExit').onclick=()=>requestFocusExit('commander');
   document.getElementById('btnFocus').onclick=enterFocus;
   document.querySelectorAll('[data-ficon]').forEach(el=>el.innerHTML=FICON[el.dataset.ficon]);
@@ -1505,7 +1537,7 @@ function finishFocusExit(keep){
   document.getElementById('fxBack').onclick=closeFocusExit;
   document.getElementById('fxDiscard').onclick=()=>finishFocusExit(new Set());
   document.getElementById('fxSave').onclick=()=>finishFocusExit(new Set(fxPicks));
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeFocusModal(); closeFocusExit(); } });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeFocusModal(); closeFocusExit(); closeFocusConfirm(); } });
 })();
 
 /* ---------- mode toggle ---------- */
