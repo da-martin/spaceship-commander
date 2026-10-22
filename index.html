@@ -94,7 +94,7 @@ tailwind.config = {
     </div>
     <div id="brandText" class="min-w-0 flex-1">
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
-      <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · SYS // PRODUCTIVITY</p>
+      <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · <span id="hdrRank">CADETE</span></p>
     </div>
     <button id="btnSaveGame" class="w-8 h-8 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center shrink-0" title="Guardar / cargar partida">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -193,6 +193,9 @@ tailwind.config = {
 
 <!-- SPACESHIP VIEW -->
 <main id="spaceship-view" class="hidden max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
+  <!-- Hoja de servicio: rango del comandante -->
+  <section id="rankPanel" class="panel corner p-4 sm:p-5"></section>
+
   <div id="walletBar" class="flex flex-wrap gap-1.5"></div>
 
   <!-- 3) Esquema de la nave -->
@@ -254,6 +257,24 @@ tailwind.config = {
       <div class="flex mb-3"><button id="btnReroll" class="ml-auto px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button></div>
       <div id="activeContract"></div>
       <div id="offerList" class="space-y-2"></div>
+    </div>
+  </section>
+
+  <!-- Tripulación (acordeón) -->
+  <section class="panel acc p-4 sm:p-5" data-acc="crew">
+    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
+      <div class="flex-1 min-w-0">
+        <div class="sys-label">07 // Tripulación</div>
+        <h2 class="text-lg font-bold mt-1">Tripulación <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
+      </div>
+      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
+    </button>
+    <div class="acc-body hidden mt-3">
+      <p class="mono text-[11px] text-slate-500 mb-3">Contratos de 7 días pagados por adelantado. Se renuevan en los últimos 3 días; si no renuevas, el tripulante se marcha sin penalización.</p>
+      <div class="sys-label mb-2">A bordo</div>
+      <div id="crewList" class="grid sm:grid-cols-2 gap-3"></div>
+      <div class="flex flex-wrap items-baseline gap-x-2 mt-5 mb-2"><span class="sys-label">Candidatos de la semana</span><span id="crewBoardNote" class="mono text-[11px] text-slate-400"></span></div>
+      <div id="candList" class="grid sm:grid-cols-2 gap-3"></div>
     </div>
   </section>
 </main>
@@ -489,6 +510,29 @@ const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'}
 const MOD_MC = [50,100,200,400,800], MOD_MAT = [1,2,4,6,9];
 const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2, REROLL_MC = 15;
 const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
+
+/* ---------- rango del comandante: méritos que no se gastan ---------- */
+const XP_TASK = 10, XP_HABIT = 5, XP_PROGRESS = 2, XP_ROUND = 5, XP_CONTRACT = 25;
+const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teniente',500],['Capitán de corbeta',900],['Capitán de fragata',1500],
+  ['Capitán de navío',2400],['Comodoro',3700],['Contraalmirante',5500],['Vicealmirante',8000],['Almirante',11500]];
+
+/* ---------- tripulación: contratos semanales prepagados ---------- */
+const BERTHS = 2, CANDS_N = 4, CREW_DAYS = 7, RENEW_WINDOW = 3;
+// nivel del tripulante: salario semanal y rango mínimo del comandante para contratarlo
+const CREW_LV = [{name:'Aprendiz',wage:45,rank:0},{name:'Oficial',wage:90,rank:2},{name:'Élite',wage:150,rank:4}];
+const pctTxt = (v) => Math.round(v*100)+'%';
+const ROLES = {
+  quarter:   {code:'INT', name:'Intendencia',   eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ en tareas completadas`},
+  instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3],      desc:(v)=>`+${v} ¢ por hábito diario o semanal cumplido`},
+  engineer:  {code:'ING', name:'Ingeniería',    eff:[.25,.4,.55], desc:(v)=>`−${pctTxt(v)} de desgaste en los módulos`},
+  medic:     {code:'MNT', name:'Mantenimiento', eff:[1,2,3],      desc:(v)=>`+${v}% de reparación extra al completar`},
+  navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar contratos`},
+  prospector:{code:'PRO', name:'Prospección',   eff:[.15,.25,.35],desc:(v)=>`${pctTxt(v)} de prob. de material extra`},
+  trader:    {code:'COM', name:'Comercio',      eff:[.1,.15,.2],  desc:(v)=>`−${pctTxt(v)} al comprar en el mercado`},
+  pilot:     {code:'PIL', name:'Pilotaje',      eff:[1,2,3],      desc:(v)=>`+${v} ¢ por Progreso en el Protocolo Forster`}
+};
+const CREW_FIRST = ['Lina','Tomás','Aiko','Rafa','Noor','Iker','Sasha','Marta','Kofi','Elena','Darío','Yuki','Inés','Omar','Vega','Leo','Nadia','Bruno','Zara','Hugo','Mei','Pau','Ada','Teo'];
+const CREW_LAST = ['Okafor','Ibarra','Tanaka','Volkov','Reyes','Lindqvist','Moreau','Haddad','Santos','Kowalski','Nakamura','Ferrer','Adeyemi','Castell','Novak','Quiroga'];
 const TOPICS = {
   'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
   'Minería':       ['Extraer hielo de un cinturón de asteroides','Escoltar una draga minera','Perforar un núcleo metálico'],
@@ -511,10 +555,15 @@ function normShip(s){
     board:(b&&Array.isArray(b.offers))?{date:b.date||null,offers:b.offers,rerolls:clampInt(b.rerolls,0,99,0)}:{date:null,offers:[],rerolls:0},
     activity:(s?.activity&&typeof s.activity==='object')?s.activity:{},
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
-    rot:clampInt(s?.rot,0,1e9,0)
+    rot:clampInt(s?.rot,0,1e9,0),
+    crew:(Array.isArray(s?.crew)?s.crew:[]).filter(m=>m&&ROLES[m.role]&&typeof m.name==='string'&&typeof m.until==='string')
+      .map(m=>({id:String(m.id||uid()),name:m.name,role:m.role,lv:clampInt(m.lv,1,3,1),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until})),
+    crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
+      ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,3,1)}))}
+      :{week:null,cands:[]}
   };
 }
-function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null)}; }
+function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0}}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
@@ -530,7 +579,14 @@ function normState(s){
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
   [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
   st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus);
+  // partidas sin rango: los méritos se calculan con el historial (tareas hechas y días de hábito cumplidos)
+  st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st)};
   return st;
+}
+function retroXP(st){
+  let xp=st.tasks.filter(x=>x.done).length*XP_TASK;
+  for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*XP_HABIT;
+  return xp;
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
 let state = load();
@@ -541,13 +597,25 @@ function toast(msg){ if(toastExtra){ msg=msg?msg+' · '+toastExtra:toastExtra; t
 function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 
+/* ---------- rango y ventajas de la tripulación ---------- */
+const rankIdx=(xp=state.cmd.xp)=>{ let i=0; while(i+1<RANKS.length&&xp>=RANKS[i+1][1]) i++; return i; };
+function addXP(n){
+  if(!n) return;
+  const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
+  if(after>before){ const m=`★ Ascenso: ahora eres ${RANKS[after][0]}`; toastExtra=toastExtra?toastExtra+' · '+m:m; }
+}
+const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
+const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>m.until>=t); };
+// ventaja de una especialidad: la del mejor tripulante a bordo con ese rol (0 si no hay)
+const perk=(role)=>crewActive().reduce((a,m)=>m.role===role?Math.max(a,ROLES[role].eff[m.lv-1]):a,0);
+
 /* ---------- economía ---------- */
 const addW=(k,n)=>{ state.wallet[k]+=n; };
 const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
 const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
 const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
 function grantTask(x){
-  const g={mc:x.priority?15:10,res:pickAreaRes(x)};
+  const g={mc:Math.round((x.priority?15:10)*(1+perk('quarter'))),res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
   x.grant=g; x.doneOn=todayStr(); onComplete(x,g); return g;
 }
@@ -558,7 +626,7 @@ function revokeTask(x){
   onUndo(x.grant); delete x.grant;
 }
 function checkHabit(h,k){
-  const g={mc:h.priority?8:5,res:pickAreaRes(h)};
+  const g={mc:(h.priority?8:5)+perk('instructor'),res:pickAreaRes(h)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
   h.g=h.g||{}; h.g[k]=g; onComplete(h,g); return g;
 }
@@ -596,6 +664,7 @@ const daysLeft=(c)=>Math.round((dayParse(c.endsOn)-dayParse(todayStr()))/864e5)+
 function areaModFor(x){ for(const a of x.areas||[]){ const k=AREA_MOD[a]; if(k&&mod(k).lv>0) return k; } return null; }
 const builtGeneral=()=>Object.keys(MODS).filter(k=>MODS[k].kind==='gen'&&mod(k).lv>0);
 function wear(x,n){
+  n=Math.round(n*(1-perk('engineer')));
   let k=areaModFor(x);
   if(!k){ const g=builtGeneral(); if(!g.length) return; k=g[state.ship.rot++%g.length]; }
   mod(k).cond=Math.max(0,mod(k).cond-n);
@@ -603,7 +672,7 @@ function wear(x,n){
 function healFor(x){
   let k=areaModFor(x);
   if(!k){ const g=builtGeneral(); if(!g.length) return null; k=g.reduce((a,b)=>mod(b).cond<mod(a).cond?b:a); }
-  const before=mod(k).cond; mod(k).cond=Math.min(100,before+HEAL);
+  const before=mod(k).cond; mod(k).cond=Math.min(100,before+HEAL+perk('medic'));
   return mod(k).cond>before?{k,n:mod(k).cond-before}:null;
 }
 
@@ -612,17 +681,20 @@ function onComplete(x,g){
   sh.activity[t]=(sh.activity[t]||0)+1;
   const h=healFor(x); if(h) g.heal=h;
   if(g.res){ const mk=AREA_MOD[RES[g.res].area]; if(mk&&Math.random()<0.1*eff(mk)){ addW(g.res,1); g.bonus=1; } }
+  if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=(g.bonus||0)+1; }
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){ const p=finishContract(1); toastExtra=`✔ Contrato ${c.topic} completado: +${rewardText(p)}`; }
+    if(c.progress>=c.quota){ const p=finishContract(1); toastExtra=`✔ Contrato ${c.topic} completado: +${rewardText(p)}`; addXP(XP_CONTRACT); }
   }
+  g.xp=('type' in x)?XP_HABIT:XP_TASK; addXP(g.xp);
 }
 function onUndo(g){
   if(!g) return;
   const sh=state.ship, t=todayStr();
   sh.activity[t]=Math.max(0,(sh.activity[t]||0)-1);
   if(g.bonus&&g.res) subW(g.res,g.bonus);
+  if(g.xp) subXP(g.xp);
   if(g.heal) mod(g.heal.k).cond=Math.max(0,mod(g.heal.k).cond-g.heal.n);
   if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,sh.contract.progress-1);
 }
@@ -630,7 +702,7 @@ function onUndo(g){
 const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
 function finishContract(frac){
   const c=state.ship.contract; if(!c) return null;
-  const p={mc:Math.floor(c.reward.mc*frac),mats:{}};
+  const p={mc:Math.floor(c.reward.mc*frac*(1+perk('navigator'))),mats:{}};
   addW('mc',p.mc);
   for(const [k,n] of Object.entries(c.reward.mats||{})){ const q=Math.floor(n*frac); if(q){ addW(k,q); p.mats[k]=q; } }
   state.ship.contract=null;
@@ -674,10 +746,56 @@ function dailyTick(){
   let msg=null;
   const c=sh.contract;
   if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Contrato ${c.topic} expirado · cobro parcial: +${rewardText(p)}`; }
+  // tripulación: los contratos vencidos terminan; el tablón de candidatos se renueva cada domingo
+  const gone=sh.crew.filter(m=>m.until<t);
+  if(gone.length){
+    sh.crew=sh.crew.filter(m=>m.until>=t);
+    const m2=`Fin de contrato: ${gone.map(m=>m.name).join(', ')} ${gone.length>1?'dejan':'deja'} la nave`;
+    msg=msg?msg+' · '+m2:m2;
+  }
+  if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(sh.board.date!==t) sh.board={date:t,offers:newOffers(),rerolls:0};
   else while(sh.board.offers.length>offersN()) sh.board.offers.pop();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
   save(); if(msg) toast(msg);
+}
+
+/* tripulación */
+const weekStart=(t=todayStr())=>addDays(t,-dayParse(t).getDay());   // domingo de la semana
+const crewDaysLeft=(m)=>Math.round((dayParse(m.until)-dayParse(todayStr()))/864e5)+1;
+function genCandidates(){
+  const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
+  return roles.map(role=>{ const r=Math.random(); return {id:uid(),name:pick(CREW_FIRST)+' '+pick(CREW_LAST),role,lv:r<0.5?1:r<0.85?2:3}; });
+}
+// por qué no se puede contratar a un candidato (null si se puede)
+function hireBlock(x){
+  const L=CREW_LV[x.lv-1];
+  if(rankIdx()<L.rank) return 'Requiere rango '+RANKS[L.rank][0];
+  if(state.ship.crew.length>=BERTHS) return 'Sin litera libre';
+  if(state.wallet.mc<L.wage) return 'Recursos insuficientes';
+  return null;
+}
+function hireCrew(id){
+  const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
+  const why=hireBlock(x); if(why){ toast(why); return; }
+  const wage=CREW_LV[x.lv-1].wage;
+  subW('mc',wage);
+  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1)});
+  sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
+  save(); render(); toast(`${x.name} se une a la tripulación · −${wage} ¢ (${CREW_DAYS} días)`);
+}
+function renewCrew(id){
+  const m=state.ship.crew.find(c=>c.id===id); if(!m||crewDaysLeft(m)>RENEW_WINDOW) return;
+  if(state.wallet.mc<m.wage){ toast('Recursos insuficientes'); return; }
+  subW('mc',m.wage); m.until=addDays(m.until,CREW_DAYS);
+  save(); render(); toast(`Contrato de ${m.name} renovado · −${m.wage} ¢`);
+}
+let crewReleasing=null;   // primer toque de «Liberar litera» pide confirmación
+function releaseCrew(id){
+  if(crewReleasing!==id){ crewReleasing=id; render(); return; }
+  const m=state.ship.crew.find(c=>c.id===id); crewReleasing=null; if(!m) return;
+  state.ship.crew=state.ship.crew.filter(c=>c.id!==id);
+  save(); render(); toast(`${m.name} deja la nave`);
 }
 
 /* acciones del tablón, módulos y mercado */
@@ -720,8 +838,9 @@ function hash01(s){
 }
 const priceOf=(k,d=todayStr())=>Math.round(25*(0.6+hash01(d+':'+k)));
 const sellOf=(k)=>Math.floor(priceOf(k)*0.6);
+const buyPrice=(k)=>Math.max(1,Math.round(priceOf(k)*(1-perk('trader'))));
 function buyMat(k,n){
-  const c=priceOf(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
+  const c=buyPrice(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
   subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
 }
 function sellMat(k){
@@ -781,6 +900,7 @@ function deleteHabit(id){ state.habits=state.habits.filter(y=>y.id!==id); dropFo
 function render(){
   const dow=DOW(), t=todayStr();
   document.getElementById('stardate').textContent = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('hdrRank').textContent = RANKS[rankIdx()][0].toUpperCase();
   document.getElementById('todayLabel').textContent = '· '+new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
   // --- 1) Módulo hábitos único (Hoy por defecto) ---
@@ -932,12 +1052,82 @@ function shipSVG(){
   }
   return out+'</svg>';
 }
+/* ---------- render: rango y tripulación ---------- */
+const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300'];
+const roleTile=(role)=>`<span class="w-10 h-10 shrink-0 rounded-lg grid place-items-center border border-cyan-800 bg-cyan-950/40 mono text-[11px] font-bold text-cyan-300" aria-hidden="true">${ROLES[role].code}</span>`;
+function renderRank(){
+  const xp=state.cmd.xp, i=rankIdx(), next=RANKS[i+1], base=RANKS[i][1];
+  const pct=next?Math.min(100,Math.round((xp-base)/(next[1]-base)*100)):100;
+  document.getElementById('rankPanel').innerHTML=`
+    <div class="flex items-center gap-3">
+      <span class="w-12 h-12 shrink-0 rounded-lg grid place-items-center border border-amber-600 bg-amber-950/40 mono text-sm font-bold text-amber-300" aria-hidden="true">R${i+1}</span>
+      <div class="min-w-0 flex-1">
+        <div class="sys-label">00 // Hoja de servicio</div>
+        <h2 class="text-lg font-bold mt-0.5">${RANKS[i][0]} <span class="mono text-[11px] font-normal text-slate-400">· ${xp} méritos</span></h2>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 mt-3">
+      <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
+      <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
+    </div>
+    <p class="mono text-[11px] text-slate-400 mt-2">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND} · contrato +${XP_CONTRACT}. Nunca se gastan.</p>
+    <p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`;
+}
+function renderCrew(){
+  const sh=state.ship, w=state.wallet;
+  document.getElementById('crewBerths').textContent=`· literas ${sh.crew.length}/${BERTHS}`;
+  const cl=document.getElementById('crewList');
+  cl.innerHTML=sh.crew.map(m=>{
+    const d=crewDaysLeft(m), R=ROLES[m.role], canRenew=d<=RENEW_WINDOW, conf=crewReleasing===m.id;
+    return `<div class="rounded-xl border ${d<=1?'border-amber-600':'border-slate-700'} bg-slate-900/70 p-3">
+      <div class="flex items-start gap-3">
+        ${roleTile(m.role)}
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold leading-tight">${escapeHtml(m.name)}</div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[m.lv-1]}">${CREW_LV[m.lv-1].name}</span></div>
+        </div>
+      </div>
+      <div class="text-sm text-cyan-200 mt-2">${R.desc(R.eff[m.lv-1])}</div>
+      <div class="mono text-[11px] ${d<=1?'text-amber-300':'text-slate-400'} mt-1">${d<=1?'último día de contrato':`contrato hasta ${fDate(m.until)} · quedan ${d} días`}</div>
+      <div class="flex flex-wrap gap-1.5 mt-2.5">
+        ${canRenew?`<button data-crew="renew" data-id="${m.id}" class="${btnCls(w.mc>=m.wage)} flex-1" ${w.mc>=m.wage?'':'disabled'}>Renovar ${CREW_DAYS} días · ${m.wage} ¢</button>`
+          :`<span class="flex-1 mono text-[11px] text-slate-500 self-center">Renovable en los últimos ${RENEW_WINDOW} días</span>`}
+        <button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'bg-slate-800 border border-slate-700 text-slate-300 hover:border-red-600'}">${conf?'¿Seguro? Pierdes lo pagado':'Liberar litera'}</button>
+      </div>
+    </div>`;
+  }).join('')+Array.from({length:Math.max(0,BERTHS-sh.crew.length)},()=>`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-500 min-h-[120px]">Litera libre</div>`).join('');
+  const nextSun=addDays(sh.crewBoard.week||weekStart(),7), dn=Math.round((dayParse(nextSun)-dayParse(todayStr()))/864e5);
+  document.getElementById('crewBoardNote').textContent=`· nuevos el ${fDate(nextSun)} (en ${dn} ${dn===1?'día':'días'})`;
+  const cand=document.getElementById('candList');
+  cand.innerHTML=sh.crewBoard.cands.map(x=>{
+    const R=ROLES[x.role], L=CREW_LV[x.lv-1], why=hireBlock(x);
+    return `<div class="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+      <div class="flex items-start gap-3">
+        ${roleTile(x.role)}
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold leading-tight">${escapeHtml(x.name)}</div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[x.lv-1]}">${L.name}</span></div>
+        </div>
+        <span class="mono text-[11px] text-amber-300 shrink-0">${L.wage} ¢/sem</span>
+      </div>
+      <div class="text-sm text-cyan-200 mt-2">${R.desc(R.eff[x.lv-1])}</div>
+      <button data-crew="hire" data-id="${x.id}" class="${btnCls(!why)} w-full mt-2.5" ${why?'disabled':''}>${why||`Contratar · ${L.wage} ¢`}</button>
+    </div>`;
+  }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
+  const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
+    if(a==='hire') hireCrew(id); else if(a==='renew') renewCrew(id); else if(a==='release') releaseCrew(id); };
+  cl.onclick=act; cand.onclick=act;
+}
+
 function renderShip(){
   const sh=state.ship, c=sh.contract, w=state.wallet;
   document.getElementById('shipChip').innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-500">${r.name}</span></span>`).join('');
+
+  renderRank();
+  renderCrew();
 
   // esquema
   const tot=Object.values(sh.modules).reduce((a,m)=>a+m.lv,0);
@@ -1021,7 +1211,7 @@ function renderShip(){
   const mk=document.getElementById('marketList'); mk.innerHTML='';
   const y=addDays(todayStr(),-1);
   for(const k of MATS){
-    const r=RES[k], p=priceOf(k), py=priceOf(k,y), sp=sellOf(k);
+    const r=RES[k], p0=priceOf(k), p=buyPrice(k), py=priceOf(k,y), sp=sellOf(k);
     const el=document.createElement('div');
     el.className='rounded-xl border border-slate-700 bg-slate-900/70 p-3';
     el.innerHTML=`
@@ -1029,7 +1219,7 @@ function renderShip(){
         <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${r.chip}">${r.sym} ${r.name}</span>
         <span class="mono text-[11px] text-slate-400 ml-auto">tienes ${w[k]}</span>
       </div>
-      <div class="text-xl font-bold mt-1.5">${p} ¢ <span class="mono text-xs font-normal ${p>py?'text-red-300':p<py?'text-emerald-300':'text-slate-500'}">${p>py?'▲':p<py?'▼':'='}</span></div>
+      <div class="text-xl font-bold mt-1.5">${p} ¢ ${p<p0?`<span class="mono text-xs font-normal text-slate-500 line-through">${p0} ¢</span> `:''}<span class="mono text-xs font-normal ${p0>py?'text-red-300':p0<py?'text-emerald-300':'text-slate-500'}">${p0>py?'▲':p0<py?'▼':'='}</span></div>
       <div class="mono text-[11px] text-slate-500">ayer ${py} ¢ · venta ${sp} ¢</div>
       <div class="grid grid-cols-3 gap-1.5 mt-2">
         <button data-act="b1" class="${btnCls(w.mc>=p)} px-1" ${w.mc>=p?'':'disabled'}>+1</button>
@@ -1360,6 +1550,7 @@ function paintFocusClock(){
 function focusRoundDone(wasDotted){
   const f=state.focus;
   if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return null;
+  addXP(XP_ROUND);
   return endWork();
 }
 // termina la ronda de Trabajar y devuelve su resumen (tiempo y contadores) para el modal
@@ -1398,10 +1589,11 @@ function moveFocusLine(id,tid,after){
 function focusProgress(l){
   const f=state.focus, dotted=l.dotted; l.status='progress';
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
-  addW('mc',PROGRESS_MC); focusCount('progress',1); focusCount('mc',PROGRESS_MC); closeFocusModal(); save(); render();
+  const pm=PROGRESS_MC+perk('pilot');
+  addW('mc',pm); addXP(XP_PROGRESS); focusCount('progress',1); focusCount('mc',pm); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
-  if(round) openRoundModal(round,`+${PROGRESS_MC} ¢ por el progreso`);
-  else toast(`+${PROGRESS_MC} ¢ · Progreso anotado · vuelve al final de la lista`);
+  if(round) openRoundModal(round,`+${pm} ¢ por el progreso`);
+  else toast(`+${pm} ¢ · Progreso anotado · vuelve al final de la lista`);
 }
 function focusComplete(l){
   const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
@@ -1438,7 +1630,7 @@ function paintFocusModal(){
     const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. No da recursos: no está vinculada.';
     html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
       <div class="grid grid-cols-2 gap-2.5">
-        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${PROGRESS_MC} ¢</span></button>
+        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${PROGRESS_MC+perk('pilot')} ¢</span></button>
         <button type="button" data-fm="done" class="f-opt border-emerald-900 bg-[#0b211c]"><span class="flex items-center gap-2 text-emerald-300 text-[15px] font-semibold">${FOPT_ICON.done} Completado</span><span class="text-xs leading-snug text-slate-300">${doneDesc}</span>${reward}</button>
         <button type="button" data-fm="edit" class="f-opt border-slate-700 bg-slate-900"><span class="flex items-center gap-2 text-slate-200 text-[15px] font-semibold">${FOPT_ICON.edit} Editar</span><span class="text-xs leading-snug text-slate-300">${isA?'Cambia el texto de la acción.':'Abre el editor: los cambios se guardan aquí y en el original.'}</span></button>
         <button type="button" data-fm="delete" class="f-opt border-red-900 bg-[#1c0d10]"><span class="flex items-center gap-2 text-red-300 text-[15px] font-semibold">${FOPT_ICON.del} Eliminar</span><span class="text-xs leading-snug text-slate-300">${isA?'Quita la acción de esta sesión.':'Borra el original para siempre. Pide confirmación.'}</span></button>
