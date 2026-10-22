@@ -47,6 +47,9 @@ tailwind.config = {
   .acc-chev{transition:transform .15s}
   .acc.open .acc-chev{transform:rotate(90deg)}
   .acc-head:hover h2{color:#67e8f9}
+  .home-tab{padding:.4rem .75rem;border-radius:.375rem;font-size:.875rem;color:#cbd5e1}
+  .home-tab:hover{color:#fff;background:#1e293b}
+  .home-tab[aria-selected="true"]{background:#155e75;color:#fff;font-weight:600}
   /* Protocolo Forster */
   .fphase{color:#cbd5e1}.fphase:hover{color:#fff}.fphase.on{background:#0e7490;color:#fff;font-weight:500}
   /* cada fase con su color: Preparar ámbar (el del punto), Trabajar cian */
@@ -193,17 +196,15 @@ tailwind.config = {
 
 <!-- SPACESHIP VIEW -->
 <main id="spaceship-view" class="hidden max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
-  <!-- Hoja de servicio: rango del comandante -->
-  <section id="rankPanel" class="panel corner p-4 sm:p-5"></section>
-
   <div id="walletBar" class="flex flex-wrap gap-1.5"></div>
 
-  <!-- 3) Esquema de la nave -->
+  <!-- 3) Esquema de la nave + estado (en el Sistema Madre / en misión) -->
   <section class="panel corner p-4 sm:p-5">
     <div class="sys-label">03 // Esquema de la nave</div>
-    <div class="flex items-center gap-2 mt-1 mb-3">
+    <div class="flex flex-wrap items-center gap-2 mt-1 mb-3">
       <h2 class="text-lg font-bold">Tu nave</h2>
       <span id="shipLevel" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
+      <button type="button" id="shipStatus" class="ml-auto mono text-[11px] px-2 py-1 rounded-md border"></button>
     </div>
     <div id="shipSchematic"></div>
     <div class="mono text-[10px] text-slate-500 mt-2 flex flex-wrap gap-x-3 gap-y-1">
@@ -214,68 +215,61 @@ tailwind.config = {
     </div>
   </section>
 
-  <!-- Módulos (acordeón) -->
-  <section class="panel acc p-4 sm:p-5" data-acc="mods">
-    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
-      <div class="flex-1 min-w-0">
-        <div class="sys-label">04 // Módulos</div>
-        <h2 class="text-lg font-bold mt-1">Módulos</h2>
-      </div>
-      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
-    </button>
-    <div class="acc-body hidden mt-3">
-      <p class="mono text-[11px] text-slate-500 mb-3">El descuido desgasta los módulos y reduce su bonus. Completar hábitos y tareas los repara poco a poco.</p>
-      <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
-    </div>
+  <!-- 4) Tripulación a bordo -->
+  <section class="panel p-4 sm:p-5">
+    <div class="sys-label">04 // Tripulación</div>
+    <h2 class="text-lg font-bold mt-1 mb-1">A bordo <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
+    <p class="mono text-[11px] text-slate-500 mb-3">Contratos de 7 días pagados por adelantado. Se renuevan en los últimos 3 días, también en misión; si no renuevas, el tripulante se marcha sin penalización.</p>
+    <div id="crewList" class="grid sm:grid-cols-2 gap-3"></div>
   </section>
 
-  <!-- Mercado (acordeón) -->
-  <section class="panel acc p-4 sm:p-5" data-acc="market">
-    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
-      <div class="flex-1 min-w-0">
-        <div class="sys-label">05 // Mercado</div>
-        <h2 class="text-lg font-bold mt-1">Mercado <span class="text-slate-400 font-medium text-sm">· precios de hoy</span></h2>
+  <!-- 5) Sistema Madre (misiones, tripulantes, mercado, astillero) o misión en curso -->
+  <section id="homePanel" class="panel corner p-4 sm:p-5">
+    <div id="homeDock">
+      <div class="sys-label">05 // Sistema Madre</div>
+      <h2 class="text-lg font-bold mt-1">Sistema Madre</h2>
+      <div id="homeTabs" role="tablist" aria-label="Sistema Madre" class="grid grid-cols-2 sm:flex gap-1 mt-3 p-1 rounded-lg bg-slate-900 border border-slate-700">
+        <button type="button" role="tab" data-tab="missions" class="home-tab">Misiones</button>
+        <button type="button" role="tab" data-tab="crew" class="home-tab">Tripulantes</button>
+        <button type="button" role="tab" data-tab="market" class="home-tab">Mercado</button>
+        <button type="button" role="tab" data-tab="yard" class="home-tab">Astillero</button>
       </div>
-      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
-    </button>
-    <div class="acc-body hidden mt-3">
-      <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
-      <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+      <div class="mt-4">
+        <div data-pane="missions" role="tabpanel">
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <p class="mono text-[11px] text-slate-500 flex-1 min-w-[12rem]">Al aceptar una misión zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
+            <button id="btnReroll" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button>
+          </div>
+          <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
+        </div>
+        <div data-pane="crew" role="tabpanel" class="hidden">
+          <div class="flex flex-wrap items-baseline gap-x-2 mb-3"><span class="sys-label">Candidatos de la semana</span><span id="crewBoardNote" class="mono text-[11px] text-slate-400"></span></div>
+          <div id="candList" class="grid sm:grid-cols-2 gap-3"></div>
+        </div>
+        <div data-pane="market" role="tabpanel" class="hidden">
+          <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
+          <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        </div>
+        <div data-pane="yard" role="tabpanel" class="hidden">
+          <p class="mono text-[11px] text-slate-500 mb-3">Construye y mejora módulos. El descuido los desgasta y reduce su bonus; completar hábitos y tareas los repara poco a poco.</p>
+          <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        </div>
+      </div>
     </div>
+    <div id="homeMission" class="hidden"></div>
   </section>
 
-  <!-- Tablón de contratos (acordeón) -->
-  <section class="panel acc p-4 sm:p-5" data-acc="contracts">
+  <!-- 6) Hoja de servicios: rango y estadísticas (acordeón) -->
+  <section class="panel acc p-4 sm:p-5" data-acc="service">
     <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
+      <span id="rankBadge" class="w-10 h-10 shrink-0 rounded-lg grid place-items-center border border-amber-600 bg-amber-950/40 mono text-sm font-bold text-amber-300" aria-hidden="true"></span>
       <div class="flex-1 min-w-0">
-        <div class="sys-label">06 // Tablón de contratos</div>
-        <h2 class="text-lg font-bold mt-1">Contratos</h2>
+        <div class="sys-label">06 // Hoja de servicios</div>
+        <h2 class="text-lg font-bold mt-1">Hoja de servicios <span id="rankSummary" class="text-slate-400 font-medium text-sm"></span></h2>
       </div>
       <span class="acc-chev mono text-slate-400 text-lg">▸</span>
     </button>
-    <div class="acc-body hidden mt-3">
-      <div class="flex mb-3"><button id="btnReroll" class="ml-auto px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button></div>
-      <div id="activeContract"></div>
-      <div id="offerList" class="space-y-2"></div>
-    </div>
-  </section>
-
-  <!-- Tripulación (acordeón) -->
-  <section class="panel acc p-4 sm:p-5" data-acc="crew">
-    <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
-      <div class="flex-1 min-w-0">
-        <div class="sys-label">07 // Tripulación</div>
-        <h2 class="text-lg font-bold mt-1">Tripulación <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
-      </div>
-      <span class="acc-chev mono text-slate-400 text-lg">▸</span>
-    </button>
-    <div class="acc-body hidden mt-3">
-      <p class="mono text-[11px] text-slate-500 mb-3">Contratos de 7 días pagados por adelantado. Se renuevan en los últimos 3 días; si no renuevas, el tripulante se marcha sin penalización.</p>
-      <div class="sys-label mb-2">A bordo</div>
-      <div id="crewList" class="grid sm:grid-cols-2 gap-3"></div>
-      <div class="flex flex-wrap items-baseline gap-x-2 mt-5 mb-2"><span class="sys-label">Candidatos de la semana</span><span id="crewBoardNote" class="mono text-[11px] text-slate-400"></span></div>
-      <div id="candList" class="grid sm:grid-cols-2 gap-3"></div>
-    </div>
+    <div id="rankPanel" class="acc-body hidden mt-3"></div>
   </section>
 </main>
 
@@ -497,10 +491,10 @@ const MATS = ['ecos','nexos','ale','bio'];
 
 /* ---------- nave: módulos y contratos (todos los números ajustables) ---------- */
 const MODS = {
-  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 oferta en el tablón por nivel'},
-  engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de contrato por nivel'},
-  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de contrato por nivel'},
-  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+1 renovación gratis del tablón al día por nivel'},
+  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 misión en el tablón por nivel'},
+  engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de misión por nivel'},
+  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de misión por nivel'},
+  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+1 renovación gratis del tablón de misiones al día por nivel'},
   spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
   social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
   craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'+10% prob. de ⎔ extra en items Craft por nivel'},
@@ -526,7 +520,7 @@ const ROLES = {
   instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3],      desc:(v)=>`+${v} ¢ por hábito diario o semanal cumplido`},
   engineer:  {code:'ING', name:'Ingeniería',    eff:[.25,.4,.55], desc:(v)=>`−${pctTxt(v)} de desgaste en los módulos`},
   medic:     {code:'MNT', name:'Mantenimiento', eff:[1,2,3],      desc:(v)=>`+${v}% de reparación extra al completar`},
-  navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar contratos`},
+  navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar misiones`},
   prospector:{code:'PRO', name:'Prospección',   eff:[.15,.25,.35],desc:(v)=>`${pctTxt(v)} de prob. de material extra`},
   trader:    {code:'COM', name:'Comercio',      eff:[.1,.15,.2],  desc:(v)=>`−${pctTxt(v)} al comprar en el mercado`},
   pilot:     {code:'PIL', name:'Pilotaje',      eff:[1,2,3],      desc:(v)=>`+${v} ¢ por Progreso en el Protocolo Forster`}
@@ -563,7 +557,7 @@ function normShip(s){
       :{week:null,cands:[]}
   };
 }
-function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0}}; }
+function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)}}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
@@ -580,9 +574,11 @@ function normState(s){
   [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
   st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus);
   // partidas sin rango: los méritos se calculan con el historial (tareas hechas y días de hábito cumplidos)
-  st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st)};
+  st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st),stats:normStats(s?.cmd?.stats)};
   return st;
 }
+// contadores de la hoja de servicios que no se pueden deducir del historial (empiezan en 0 en partidas antiguas)
+function normStats(x){ const d={missions:0,rounds:0,hires:0}; if(x) for(const k of Object.keys(d)) d[k]=clampInt(x[k],0,1e6,0); return d; }
 function retroXP(st){
   let xp=st.tasks.filter(x=>x.done).length*XP_TASK;
   for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*XP_HABIT;
@@ -685,7 +681,7 @@ function onComplete(x,g){
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){ const p=finishContract(1); toastExtra=`✔ Contrato ${c.topic} completado: +${rewardText(p)}`; addXP(XP_CONTRACT); }
+    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; toastExtra=`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`; addXP(XP_CONTRACT); }
   }
   g.xp=('type' in x)?XP_HABIT:XP_TASK; addXP(g.xp);
 }
@@ -745,7 +741,7 @@ function dailyTick(){
   sh.lastTick=y;
   let msg=null;
   const c=sh.contract;
-  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Contrato ${c.topic} expirado · cobro parcial: +${rewardText(p)}`; }
+  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`; }
   // tripulación: los contratos vencidos terminan; el tablón de candidatos se renueva cada domingo
   const gone=sh.crew.filter(m=>m.until<t);
   if(gone.length){
@@ -775,13 +771,16 @@ function hireBlock(x){
   if(state.wallet.mc<L.wage) return 'Recursos insuficientes';
   return null;
 }
+const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no hay tablón, mercado ni astillero
 function hireCrew(id){
+  if(!atHome()) return;
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage;
   subW('mc',wage);
   sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1)});
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
+  state.cmd.stats.hires++;
   save(); render(); toast(`${x.name} se une a la tripulación · −${wage} ¢ (${CREW_DAYS} días)`);
 }
 function renewCrew(id){
@@ -799,25 +798,29 @@ function releaseCrew(id){
 }
 
 /* acciones del tablón, módulos y mercado */
+let offerSailing=null;   // primer toque de «Aceptar y zarpar» pide confirmación
 function acceptOffer(id){
   const sh=state.ship; if(sh.contract) return;
   const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
+  if(offerSailing!==id){ offerSailing=id; render(); return; }
+  offerSailing=null;
   const t=todayStr();
   sh.contract={...o,acceptedOn:t,endsOn:addDays(t,o.days-1),progress:0};
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
-  save(); render(); toast(`Contrato aceptado: ${o.topic}`);
+  save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
 }
-function abandonContract(){ state.ship.contract=null; save(); render(); toast('Contrato abandonado'); }
+function abandonContract(){ state.ship.contract=null; save(); render(); toast('Misión abandonada · de vuelta en el Sistema Madre'); }
 function reroll(){
+  if(!atHome()) return;
   const b=state.ship.board, free=b.rerolls<freeRerolls();
   if(!free){ if(state.wallet.mc<REROLL_MC){ toast('Recursos insuficientes'); return; } subW('mc',REROLL_MC); }
-  b.rerolls++; b.offers=newOffers(); save(); render(); toast('Tablón renovado');
+  b.rerolls++; b.offers=newOffers(); save(); render(); toast('Tablón de misiones renovado');
 }
 const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:MOD_MC[lv],[MODS[k].res]:MOD_MAT[lv]}; };
 const fmtCost=(c)=>Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + ');
 const canAfford=(c)=>Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
 function buildMod(k){
-  const c=modCost(k); if(!c) return;
+  const c=modCost(k); if(!c||!atHome()) return;
   if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
   for(const [r,n] of Object.entries(c)) subW(r,n);
   const m=mod(k); if(m.lv===0) m.cond=100; m.lv++;
@@ -840,11 +843,12 @@ const priceOf=(k,d=todayStr())=>Math.round(25*(0.6+hash01(d+':'+k)));
 const sellOf=(k)=>Math.floor(priceOf(k)*0.6);
 const buyPrice=(k)=>Math.max(1,Math.round(priceOf(k)*(1-perk('trader'))));
 function buyMat(k,n){
+  if(!atHome()) return;
   const c=buyPrice(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
   subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
 }
 function sellMat(k){
-  if(state.wallet[k]<1) return;
+  if(state.wallet[k]<1||!atHome()) return;
   const p=sellOf(k); subW(k,1); addW('mc',p); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ¢`);
 }
 
@@ -1056,21 +1060,19 @@ function shipSVG(){
 const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300'];
 const roleTile=(role)=>`<span class="w-10 h-10 shrink-0 rounded-lg grid place-items-center border border-cyan-800 bg-cyan-950/40 mono text-[11px] font-bold text-cyan-300" aria-hidden="true">${ROLES[role].code}</span>`;
 function renderRank(){
-  const xp=state.cmd.xp, i=rankIdx(), next=RANKS[i+1], base=RANKS[i][1];
+  const xp=state.cmd.xp, i=rankIdx(), next=RANKS[i+1], base=RANKS[i][1], st=state.cmd.stats;
   const pct=next?Math.min(100,Math.round((xp-base)/(next[1]-base)*100)):100;
+  document.getElementById('rankBadge').textContent='R'+(i+1);
+  document.getElementById('rankSummary').textContent=`· ${RANKS[i][0]} · ${xp} méritos`;
+  const habitDays=state.habits.reduce((a,h)=>a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
+  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],['Misiones completadas',st.missions],['Rondas Forster',st.rounds],['Tripulantes contratados',st.hires],['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
   document.getElementById('rankPanel').innerHTML=`
-    <div class="flex items-center gap-3">
-      <span class="w-12 h-12 shrink-0 rounded-lg grid place-items-center border border-amber-600 bg-amber-950/40 mono text-sm font-bold text-amber-300" aria-hidden="true">R${i+1}</span>
-      <div class="min-w-0 flex-1">
-        <div class="sys-label">00 // Hoja de servicio</div>
-        <h2 class="text-lg font-bold mt-0.5">${RANKS[i][0]} <span class="mono text-[11px] font-normal text-slate-400">· ${xp} méritos</span></h2>
-      </div>
-    </div>
-    <div class="flex items-center gap-2 mt-3">
+    <div class="flex items-center gap-2">
       <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
     </div>
-    <p class="mono text-[11px] text-slate-400 mt-2">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND} · contrato +${XP_CONTRACT}. Nunca se gastan.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[10px] text-slate-400">${k}</div></div>`).join('')}</div>
+    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND} · misión +${XP_CONTRACT}. Nunca se gastan.</p>
     <p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`;
 }
 function renderCrew(){
@@ -1095,7 +1097,9 @@ function renderCrew(){
         <button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'bg-slate-800 border border-slate-700 text-slate-300 hover:border-red-600'}">${conf?'¿Seguro? Pierdes lo pagado':'Liberar litera'}</button>
       </div>
     </div>`;
-  }).join('')+Array.from({length:Math.max(0,BERTHS-sh.crew.length)},()=>`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-500 min-h-[120px]">Litera libre</div>`).join('');
+  }).join('')+Array.from({length:Math.max(0,BERTHS-sh.crew.length)},()=>atHome()
+    ?`<button type="button" data-crew="board" class="rounded-xl border border-dashed border-slate-700 hover:border-cyan-600 p-3 grid place-items-center text-sm text-slate-500 hover:text-cyan-300 min-h-[120px]">Litera libre · ver candidatos</button>`
+    :`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-500 min-h-[120px]">Litera libre · contrata al volver al Sistema Madre</div>`).join('');
   const nextSun=addDays(sh.crewBoard.week||weekStart(),7), dn=Math.round((dayParse(nextSun)-dayParse(todayStr()))/864e5);
   document.getElementById('crewBoardNote').textContent=`· nuevos el ${fDate(nextSun)} (en ${dn} ${dn===1?'día':'días'})`;
   const cand=document.getElementById('candList');
@@ -1115,8 +1119,48 @@ function renderCrew(){
     </div>`;
   }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
   const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
-    if(a==='hire') hireCrew(id); else if(a==='renew') renewCrew(id); else if(a==='release') releaseCrew(id); };
+    if(a==='hire') hireCrew(id); else if(a==='renew') renewCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
   cl.onclick=act; cand.onclick=act;
+}
+
+// pestañas del Sistema Madre: se recuerda la última abierta
+const HOMEKEY='spaceship-commander:home';
+const HOME_TABS=['missions','crew','market','yard'];
+let homeTab=(()=>{ try{ const t=localStorage.getItem(HOMEKEY); return HOME_TABS.includes(t)?t:'missions'; }catch{ return 'missions'; } })();
+function showHomeTab(t,scroll=true){
+  homeTab=t; try{ localStorage.setItem(HOMEKEY,t); }catch{}
+  render();
+  if(scroll) document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+const missionLeftTxt=(c)=>{ const l=daysLeft(c); return l===1?'último día':`quedan ${l} días`; };
+function renderMission(c){
+  const w=state.wallet, pct=Math.min(100,Math.round(c.progress/c.quota*100)), left=daysLeft(c);
+  const dmg=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
+  const el=document.getElementById('homeMission');
+  el.innerHTML=`
+    <div class="sys-label">05 // Misión en curso</div>
+    <div class="flex flex-wrap items-center gap-2 mt-1">
+      <h2 class="text-lg font-bold">${c.topic}</h2>
+      <span class="mono text-[11px] ${left<=1?'text-amber-300':'text-slate-400'}">${missionLeftTxt(c)} · hasta ${fDate(c.endsOn)}</span>
+    </div>
+    <div class="text-slate-200 mt-1">${c.flavor}</div>
+    <div class="flex items-center gap-2 mt-3">
+      <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
+      <span class="mono text-sm text-cyan-200">${c.progress}/${c.quota}</span>
+    </div>
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText(c.reward)}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · si expira, cobro parcial</div>
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación a bordo se puede renovar.</p>
+    <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), ok=w.mc>=REPAIR_MC;
+      return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
+        <div class="flex items-center gap-2"><span class="font-semibold text-sm">${MODS[k].name}</span><span class="mono text-[11px] text-slate-300 ml-auto">${m.cond}%</span></div>
+        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
+        <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>
+      </div>`; }).join('')||'<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
+    <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
+  el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
+  const ab=el.querySelector('[data-act="abandon"]');
+  ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent='¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
 }
 
 function renderShip(){
@@ -1129,40 +1173,38 @@ function renderShip(){
   renderRank();
   renderCrew();
 
-  // esquema
+  // estado: en el Sistema Madre o en misión
+  const ss=document.getElementById('shipStatus');
+  ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(c?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
+  ss.textContent=c?`▶ En misión · ${c.progress}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ En el Sistema Madre';
+  ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
+
+  // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
   const tot=Object.values(sh.modules).reduce((a,m)=>a+m.lv,0);
   document.getElementById('shipLevel').textContent=`Nv. total ${tot}/40`;
   const sc=document.getElementById('shipSchematic'); sc.innerHTML=shipSVG();
-  sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>document.getElementById('mod-'+g.dataset.slot)?.scrollIntoView({behavior:'smooth',block:'center'}));
+  sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
+    const k=g.dataset.slot;
+    if(!sh.contract&&homeTab!=='yard') showHomeTab('yard',false);
+    (document.getElementById((sh.contract?'rep-':'mod-')+k)||document.getElementById('homePanel')).scrollIntoView({behavior:'smooth',block:'center'});
+  });
 
-  // tablón
+  // Sistema Madre o misión en curso
+  document.getElementById('homeDock').classList.toggle('hidden',!!c);
+  document.getElementById('homeMission').classList.toggle('hidden',!c);
+  if(c) renderMission(c);
+  document.querySelectorAll('#homeTabs [data-tab]').forEach(t=>{ const on=t.dataset.tab===homeTab; t.setAttribute('aria-selected',on); t.tabIndex=on?0:-1; t.onclick=()=>showHomeTab(t.dataset.tab,false); });
+  document.querySelectorAll('#homeDock [data-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.pane!==homeTab));
+
+  // misiones
   const b=sh.board, free=Math.max(0,freeRerolls()-b.rerolls);
   const rr=document.getElementById('btnReroll');
   rr.textContent=free?`↻ Renovar (gratis ×${free})`:`↻ Renovar · ${REROLL_MC} ¢`;
   rr.onclick=reroll;
-  const ac=document.getElementById('activeContract');
-  if(c){
-    const pct=Math.min(100,Math.round(c.progress/c.quota*100)), left=daysLeft(c);
-    ac.innerHTML=`<div class="rounded-xl border border-cyan-700 bg-cyan-950/30 p-3 mb-3">
-      <div class="flex items-center gap-2">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border border-cyan-700 text-cyan-300">EN CURSO · ${c.topic.toUpperCase()}</span>
-        <span class="mono text-[11px] ${left<=1?'text-amber-300':'text-slate-400'}">${left===1?'último día':`quedan ${left} días`}</span>
-        <button data-act="abandon" class="ml-auto text-xs px-2 py-1 rounded-md bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar</button>
-      </div>
-      <div class="font-semibold mt-1.5">${c.flavor}</div>
-      <div class="flex items-center gap-2 mt-2">
-        <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
-        <span class="mono text-xs text-cyan-200">${c.progress}/${c.quota}</span>
-      </div>
-      <div class="mono text-[11px] text-slate-400 mt-1.5">Recompensa: <span class="text-amber-300">${rewardText(c.reward)}</span> · si expira, cobro parcial</div>
-    </div>`;
-    const ab=ac.querySelector('[data-act="abandon"]');
-    ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent='¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
-  } else ac.innerHTML=`<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mb-3">Sin contrato activo. Acepta uno: cada hábito o tarea completada suma progreso.</div>`;
   const ol=document.getElementById('offerList'); ol.innerHTML='';
-  if(!b.offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center">No quedan ofertas hoy. Renueva el tablón o vuelve mañana.</div>';
+  if(!b.offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No quedan misiones hoy. Renueva el tablón o vuelve mañana.</div>';
   b.offers.forEach(o=>{
-    const el=document.createElement('div');
+    const sure=offerSailing===o.id, el=document.createElement('div');
     el.className='rounded-xl border border-slate-700 bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
@@ -1171,11 +1213,11 @@ function renderShip(){
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
       <div class="mono text-[11px] text-slate-400 mt-1">Completa ${o.quota} hábitos o tareas en ${o.days===1?'1 día':o.days+' días'}</div>
-      <div class="flex items-center gap-2 mt-2">
+      <div class="flex flex-wrap items-center gap-2 mt-2">
         <span class="mono text-xs text-amber-300">${rewardText(o.reward)}</span>
-        <button class="ml-auto ${btnCls(!c)} py-1.5 px-3" ${c?'disabled title="Ya tienes un contrato activo"':''}>Aceptar</button>
+        <button data-offer="${o.id}" class="ml-auto py-1.5 px-3 rounded-lg text-sm font-semibold ${sure?'bg-cyan-500 text-slate-950 hover:bg-cyan-400':'bg-cyan-700 hover:bg-cyan-600 text-white'}">${sure?'¿Zarpar? Confirmar':'Aceptar y zarpar'}</button>
       </div>`;
-    if(!c) el.querySelector('button').onclick=()=>acceptOffer(o.id);
+    el.querySelector('button').onclick=()=>acceptOffer(o.id);
     ol.appendChild(el);
   });
 
@@ -1183,7 +1225,7 @@ function renderShip(){
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
     const m=mod(k), built=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
-    const effTxt={bridge:`${offersN()} ofertas en el tablón`,engines:`contratos de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en contratos`,comms:`${freeRerolls()} renovaciones gratis/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
+    const effTxt={bridge:`${offersN()} misiones en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${freeRerolls()} renovaciones gratis/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
     const el=document.createElement('div'); el.id='mod-'+k;
     el.className='rounded-xl border p-3 bg-slate-900/70 '+(!built?'border-slate-700 border-dashed':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
     el.innerHTML=`
@@ -1550,7 +1592,7 @@ function paintFocusClock(){
 function focusRoundDone(wasDotted){
   const f=state.focus;
   if(f.phase!=='work'||!wasDotted||f.lines.some(l=>!l.status&&l.dotted)) return null;
-  addXP(XP_ROUND);
+  addXP(XP_ROUND); state.cmd.stats.rounds++;
   return endWork();
 }
 // termina la ronda de Trabajar y devuelve su resumen (tiempo y contadores) para el modal
@@ -1567,7 +1609,7 @@ function backToPrep(){
 // suma a la sesión (diálogo de salida) y a la ronda actual (modal de fin de ronda)
 function focusCount(k,n){ state.focus.session[k]+=n; state.focus.round[k]+=n; }
 function openRoundModal(r,last,completed=true){
-  const extra=toastExtra; toastExtra=null;   // p. ej. un contrato completado con esta acción
+  const extra=toastExtra; toastExtra=null;   // p. ej. una misión completada con esta acción
   document.getElementById('rmDur').textContent=r.dur?`Tiempo de la ronda · ${r.dur}`:'';
   document.getElementById('rmChips').innerHTML=chip(plural(r.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(r.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${r.mc} ¢`,'border-amber-800 text-amber-300');
   document.getElementById('rmTitle').textContent=completed?'¡Ronda completada!':'Ronda terminada';
