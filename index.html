@@ -227,8 +227,8 @@ tailwind.config = {
   <!-- 5) Sistema Madre (misiones, tripulantes, mercado, astillero) o misión en curso -->
   <section id="homePanel" class="panel corner p-4 sm:p-5">
     <div id="homeDock">
-      <div class="sys-label">05 // Sistema Madre</div>
-      <h2 class="text-lg font-bold mt-1">Sistema Madre</h2>
+      <div class="sys-label">05 // Situación táctica</div>
+      <h2 class="text-lg font-bold mt-1">En Sistema Madre</h2>
       <div id="homeTabs" role="tablist" aria-label="Sistema Madre" class="grid grid-cols-2 sm:flex gap-1 mt-3 p-1 rounded-lg bg-slate-900 border border-slate-700">
         <button type="button" role="tab" data-tab="missions" class="home-tab">Misiones</button>
         <button type="button" role="tab" data-tab="crew" class="home-tab">Tripulantes</button>
@@ -526,8 +526,18 @@ const ROLES = {
   trader:    {code:'COM', name:'Comercio',      eff:[.1,.15,.2],  desc:(v)=>`−${pctTxt(v)} al comprar en el mercado`},
   pilot:     {code:'PIL', name:'Pilotaje',      eff:[1,2,3],      desc:(v)=>`+${v} ¢ por Progreso en el Protocolo Forster`}
 };
-const CREW_FIRST = ['Lina','Tomás','Aiko','Rafa','Noor','Iker','Sasha','Marta','Kofi','Elena','Darío','Yuki','Inés','Omar','Vega','Leo','Nadia','Bruno','Zara','Hugo','Mei','Pau','Ada','Teo'];
-const CREW_LAST = ['Okafor','Ibarra','Tanaka','Volkov','Reyes','Lindqvist','Moreau','Haddad','Santos','Kowalski','Nakamura','Ferrer','Adeyemi','Castell','Novak','Quiroga'];
+const CREW_FIRST = [
+  'Lina','Tomás','Aiko','Rafa','Noor','Iker','Sasha','Marta','Kofi','Elena','Darío','Yuki','Inés','Omar','Vega','Leo','Nadia','Bruno','Zara','Hugo','Mei','Pau','Ada','Teo',
+  'Amara','Bastian','Carmen','Dmitri','Esme','Farid','Greta','Hiro','Imani','Jonás','Kalani','Lucía','Malik','Nerea','Oskar','Priya','Quim','Rosa','Santi','Talia',
+  'Ulises','Valentina','Wen','Ximena','Yago','Zoe','Anouk','Benicio','Chiara','Diego','Emeka','Freya','Gael','Hana','Ilya','Jade','Kenji','Leire','Mateo','Nia',
+  'Olga','Pablo','Raúl','Selma','Tariq','Uma','Víctor','Wanda','Yara','Álex'
+];
+const CREW_LAST = [
+  'Okafor','Ibarra','Tanaka','Volkov','Reyes','Lindqvist','Moreau','Haddad','Santos','Kowalski','Nakamura','Ferrer','Adeyemi','Castell','Novak','Quiroga',
+  'Abara','Bianchi','Cardona','Dubois','Echeverría','Fonseca','Gallardo','Herrera','Ivanova','Jensen','Kaur','Larsen','Mendoza','Nkosi','Orozco','Petrova',
+  'Quintero','Rossi','Salgado','Toledo','Uribe','Valdés','Weber','Xiong','Yamada','Zamora','Almeida','Bergström','Chen','Duarte','Esposito','Fischer',
+  'García','Hoshino','Iglesias','Jovanović','Kim','Lozano','Mbeki','Navarro','Olsen','Park','Rahman','Sato','Torres','Varga','Wójcik','Zubiri'
+];
 const TOPICS = {
   'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
   'Minería':       ['Extraer hielo de un cinturón de asteroides','Escoltar una draga minera','Perforar un núcleo metálico'],
@@ -756,7 +766,10 @@ function dailyTick(){
 const weekStart=(t=todayStr())=>addDays(t,-dayParse(t).getDay());   // domingo de la semana
 function genCandidates(){
   const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
-  return roles.map(role=>{ const r=Math.random(); return {id:uid(),name:pick(CREW_FIRST)+' '+pick(CREW_LAST),role,lv:r<0.5?1:r<0.85?2:3}; });
+  // ni nombres ni apellidos repetidos con la tripulación a bordo ni entre candidatos
+  const used=(state.ship.crew||[]).map(m=>String(m.name||'').split(' ')), usedF=new Set(used.map(n=>n[0])), usedL=new Set(used.map(n=>n.slice(1).join(' ')));
+  const fresh=(a,u)=>{ const f=a.filter(x=>!u.has(x)), v=pick(f.length?f:a); u.add(v); return v; };
+  return roles.map(role=>{ const r=Math.random(); return {id:uid(),name:fresh(CREW_FIRST,usedF)+' '+fresh(CREW_LAST,usedL),role,lv:r<0.5?1:r<0.85?2:3}; });
 }
 // por qué no se puede contratar a un candidato (null si se puede)
 function hireBlock(x){
@@ -1168,9 +1181,10 @@ function renderMission(c){
   const dmg=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
   const el=document.getElementById('homeMission');
   el.innerHTML=`
-    <div class="sys-label">05 // Misión en curso</div>
+    <div class="sys-label">05 // Situación táctica</div>
+    <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
-      <h2 class="text-lg font-bold">${c.topic}</h2>
+      <h3 class="font-semibold text-cyan-100">${c.topic}</h3>
       <span class="mono text-[11px] ${left<=1?'text-amber-300':'text-slate-400'}">${missionLeftTxt(c)} · hasta ${fDate(c.endsOn)}</span>
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
