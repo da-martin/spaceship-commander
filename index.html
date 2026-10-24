@@ -237,10 +237,8 @@ tailwind.config = {
       </div>
       <div class="mt-4">
         <div data-pane="missions" role="tabpanel">
-          <div class="flex flex-wrap items-center gap-2 mb-3">
-            <p class="mono text-[11px] text-slate-500 flex-1 min-w-[12rem]">Al aceptar una misión zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
-            <button id="btnReroll" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm"></button>
-          </div>
+          <p class="mono text-[11px] text-slate-500 mb-3">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
+          <div id="signalBox" class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 mb-3"></div>
           <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
         </div>
         <div data-pane="crew" role="tabpanel" class="hidden">
@@ -492,10 +490,10 @@ const MATS = ['ecos','nexos','ale','bio'];
 
 /* ---------- nave: módulos y contratos (todos los números ajustables) ---------- */
 const MODS = {
-  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 misión en el tablón por nivel'},
+  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 hueco en el tablón de misiones por nivel'},
   engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de misión por nivel'},
   cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de misión por nivel'},
-  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+1 renovación gratis del tablón de misiones al día por nivel'},
+  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+0,5 misiones al día en el tablón por nivel'},
   spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
   social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
   craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'+10% prob. de ⎔ extra en items Craft por nivel'},
@@ -503,7 +501,10 @@ const MODS = {
 };
 const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
 const MOD_MC = [50,100,200,400,800], MOD_MAT = [1,2,4,6,9];
-const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2, REROLL_MC = 15;
+const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2;
+// tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
+const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
+const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
 const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
 
 /* ---------- rango del comandante: méritos que no se gastan ---------- */
@@ -554,10 +555,18 @@ function normShip(s){
   const modules={};
   for(const k of Object.keys(MODS)){ const m=s?.modules?.[k]; modules[k]={lv:clampInt(m?.lv,0,5,0),cond:clampInt(m?.cond,0,100,100)}; }
   const c=s?.contract, b=s?.board;
+  // partidas de antes del tablón acumulativo: la paga traía la Bodega incluida (ahora se aplica al cobrar)
+  const cm=1+0.1*modules.cargo.lv*modules.cargo.cond/100, t=todayStr(), exp=new Date(); exp.setDate(exp.getDate()+OFFER_TTL[0]-1);
+  const unCargo=(o,on)=>o.postedOn?o:{...o,reward:{...o.reward,mc:Math.round((+o.reward?.mc||0)/cm)},postedOn:on};
   return {
     modules,
-    contract:(c&&c.id&&c.endsOn&&c.quota>0)?c:null,
-    board:(b&&Array.isArray(b.offers))?{date:b.date||null,offers:b.offers,rerolls:clampInt(b.rerolls,0,99,0)}:{date:null,offers:[],rerolls:0},
+    contract:(c&&c.id&&c.endsOn&&c.quota>0)?unCargo(c,c.acceptedOn||t):null,
+    board:{
+      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward).map(o=>o.postedOn?o:{...unCargo(o,t),expiresOn:todayStr(exp)}),
+      signal:Math.min(1,Math.max(0,+b?.signal||0)), sigAt:Number.isFinite(+b?.sigAt)&&+b.sigAt>0?+b.sigAt:null,
+      repUntil:typeof b?.repUntil==='string'?b.repUntil:null,
+      news:{got:clampInt(b?.news?.got,0,999,0),lost:clampInt(b?.news?.lost,0,999,0)}
+    },
     activity:(s?.activity&&typeof s.activity==='object')?s.activity:{},
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
     rot:clampInt(s?.rot,0,1e9,0),
@@ -589,7 +598,7 @@ function normState(s){
   return st;
 }
 // contadores de la hoja de servicios que no se pueden deducir del historial (empiezan en 0 en partidas antiguas)
-function normStats(x){ const d={missions:0,rounds:0,hires:0}; if(x) for(const k of Object.keys(d)) d[k]=clampInt(x[k],0,1e6,0); return d; }
+function normStats(x){ const d={missions:0,rounds:0,hires:0,urgentFails:0}; if(x) for(const k of Object.keys(d)) d[k]=clampInt(x[k],0,1e6,0); return d; }
 function retroXP(st){
   let xp=st.tasks.filter(x=>x.done).length*XP_TASK;
   for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*XP_HABIT;
@@ -661,10 +670,12 @@ const addDays=(s,n)=>{ const d=dayParse(s); d.setDate(d.getDate()+n); return tod
 const pick=(a)=>a[Math.floor(Math.random()*a.length)];
 const mod=(k)=>state.ship.modules[k];
 const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado
-const offersN=()=>1+Math.floor(eff('bridge'));
+const boardCap=()=>BOARD_BASE+Math.floor(eff('bridge'));
 const maxDays=()=>Math.min(7,2+Math.floor(eff('engines')));
 const cargoMult=()=>1+0.1*eff('cargo');
-const freeRerolls=()=>Math.floor(eff('comms'));
+const repDamaged=(day=todayStr())=>!!state.ship.board.repUntil&&day<=state.ship.board.repUntil;
+const baseSignal=()=>SIGNAL_DAY+SIGNAL_LV*eff('comms');                      // misiones al día
+const signalRate=(day)=>baseSignal()*(repDamaged(day)?0.5:1);              // con mala reputación, a la mitad
 const daysLeft=(c)=>Math.round((dayParse(c.endsOn)-dayParse(todayStr()))/864e5)+1;
 
 // módulo afectado por un item: el de su área si está construido, si no uno general
@@ -709,26 +720,53 @@ function onUndo(g){
 const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
 function finishContract(frac){
   const c=state.ship.contract; if(!c) return null;
-  const p={mc:Math.floor(c.reward.mc*frac*(1+perk('navigator'))),mats:{}};
+  const p={mc:Math.floor(c.reward.mc*frac*cargoMult()*(1+perk('navigator'))),mats:{}};
   addW('mc',p.mc);
   for(const [k,n] of Object.entries(c.reward.mats||{})){ const q=Math.floor(n*frac); if(q){ addW(k,q); p.mats[k]=q; } }
   state.ship.contract=null;
   return p;
 }
 function avgDaily(){ const t=todayStr(); let s=0; for(let i=1;i<=14;i++) s+=state.ship.activity[addDays(t,-i)]||0; return Math.max(1.5,s/14); }
-function genOffer(){
+// la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación)
+function genOffer(day){
   const topic=pick(Object.keys(TOPICS)), days=1+Math.floor(Math.random()*maxDays());
+  const urgent=!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
   const quota=Math.max(2,Math.round(days*avgDaily()));
-  const mc=Math.round(quota*12*(1+0.08*(days-1))*cargoMult());
+  const mc=Math.round(quota*12*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3);
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
-  return {id:uid(),topic,flavor:pick(TOPICS[topic]),days,quota,reward:{mc,mats}};
+  return {id:uid(),topic,flavor:pick(TOPICS[topic]),days,quota,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
 }
-function freshOffer(existing){
-  for(let i=0;i<10;i++){ const o=genOffer(); if(!existing.some(x=>x.flavor===o.flavor)) return o; }
-  return genOffer();
+function freshOffer(existing,day=todayStr()){
+  for(let i=0;i<10;i++){ const o=genOffer(day); if(!existing.some(x=>x.flavor===o.flavor)) return o; }
+  return genOffer(day);
 }
-function newOffers(){ const a=[]; while(a.length<offersN()) a.push(freshOffer(a)); return a; }
+const offerAge=(o)=>Math.max(0,Math.round((dayParse(todayStr())-dayParse(o.postedOn))/864e5));
+const agedMc=(o)=>Math.round(o.reward.mc*(1+AGE_BONUS*offerAge(o)));   // la paga sube cada día que sigue en el tablón
+// señal en tiempo real, simulada día a día: caducan las viejas y llegan nuevas mientras haya hueco
+function tickBoard(){
+  const b=state.ship.board, now=Date.now();
+  if(!b.sigAt){ b.sigAt=now; b.signal=1; }   // primera vez: una transmisión al momento
+  let at=Math.min(now,Math.max(b.sigAt,now-7*864e5));
+  for(;;){
+    const day=todayStr(new Date(at)), end=Math.min(now,dayParse(addDays(day,1)).getTime()), n=b.offers.length;
+    b.offers=b.offers.filter(o=>o.expiresOn>=day); b.news.lost+=n-b.offers.length;
+    b.signal+=(end-at)/864e5*signalRate(day);
+    while(b.signal>=1&&b.offers.length<boardCap()){ b.signal-=1; b.offers.push(freshOffer(b.offers,day)); b.news.got++; }
+    b.signal=Math.min(1,b.signal);   // tablón lleno: la barra espera al 100%
+    at=end; if(at>=now) break;
+  }
+  b.sigAt=now;
+}
+// aviso de lo que llegó o caducó desde el último aviso (en misión se acumula hasta volver)
+function boardNews(){
+  const n=state.ship.board.news, parts=[];
+  if(n.got) parts.push(`${n.got} ${n.got===1?'transmisión nueva':'transmisiones nuevas'}`);
+  if(n.lost) parts.push(`${n.lost} ${n.lost===1?'caducada':'caducadas'}`);
+  n.got=n.lost=0;
+  return parts.length?'Tablón: '+parts.join(' · '):null;
+}
+function failUrgent(until){ const b=state.ship.board; if(!b.repUntil||b.repUntil<until) b.repUntil=until; state.cmd.stats.urgentFails++; }
 
 // días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
 function decayDay(day){
@@ -751,13 +789,15 @@ function dailyTick(){
   for(;day<t;day=addDays(day,1)) decayDay(day);
   sh.lastTick=y;
   let msg=null;
-  const c=sh.contract;
-  if(c&&c.endsOn<t){ const p=finishContract(c.progress/c.quota); msg=[`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
+  const c=sh.contract, gone=c&&c.endsOn<t;
+  if(gone&&c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
+  tickBoard();
+  if(gone&&c.urgent){ sh.contract=null; msg=[`Misión urgente ${c.topic} fallida · sin cobro · reputación dañada · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
+  else if(gone){ const p=finishContract(c.progress/c.quota); msg=[`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
   const pay=crewPayroll(t); if(pay) msg=msg?msg+' · '+pay:pay;
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
-  if(sh.board.date!==t) sh.board={date:t,offers:newOffers(),rerolls:0};
-  else while(sh.board.offers.length>offersN()) sh.board.offers.pop();
+  if(atHome()){ const n=boardNews(); if(n) msg=msg?msg+' · '+n:n; }
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
   save(); if(msg) toast(msg);
 }
@@ -811,10 +851,13 @@ function crewPayroll(t){
 }
 // al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato
 function returnHome(){
-  const sh=state.ship, off=sh.crew.filter(m=>m.idle);
-  if(!off.length) return null;
-  sh.crew=sh.crew.filter(m=>!m.idle);
-  return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
+  const sh=state.ship, off=sh.crew.filter(m=>m.idle), out=[];
+  if(off.length){
+    sh.crew=sh.crew.filter(m=>!m.idle);
+    out.push(`${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`);
+  }
+  const n=boardNews(); if(n) out.push(n);
+  return out.join(' · ')||null;
 }
 function toggleCancel(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
@@ -841,19 +884,37 @@ let offerSailing=null;   // primer toque de «Aceptar y zarpar» pide confirmaci
 function acceptOffer(id){
   const sh=state.ship; if(sh.contract) return;
   const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
-  if(offerSailing!==id){ offerSailing=id; render(); return; }
+  if(offerSailing!==id){ offerSailing=id; offerDiscarding=null; render(); return; }
   offerSailing=null;
   const t=todayStr();
-  sh.contract={...o,acceptedOn:t,endsOn:addDays(t,o.days-1),progress:0};
+  sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:t,endsOn:addDays(t,o.days-1),progress:0};
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
   save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
 }
-function abandonContract(){ state.ship.contract=null; const r=returnHome(); save(); render(); toast('Misión abandonada · de vuelta en el Sistema Madre'+(r?' · '+r:'')); }
-function reroll(){
+function abandonContract(){
+  const c=state.ship.contract; if(!c) return;
+  tickBoard();
+  if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
+  state.ship.contract=null; const r=returnHome(); save(); render();
+  toast((c.urgent?'Misión urgente abandonada · reputación dañada':'Misión abandonada')+' · de vuelta en el Sistema Madre'+(r?' · '+r:''));
+}
+// barrido de señal: paga lo que le falta a la barra y la transmisión llega ya
+const sweepCost=()=>Math.max(1,Math.ceil((1-state.ship.board.signal)*SWEEP_MC-1e-9));
+function sweep(){
   if(!atHome()) return;
-  const b=state.ship.board, free=b.rerolls<freeRerolls();
-  if(!free){ if(state.wallet.mc<REROLL_MC){ toast('Recursos insuficientes'); return; } subW('mc',REROLL_MC); }
-  b.rerolls++; b.offers=newOffers(); save(); render(); toast('Tablón de misiones renovado');
+  tickBoard();
+  const b=state.ship.board, cost=sweepCost();
+  if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
+  if(state.wallet.mc<cost){ toast('Recursos insuficientes'); return; }
+  subW('mc',cost); b.signal=0; b.offers.push(freshOffer(b.offers));
+  save(); render(); toast(`Barrido de señal: nueva transmisión · −${cost} ¢`);
+}
+let offerDiscarding=null;   // primer toque de ✕ pide confirmación
+function discardOffer(id){
+  if(offerDiscarding!==id){ offerDiscarding=id; offerSailing=null; render(); return; }
+  offerDiscarding=null;
+  const b=state.ship.board; b.offers=b.offers.filter(o=>o.id!==id);
+  tickBoard(); save(); render(); toast(['Misión descartada',boardNews()].filter(Boolean).join(' · '));
 }
 const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:MOD_MC[lv],[MODS[k].res]:MOD_MAT[lv]}; };
 const fmtCost=(c)=>Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + ');
@@ -861,9 +922,10 @@ const canAfford=(c)=>Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
 function buildMod(k){
   const c=modCost(k); if(!c||!atHome()) return;
   if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
+  tickBoard();   // la señal acumulada hasta ahora va al ritmo de antes
   for(const [r,n] of Object.entries(c)) subW(r,n);
   const m=mod(k); if(m.lv===0) m.cond=100; m.lv++;
-  if(k==='bridge'){ const b=state.ship.board; while(b.offers.length<offersN()) b.offers.push(freshOffer(b.offers)); }
+  tickBoard();   // con un hueco más entra la transmisión que esperaba
   save(); render(); toast(`${MODS[k].name} Nv.${m.lv} ✓`);
 }
 const repairCost=(k)=>(100-mod(k).cond)*REPAIR_MC;
@@ -1104,7 +1166,7 @@ function renderRank(){
   document.getElementById('rankBadge').textContent='R'+(i+1);
   document.getElementById('rankSummary').textContent=`· ${RANKS[i][0]} · ${xp} méritos`;
   const habitDays=state.habits.reduce((a,h)=>a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
-  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],['Misiones completadas',st.missions],['Rondas Forster',st.rounds],['Tripulantes contratados',st.hires],['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
+  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions],['Rondas Forster',st.rounds],['Tripulantes contratados',st.hires],['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
   document.getElementById('rankPanel').innerHTML=`
     <div class="flex items-center gap-2">
       <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
@@ -1184,7 +1246,7 @@ function renderMission(c){
     <div class="sys-label">05 // Situación táctica</div>
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
-      <h3 class="font-semibold text-cyan-100">${c.topic}</h3>
+      <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${c.urgent?URGENT_CHIP:''}
       <span class="mono text-[11px] ${left<=1?'text-amber-300':'text-slate-400'}">${missionLeftTxt(c)} · hasta ${fDate(c.endsOn)}</span>
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
@@ -1192,8 +1254,9 @@ function renderMission(c){
       <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-sm text-cyan-200">${c.progress}/${c.quota}</span>
     </div>
-    <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText(c.reward)}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · si expira, cobro parcial</div>
-    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación sigue a bordo y cobra su sueldo cada semana.</p>
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación sigue a bordo y cobra su sueldo cada semana, y el tablón sigue recibiendo transmisiones.
+      <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), ok=w.mc>=REPAIR_MC;
       return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
@@ -1204,7 +1267,40 @@ function renderMission(c){
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
   const ab=el.querySelector('[data-act="abandon"]');
-  ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent='¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
+  ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent=c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
+}
+
+const URGENT_CHIP='<span class="mono text-[10px] px-1.5 py-0.5 rounded border border-amber-600 text-amber-300">URGENTE</span>';
+const fmtNum=(v)=>String(Math.round(v*10)/10).replace('.',',');
+const dayDiff=(s)=>Math.round((dayParse(s)-dayParse(todayStr()))/864e5);
+const expiryTxt=(o)=>{ const l=dayDiff(o.expiresOn); return l<=0?'caduca hoy':l===1?'caduca mañana':`caduca en ${l} días`; };
+const repLeftTxt=()=>{ const l=dayDiff(state.ship.board.repUntil)+1; return l<=1?'último día':`${l} días`; };
+function signalEta(){ const h=(1-state.ship.board.signal)/signalRate(todayStr())*24; return h<1?'menos de 1 h':`~${Math.ceil(h)} h`; }
+// línea de solo lectura del tablón para la vista de misión
+function boardLine(){
+  const b=state.ship.board, hoy=b.offers.filter(o=>o.expiresOn<=todayStr()).length;
+  return `Tablón: ${b.offers.length}/${boardCap()}${hoy?` · ${hoy} ${hoy===1?'caduca':'caducan'} hoy`:''} · señal ${Math.floor(b.signal*100)}%${repDamaged()?` · reputación dañada (${repLeftTxt()})`:''}`;
+}
+// barra de señal y barrido (se repinta sola cada minuto)
+function paintSignal(){
+  const b=state.ship.board, cap=boardCap(), full=b.offers.length>=cap, pct=Math.floor(b.signal*100), cost=sweepCost(), ok=!full&&state.wallet.mc>=cost, rep=repDamaged();
+  const el=document.getElementById('signalBox');
+  el.innerHTML=`
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span class="sys-label">Señal</span>
+      <span class="mono text-[11px] text-slate-300">Tablón ${b.offers.length}/${cap}</span>
+      <span class="mono text-[11px] ${full?'text-amber-300':'text-slate-400'} ml-auto">${full?'Tablón lleno · descarta o acepta una misión':`Próxima transmisión en ${signalEta()}`}</span>
+    </div>
+    <div class="flex items-center gap-2 mt-2">
+      <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Señal hasta la próxima transmisión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full ${rep?'bg-amber-400':'bg-cyan-400'} rounded-full transition-all" style="width:${pct}%"></div></div>
+      <span class="mono text-[11px] text-slate-300 w-9 text-right">${pct}%</span>
+    </div>
+    ${rep?`<p class="mono text-[11px] text-amber-300 mt-2">Reputación dañada · ${repLeftTxt()}: la señal llega a la mitad y no hay misiones urgentes.</p>`:''}
+    <div class="flex flex-wrap items-center gap-2 mt-2.5">
+      <span class="mono text-[11px] text-slate-500 flex-1 min-w-[10rem]">${fmtNum(signalRate(todayStr()))} misiones al día · el barrido adelanta la próxima pagando lo que le falta a la barra</span>
+      <button id="btnSweep" class="${btnCls(ok)} px-3" ${ok?'':'disabled'}>${full?'Tablón lleno':`⌁ Barrido de señal · ${cost} ¢`}</button>
+    </div>`;
+  if(ok) document.getElementById('btnSweep').onclick=sweep;
 }
 
 function renderShip(){
@@ -1241,27 +1337,29 @@ function renderShip(){
   document.querySelectorAll('#homeDock [data-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.pane!==homeTab));
 
   // misiones
-  const b=sh.board, free=Math.max(0,freeRerolls()-b.rerolls);
-  const rr=document.getElementById('btnReroll');
-  rr.textContent=free?`↻ Renovar (gratis ×${free})`:`↻ Renovar · ${REROLL_MC} ¢`;
-  rr.onclick=reroll;
+  const b=sh.board;
+  paintSignal();
   const ol=document.getElementById('offerList'); ol.innerHTML='';
-  if(!b.offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No quedan misiones hoy. Renueva el tablón o vuelve mañana.</div>';
+  if(!b.offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   b.offers.forEach(o=>{
-    const sure=offerSailing===o.id, el=document.createElement('div');
-    el.className='rounded-xl border border-slate-700 bg-slate-900/70 p-3';
+    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=offerAge(o), el=document.createElement('div');
+    el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${o.urgent?URGENT_CHIP:''}
         <span class="mono text-[11px] text-slate-400">${o.days} ${o.days===1?'día':'días'}</span>
+        <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-500 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
       <div class="mono text-[11px] text-slate-400 mt-1">Completa ${o.quota} hábitos o tareas en ${o.days===1?'1 día':o.days+' días'}</div>
+      <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
+      ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">
-        <span class="mono text-xs text-amber-300">${rewardText(o.reward)}</span>
+        <span class="mono text-xs text-amber-300">${rewardText({mc:Math.floor(agedMc(o)*cargoMult()),mats:o.reward.mats})}</span>
         <button data-offer="${o.id}" class="ml-auto py-1.5 px-3 rounded-lg text-sm font-semibold ${sure?'bg-cyan-500 text-slate-950 hover:bg-cyan-400':'bg-cyan-700 hover:bg-cyan-600 text-white'}">${sure?'¿Zarpar? Confirmar':'Aceptar y zarpar'}</button>
       </div>`;
-    el.querySelector('button').onclick=()=>acceptOffer(o.id);
+    el.querySelector('[data-offer]').onclick=()=>acceptOffer(o.id);
+    el.querySelector('[data-drop]').onclick=()=>discardOffer(o.id);
     ol.appendChild(el);
   });
 
@@ -1269,7 +1367,7 @@ function renderShip(){
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
     const m=mod(k), built=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
-    const effTxt={bridge:`${offersN()} misiones en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${freeRerolls()} renovaciones gratis/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
+    const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
     const el=document.createElement('div'); el.id='mod-'+k;
     el.className='rounded-xl border p-3 bg-slate-900/70 '+(!built?'border-slate-700 border-dashed':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
     el.innerHTML=`
@@ -1897,6 +1995,15 @@ document.getElementById('shipChip').onclick=()=>uiMode==='focus'?requestFocusExi
 dailyTick();
 { const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'?m:'commander'); }
 addEventListener('focus',()=>{ dailyTick(); render(); });
+// cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
+setInterval(()=>{
+  const b=state.ship.board, before=b.offers.map(o=>o.id).join();
+  tickBoard();
+  if(b.offers.map(o=>o.id).join()!==before){
+    const n=atHome()?boardNews():null;
+    save(); renderShip(); if(n) toast(n);
+  } else if(uiMode==='ship'&&atHome()) paintSignal();
+},60000);
 </script>
 </body>
 </html>
