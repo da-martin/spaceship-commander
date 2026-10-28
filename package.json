@@ -1,0 +1,20 @@
+{
+  "name": "spaceship-commander",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply spaceship-commander --local",
+    "db:remote": "wrangler d1 migrations apply spaceship-commander --remote",
+    "invite": "node scripts/invite.mjs",
+    "invite:local": "node scripts/invite.mjs --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.153.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261023.1": true
+  }
+}

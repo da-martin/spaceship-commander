@@ -99,6 +99,9 @@ tailwind.config = {
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
       <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · <span id="hdrRank">CADETE</span></p>
     </div>
+    <button id="acctChip" style="display:none" class="mono text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 shrink-0 items-center gap-1.5" title="Cuenta">
+      <span id="acctName">Entrar</span><span id="syncDot" class="text-[10px] text-slate-500"></span>
+    </button>
     <button id="btnSaveGame" class="w-8 h-8 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center shrink-0" title="Guardar / cargar partida">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
     </button>
@@ -191,7 +194,7 @@ tailwind.config = {
   </section>
   </div>
 
-  <p class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN SERVIDOR</p>
+  <p id="footerNote" class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN CUENTA</p>
 </main>
 
 <!-- SPACESHIP VIEW -->
@@ -462,6 +465,15 @@ tailwind.config = {
   </div>
 </div>
 
+<div id="authModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm">
+  <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-[#0f1729] p-5 shadow-2xl">
+    <div class="sys-label">CUENTA</div>
+    <h3 id="authTitle" class="text-lg font-bold mt-1 mb-3">Entrar</h3>
+    <div id="authBody" class="space-y-3"></div>
+    <button id="authClose" class="w-full mt-4 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm">Cerrar</button>
+  </div>
+</div>
+
 <div id="toast"class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
 <script>
@@ -606,7 +618,10 @@ function retroXP(st){
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
 let state = load();
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+// Estado de la sesión en la nube. Se declara aquí porque save() lo consulta a
+// través de schedulePush() y save() se llama desde todas partes.
+const cloud = {user:null, rev:0, timer:null, pending:false, busy:false, status:'local'};
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(); }
 let toastExtra=null;
 function toast(msg){ if(toastExtra){ msg=msg?msg+' · '+toastExtra:toastExtra; toastExtra=null; } const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),msg.length>40?3500:1800); }
 
@@ -1991,10 +2006,185 @@ document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
 document.getElementById('shipChip').onclick=()=>uiMode==='focus'?requestFocusExit('ship'):setMode('ship');
 
+/* ---------- nube: cuenta y sincronización ---------- */
+/* El servidor solo almacena. localStorage sigue siendo la fuente inmediata, así
+   que sin cuenta o sin conexión la app se comporta exactamente como antes. */
+
+const CLOUDKEY='spaceship-commander:cloud';
+const api=(p,o={})=>fetch(p,{credentials:'same-origin',...o});
+const readLink=()=>{ try{ return JSON.parse(localStorage.getItem(CLOUDKEY)||'null'); }catch{ return null; } };
+const writeLink=()=>{ try{ localStorage.setItem(CLOUDKEY,JSON.stringify({user:cloud.user.id,rev:cloud.rev})); }catch{} };
+const stateEmpty=(st)=>!st.tasks.length&&!st.habits.length&&!st.wallet.mc&&!st.cmd.xp;
+const SYNCMARK={local:'',pending:'·',saving:'·',synced:'✓',offline:'⚠'};
+const SYNCTEXT={local:'solo en este dispositivo',pending:'guardando…',saving:'guardando…',synced:'guardado en la nube',offline:'sin conexión — se reintenta solo'};
+
+function setSync(s){ cloud.status=s; paintAccount(); }
+
+// save() nunca espera a la red: marca sucio y agrupa los envíos.
+function schedulePush(){
+  if(!cloud.user) return;
+  cloud.pending=true; setSync('pending');
+  clearTimeout(cloud.timer); cloud.timer=setTimeout(pushState,1500);
+}
+
+async function pushState(){
+  if(!cloud.user||!cloud.pending||cloud.busy) return;
+  cloud.busy=true; cloud.pending=false; setSync('saving');
+  try{
+    const r=await api('/api/state',{method:'PUT',headers:{'content-type':'application/json'},
+      body:JSON.stringify({rev:cloud.rev,data:buildSave()})});
+    if(r.status===401){ cloud.user=null; setSync('local'); return; }
+    if(r.status===409){ const srv=await r.json(); cloud.rev=srv.rev; openAuthModal('choose',srv); return; }
+    if(!r.ok) throw new Error('push '+r.status);
+    cloud.rev=(await r.json()).rev; writeLink(); setSync('synced');
+  }catch{
+    cloud.pending=true; setSync('offline');   // se reintenta al volver la red o el foco
+  }finally{ cloud.busy=false; }
+}
+
+async function initCloud(){
+  let me;
+  try{ const r=await api('/api/me'); if(!r.ok) return; me=await r.json(); }
+  catch{ return; }                       // abierto como archivo suelto: modo local
+  cloud.user=me.user||null;
+  cloud.online=true;                     // hay servidor detrás: se puede entrar
+  paintAccount();
+  if(cloud.user) await hydrate();
+}
+
+async function hydrate(){
+  let srv;
+  try{ const r=await api('/api/state'); if(!r.ok){ setSync('offline'); return; } srv=await r.json(); }
+  catch{ setSync('offline'); return; }
+
+  if(srv.rev===0){                       // cuenta nueva: sube lo de este dispositivo
+    cloud.rev=0; cloud.pending=true; await pushState(); return;
+  }
+  cloud.rev=srv.rev;
+  const link=readLink(), linked=link&&link.user===cloud.user.id;
+
+  if(linked&&link.rev===srv.rev){        // este dispositivo ya estaba al día
+    setSync(cloud.pending?'pending':'synced');
+    if(cloud.pending) pushState();
+    return;
+  }
+  if(linked||stateEmpty(state)) return adoptCloud(srv);  // otro dispositivo escribió después
+  openAuthModal('choose',srv);           // primera vez aquí y ambas tienen progreso
+}
+
+function adoptCloud(srv){
+  try{ localStorage.setItem(BACKUPKEY,JSON.stringify({at:Date.now(),data:state})); }catch{}
+  state=normState(srv.data.data);
+  cloud.rev=srv.rev; writeLink();
+  localStorage.setItem(KEY,JSON.stringify(state));
+  dailyTick(); render();                 // el tick va después de hidratar, no antes
+  setSync('synced'); closeAuthModal();
+}
+
+function keepLocal(srv){
+  cloud.rev=srv.rev; cloud.pending=true; closeAuthModal(); pushState();
+}
+
+async function logout(){
+  try{ await api('/api/auth/logout',{method:'POST'}); }catch{}
+  localStorage.removeItem(CLOUDKEY);
+  cloud.user=null; cloud.rev=0; cloud.pending=false;
+  closeAuthModal(); setSync('local'); toast('Sesión cerrada');
+}
+
+function paintAccount(){
+  const chip=document.getElementById('acctChip');
+  chip.style.display=(cloud.user||cloud.online)?'inline-flex':'none';
+  document.getElementById('acctName').textContent=cloud.user?(cloud.user.name||'Comandante').split(' ')[0]:'Entrar';
+  document.getElementById('syncDot').textContent=cloud.user?(SYNCMARK[cloud.status]||''):'';
+  chip.title=cloud.user?`${cloud.user.name} · ${SYNCTEXT[cloud.status]||''}`:'Entrar para sincronizar tu partida';
+  document.getElementById('footerNote').textContent=cloud.user
+    ? 'PARTIDA EN LA NUBE // '+cloud.user.name.toUpperCase()
+    : 'DATOS LOCALES // LOCALSTORAGE · SIN CUENTA';
+}
+
+const mkEl=(tag,cls,txt)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; };
+const closeAuthModal=()=>document.getElementById('authModal').classList.add('hidden');
+
+function openAuthModal(mode,srv){
+  const body=document.getElementById('authBody'); body.innerHTML='';
+  const title=document.getElementById('authTitle');
+
+  if(mode==='login'){
+    title.textContent='Entrar';
+    body.appendChild(mkEl('p','text-sm text-slate-400','Pega la clave de acceso que te pasaron. Tu partida se guardará en la nube y podrás seguirla en otro dispositivo. Sin clave la app funciona igual, pero solo en este navegador.'));
+
+    const inp=mkEl('input','w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm mono');
+    inp.type='password'; inp.placeholder='sc_…'; inp.autocomplete='off'; inp.spellcheck=false;
+    const err=mkEl('p','text-sm text-rose-400 hidden');
+    const go=mkEl('button','w-full px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-medium','Entrar');
+
+    const submit=async()=>{
+      const key=inp.value.trim(); if(!key) return;
+      go.disabled=true; go.textContent='Comprobando…'; err.classList.add('hidden');
+      try{
+        const r=await api('/api/auth/key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key})});
+        if(!r.ok) throw new Error('invalid');
+        cloud.user=(await r.json()).user; inp.value='';
+        closeAuthModal(); paintAccount(); toast('Sesión iniciada ✓');
+        await hydrate();                 // sube la partida local o pregunta cuál conservar
+      }catch{
+        err.textContent='Esa clave no es válida.'; err.classList.remove('hidden');
+        go.disabled=false; go.textContent='Entrar';
+      }
+    };
+    go.onclick=submit;
+    inp.onkeydown=e=>{ if(e.key==='Enter') submit(); };
+    body.append(inp,err,go);
+    setTimeout(()=>inp.focus(),30);
+  }
+
+  if(mode==='account'){
+    title.textContent=cloud.user.name||'Tu cuenta';
+    body.appendChild(mkEl('p','text-sm text-slate-400','Sesión abierta con tu clave de acceso.'));
+    body.appendChild(mkEl('p','text-sm text-slate-300','Estado: '+(SYNCTEXT[cloud.status]||cloud.status)));
+    const out=mkEl('button','w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm','Cerrar sesión');
+    out.onclick=logout; body.appendChild(out);
+  }
+
+  if(mode==='choose'){
+    title.textContent='Dos partidas distintas';
+    body.appendChild(mkEl('p','text-sm text-slate-400','Este dispositivo y tu cuenta tienen progreso diferente. Elige cuál conservar: la otra queda como copia de seguridad y puedes deshacerlo desde Guardar / cargar partida.'));
+    const opt=(label,txt,cls,fn)=>{
+      const w=mkEl('div','rounded-lg border border-slate-700 p-3 space-y-2');
+      w.appendChild(mkEl('div','sys-label',label));
+      w.appendChild(mkEl('div','text-sm text-slate-300',txt));
+      const b=mkEl('button','w-full px-3 py-2 rounded-lg text-sm font-medium '+cls,'Usar esta');
+      b.onclick=fn; w.appendChild(b); return w;
+    };
+    body.appendChild(opt('EN ESTE DISPOSITIVO',summary(state),'bg-slate-800 border border-slate-700 text-slate-200',()=>keepLocal(srv)));
+    body.appendChild(opt('EN TU CUENTA · '+fmtStamp(srv.updatedAt),summary(normState(srv.data.data)),'bg-cyan-700 hover:bg-cyan-600 text-white',()=>adoptCloud(srv)));
+  }
+  document.getElementById('authModal').classList.remove('hidden');
+}
+
+document.getElementById('acctChip').onclick=()=>openAuthModal(cloud.user?'account':'login');
+document.getElementById('authClose').onclick=closeAuthModal;
+document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal') closeAuthModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAuthModal(); });
+addEventListener('online',()=>{ if(cloud.pending) pushState(); });
+// Dos pestañas del mismo navegador comparten cuenta: al escribir una, la otra
+// adopta su rev para no chocar contra sí misma con un 409 falso.
+addEventListener('storage',e=>{
+  if(e.key!==CLOUDKEY||!cloud.user) return;
+  const l=readLink();
+  if(l&&l.user===cloud.user.id&&l.rev>cloud.rev) cloud.rev=l.rev;
+});
+
 /* ---------- boot ---------- */
 dailyTick();
 { const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'?m:'commander'); }
-addEventListener('focus',()=>{ dailyTick(); render(); });
+addEventListener('focus',()=>{
+  dailyTick(); render();
+  // Al volver: reintenta lo pendiente, o comprueba si otro dispositivo escribió.
+  if(cloud.user){ if(cloud.pending) pushState(); else hydrate(); }
+});
+initCloud();
 // cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
 setInterval(()=>{
   const b=state.ship.board, before=b.offers.map(o=>o.id).join();
