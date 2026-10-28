@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spaceship-commander",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+
+  // public/ se sirve tal cual. Las peticiones que no coinciden con un archivo
+  // (es decir, /api/*) caen en el Worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "spaceship-commander",
+      "database_id": "edc13b4b-9893-439c-8cfe-5c46ce617dbd"
+    }
+  ]
+}
