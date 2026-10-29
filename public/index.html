@@ -29,7 +29,7 @@ tailwind.config = {
   body{background:#0a0f1a;color:#e5e7eb;font-family:Inter,system-ui,sans-serif}
   .mono{font-family:"JetBrains Mono",monospace}
   .panel{background:linear-gradient(180deg,#111827 0%,#0d1526 100%);border:1px solid #1f2a3d;border-radius:12px}
-  .sys-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#67e8f9;opacity:.8}
+  .sys-label{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#67e8f9;opacity:.8}
   .corner{position:relative}
   .corner::before,.corner::after{content:"";position:absolute;width:14px;height:14px;border-color:#22d3ee55;border-style:solid}
   .corner::before{top:-1px;left:-1px;border-width:1px 0 0 1px;border-radius:12px 0 0 0}
@@ -153,7 +153,7 @@ tailwind.config = {
     <div id="brandText" class="min-w-0 flex-1">
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
       <!-- En el móvil solo caben la fecha corta y el rango; el resto aparece desde sm. -->
-      <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 truncate"><span class="hidden sm:inline">STARDATE </span><span id="stardate">—</span><span id="stardateYear" class="hidden sm:inline"></span> · <span id="hdrRank">CADETE</span></p>
+      <p class="mono text-[11px] tracking-[.2em] text-cyan-300/70 mt-1 truncate"><span class="hidden sm:inline">STARDATE </span><span id="stardate">—</span><span id="stardateYear" class="hidden sm:inline"></span> · <span id="hdrRank">CADETE</span></p>
     </div>
     <!-- Cuenta y partida viven aquí dentro: así la primera fila es igual en los
          tres modos y le queda sitio al subtítulo. -->
@@ -163,7 +163,7 @@ tailwind.config = {
       </button>
       <span id="menuDot" class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
       <div id="hdrMenu" data-act="menu" role="menu" class="gear-menu hidden right-0 top-12">
-        <button id="miAccount" role="menuitem" class="flex-col !items-start gap-0.5"><span id="miAccountName">Entrar</span><span id="miAccountSub" class="mono text-[10px] text-slate-400"></span></button>
+        <button id="miAccount" role="menuitem" class="flex-col !items-start gap-0.5"><span id="miAccountName">Entrar</span><span id="miAccountSub" class="mono text-[11px] text-slate-400"></span></button>
         <button id="miSave" role="menuitem">Guardar / cargar partida</button>
       </div>
     </div>
@@ -208,7 +208,7 @@ tailwind.config = {
       <div class="flex-1 basis-64 min-w-0">
         <div class="flex items-baseline gap-2">
           <span id="todayDone" class="mono text-3xl sm:text-4xl font-medium text-emerald-300 leading-none tabular-nums">0</span>
-          <span id="todayTotal" class="mono text-base text-slate-500 leading-none">/ 0</span>
+          <span id="todayTotal" class="mono text-base text-slate-400 leading-none">/ 0</span>
           <span class="mono text-[11px] text-slate-400 leading-none">completados hoy</span>
         </div>
         <div class="h-2 bg-slate-800 rounded-full mt-2.5 overflow-hidden"><div id="todayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div></div>
@@ -225,8 +225,8 @@ tailwind.config = {
     <button id="habitsToggle" type="button" aria-expanded="false" aria-controls="habitsBody" class="w-full flex items-center gap-2 text-left px-1 py-1.5 rounded-md hover:bg-slate-800/50">
       <span class="habits-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
       <span class="sys-label">Todos mis hábitos</span>
-      <span id="habitCount" class="mono text-[10px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
-      <span id="habitsSummary" class="mono text-[10px] truncate text-slate-400"></span>
+      <span id="habitCount" class="mono text-[11px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
+      <span id="habitsSummary" class="mono text-[11px] truncate text-slate-400"></span>
     </button>
     <div id="habitsBody" class="hidden mt-3">
       <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
@@ -236,7 +236,7 @@ tailwind.config = {
         <button data-hfilter="free" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Libres</button>
       </div>
       <div id="habitAreaRow" class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
-        <span class="mono text-[10px] text-slate-400 mr-1">ÁREAS:</span>
+        <span class="mono text-[11px] text-slate-400 mr-1">ÁREAS:</span>
         <button data-harea="__all" class="hafilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Todas</button>
         <button data-harea="Spirit" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Spirit</button>
         <button data-harea="Social" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
@@ -277,8 +277,8 @@ tailwind.config = {
           <button id="projToggle" type="button" aria-expanded="false" aria-controls="projBody" class="flex-1 min-w-0 min-h-11 flex items-center gap-2 text-left px-2 py-2 rounded-md hover:bg-slate-800/50">
             <span class="proj-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
             <span class="sys-label">Proyectos</span>
-            <span id="projCount" class="mono text-[10px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
-            <span id="projSummary" class="mono text-[10px] truncate text-slate-400"></span>
+            <span id="projCount" class="mono text-[11px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
+            <span id="projSummary" class="mono text-[11px] truncate text-slate-400"></span>
           </button>
           <button id="btnNewProj" type="button" class="shrink-0 px-3 h-11 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo</button>
         </div>
@@ -288,7 +288,7 @@ tailwind.config = {
   </section>
   </div>
 
-  <p id="footerNote" class="mono text-[10px] tracking-[.18em] text-slate-500 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN CUENTA</p>
+  <p id="footerNote" class="mono text-[11px] tracking-[.18em] text-slate-400 text-center pt-2">DATOS LOCALES // LOCALSTORAGE · SIN CUENTA</p>
 </main>
 
 <!-- SPACESHIP VIEW -->
@@ -309,16 +309,16 @@ tailwind.config = {
       <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] p-2"></div>
       <div class="w-full min-w-0 flex-1">
         <div class="flex items-center gap-2 mb-2">
-          <span class="mono text-[9px] tracking-[.18em] text-slate-500 flex-1">SISTEMAS</span>
+          <span class="mono text-[11px] tracking-[.18em] text-slate-400 flex-1">SISTEMAS</span>
           <div role="group" aria-label="Ordenar sistemas" class="flex bg-slate-900 border border-slate-700 rounded-md p-0.5">
-            <button type="button" id="sortNave" class="mono text-[10px] px-2 py-1 rounded">nave</button>
-            <button type="button" id="sortEstado" class="mono text-[10px] px-2 py-1 rounded">estado</button>
+            <button type="button" id="sortNave" class="mono text-[11px] px-2 py-1 rounded">nave</button>
+            <button type="button" id="sortEstado" class="mono text-[11px] px-2 py-1 rounded">estado</button>
           </div>
         </div>
         <div id="shipSystems" class="flex flex-col gap-1.5"></div>
       </div>
     </div>
-    <div class="mono text-[10px] text-slate-500 mt-3 flex flex-wrap gap-x-3 gap-y-1">
+    <div class="mono text-[11px] text-slate-400 mt-3 flex flex-wrap gap-x-3 gap-y-1">
       <span><span class="inline-block w-2.5 h-1.5 rounded-sm bg-cyan-300 align-middle"></span> nivel</span>
       <span>la barra y su número son el estado: se leen sin depender del color</span>
     </div>
@@ -328,7 +328,7 @@ tailwind.config = {
   <section class="panel p-4 sm:p-5">
     <div class="sys-label">04 // Tripulación</div>
     <h2 class="text-lg font-bold mt-1 mb-1">A bordo <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
-    <p class="mono text-[11px] text-slate-500 mb-3">Contratos semanales que se renuevan solos y cobran el sueldo cada 7 días. Si cancelas, el tripulante trabaja hasta el final de lo pagado. Sin ¢ el día del cobro, se marcha.</p>
+    <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Contratos semanales que se renuevan solos y cobran el sueldo cada 7 días. Si cancelas, el tripulante trabaja hasta el final de lo pagado. Sin ¢ el día del cobro, se marcha.</p>
     <p id="crewWarn" class="hidden mono text-[11px] text-amber-300 border border-amber-700/60 bg-amber-950/30 rounded-lg px-3 py-2 mb-3"></p>
     <div id="crewList" class="grid sm:grid-cols-2 gap-3"></div>
   </section>
@@ -346,15 +346,15 @@ tailwind.config = {
       </div>
       <div class="mt-4">
         <div data-pane="yard" role="tabpanel">
-          <p class="mono text-[11px] text-slate-500 mb-3">Construye y mejora módulos. El descuido los desgasta y reduce su bonus; completar hábitos y tareas los repara poco a poco.</p>
+          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Construye y mejora módulos. El descuido los desgasta y reduce su bonus; completar hábitos y tareas los repara poco a poco.</p>
           <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
         <div data-pane="market" role="tabpanel" class="hidden">
-          <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
+          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
           <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
         <div data-pane="missions" role="tabpanel" class="hidden">
-          <p class="mono text-[11px] text-slate-500 mb-3">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
+          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
           <div id="signalBox" class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 mb-3"></div>
           <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
         </div>
@@ -393,7 +393,7 @@ tailwind.config = {
   </section>
 
   <div id="focusPhaseBox" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#1f2a3d] bg-[#0d1526] px-3.5 py-3">
-    <span id="focusPhaseLabel" class="mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border"></span>
+    <span id="focusPhaseLabel" class="mono text-[11px] font-bold tracking-[.14em] px-2 py-1 rounded border"></span>
     <p id="focusPhaseHint" class="text-[13px] leading-relaxed text-slate-300 flex-1 basis-64"></p>
   </div>
 
@@ -509,7 +509,7 @@ tailwind.config = {
           <input id="fProjDue" type="date" aria-label="Fecha límite del nuevo proyecto" class="w-36 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:border-cyan-600">
           <button id="fProjAdd" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">Crear</button>
         </div>
-        <p id="fProjHint" class="mono text-[10px] mt-1.5 text-slate-400"></p>
+        <p id="fProjHint" class="mono text-[11px] mt-1.5 text-slate-400"></p>
       </div>
       <div id="rowHabitType" class="hidden">
         <label class="mono text-[11px] text-slate-400">TIPO DE HÁBITO</label>
@@ -559,7 +559,7 @@ tailwind.config = {
       </div>
       <button id="saveClose" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
     </div>
-    <p class="mono text-[11px] text-slate-500 mt-1 mb-4">Para usar tu progreso en otro dispositivo: guarda aquí y carga allí.</p>
+    <p class="mono text-[11px] text-slate-400 mt-1 mb-4">Para usar tu progreso en otro dispositivo: guarda aquí y carga allí.</p>
 
     <div class="sys-label mb-2">Guardar</div>
     <div class="flex gap-2">
@@ -567,7 +567,7 @@ tailwind.config = {
       <button id="btnCopyCode" class="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">⧉ Copiar código</button>
     </div>
     <textarea id="exportCode" readonly class="hidden mt-2 w-full h-20 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 mono text-[11px] break-all outline-none focus:border-cyan-600"></textarea>
-    <div id="lastExport" class="mono text-[11px] text-slate-500 mt-1.5"></div>
+    <div id="lastExport" class="mono text-[11px] text-slate-400 mt-1.5"></div>
 
     <div class="border-t border-slate-800 my-4"></div>
 
@@ -622,7 +622,12 @@ const etaDays = (due) => { const [y,m,dd]=due.split('-').map(Number); const a=ne
 const DOW = () => new Date().getDay();
 const DOW_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const AREAS = ['Spirit','Social','Craft','Health'];
+// Las áreas eran cuatro bordes de color compitiendo con el ámbar de la
+// prioridad y el cian de la acción. Ahora son etiqueta gris con un punto: se
+// siguen distinguiendo y dejan de pedir turno. AREA_COLORS se queda para el
+// astillero, donde la pastilla del módulo sí es el único color de la tarjeta.
 const AREA_COLORS = {Spirit:'border-violet-700 text-violet-300',Social:'border-pink-700 text-pink-300',Craft:'border-cyan-700 text-cyan-300',Health:'border-emerald-700 text-emerald-300'};
+const AREA_DOT = {Spirit:'#8b5cf6',Social:'#ec4899',Craft:'#06b6d4',Health:'#10b981'};
 
 /* ---------- gamificación: recursos ---------- */
 const RES = {
@@ -798,7 +803,12 @@ function toast(msg,level){
   el._t=setTimeout(()=>el.classList.add('hidden'),win?4000:(msg.length>40?3500:1800));
 }
 
-function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
+function areaBadges(areas,max=2){
+  areas=(areas||[]).filter(a=>AREAS.includes(a));
+  if(!areas.length) return '';
+  const shown=areas.slice(0,max).map(a=>`<span class="mono text-[11px] text-slate-400 inline-flex items-center gap-1"><span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${AREA_DOT[a]}" aria-hidden="true"></span>${a}</span>`).join('');
+  return shown+(areas.length>max?`<span class="mono text-[11px] text-slate-400">+${areas.length-max}</span>`:'');
+}
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 
 /* ---------- rango y ventajas de la tripulación ---------- */
@@ -811,7 +821,7 @@ function projDue(p){
   if(!p.due) return {text:'sin fecha límite',cls:'text-slate-400',short:'sin fecha'};
   const e=etaDays(p.due), d=fmtDate(p.due);
   if(e<0) return {text:`◷ ${d} · ATRASADA`,cls:'text-red-400',short:'ATRASADA'};
-  if(e===0) return {text:`◷ ${d} · HOY`,cls:'text-cyan-300',short:'vence HOY'};
+  if(e===0) return {text:`◷ ${d} · HOY`,cls:'text-slate-200',short:'vence HOY'};
   const r=`en ${e} ${e===1?'día':'días'}`;
   return {text:`◷ ${d} · ${r}`,cls:'text-slate-400',short:r};
 }
@@ -819,7 +829,7 @@ function projDue(p){
 // sino por forma: pastilla rellena con ▣.
 function projBadge(id){
   const p=projById(id);
-  return p?`<span class="mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300">▣ ${escapeHtml(p.name)}</span>`:'';
+  return p?`<span class="mono text-[11px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300">▣ ${escapeHtml(p.name)}</span>`:'';
 }
 function projTaskCount(id){ let d=0,t=0; for(const x of state.tasks) if(x.projectId===id){ t++; if(x.done) d++; } return {done:d,total:t}; }
 function addProject(name,due){ const p={id:uid(),name:name.trim().slice(0,80),due:due||null,createdAt:Date.now()}; state.projects.push(p); save(); return p; }
@@ -1331,7 +1341,7 @@ function doneStripEl(hechos,size,t){
    ya no se pone por delante de algo vencido hace nueve días. */
 const TGROUPS=[
   {k:'over', name:'Atrasadas',    cls:'text-amber-300',   bd:'border-amber-800'},
-  {k:'today',name:'Hoy',          cls:'text-cyan-300',    bd:'border-cyan-800'},
+  {k:'today',name:'Hoy',          cls:'text-slate-200',   bd:'border-slate-500'},
   {k:'week', name:'Esta semana',  cls:'text-slate-300',   bd:'border-slate-700'},
   {k:'later',name:'Más adelante', cls:'text-slate-300',   bd:'border-slate-700'},
   {k:'none', name:'Sin fecha',    cls:'text-slate-300',   bd:'border-slate-700'},
@@ -1363,8 +1373,8 @@ function renderTaskGroups(tl,tasks,t){
     head.className='grp-head w-full flex items-center gap-2 px-1 pt-2 pb-1 rounded-md hover:bg-slate-800/40';
     head.setAttribute('aria-expanded',on);
     head.innerHTML=`<span class="grp-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
-      <span class="mono text-[10px] tracking-[.16em] uppercase ${g.cls}">${g.name}</span>
-      <span class="mono text-[10px] px-1.5 py-px rounded border ${g.bd} ${g.cls}">${items.length}</span>`;
+      <span class="mono text-[11px] tracking-[.16em] uppercase ${g.cls}">${g.name}</span>
+      <span class="mono text-[11px] px-1.5 py-px rounded border ${g.bd} ${g.cls}">${items.length}</span>`;
     head.onclick=()=>{ tGroupOpen[g.k]=!on; render(); };
     tl.appendChild(head);
     if(on) items.forEach(x=>tl.appendChild(taskRowEl(x,t)));
@@ -1386,7 +1396,7 @@ function taskRowEl(x,t){
   const title=escapeHtml(x.title);
   const date=x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha';
   const meta=[
-    `<span class="${over?'text-amber-300':x.dueDate===t?'text-cyan-300':'text-slate-400'}">${date}</span>`,
+    `<span class="${over?'text-amber-300':x.dueDate===t?'text-slate-200':'text-slate-400'}">${date}</span>`,
     (eta!==null&&x.dueDate!==t)?`<span class="px-1.5 py-px rounded border ${over?'border-amber-700 text-amber-300':'border-slate-600 text-slate-300'}">${over?('hace '+(-eta)+(-eta===1?' día':' días')):('ETA '+eta+(eta===1?' día':' días'))}</span>`:'',
     projBadge(x.projectId), areaBadges(x.areas)
   ].filter(Boolean).join('');
@@ -1452,11 +1462,11 @@ function projFormEl(p){
   el.innerHTML=`
     <div class="flex gap-2">
       <span class="flex-1 min-w-0">
-        <label for="projName" class="mono text-[10px] text-slate-400">NOMBRE</label>
+        <label for="projName" class="mono text-[11px] text-slate-400">NOMBRE</label>
         <input id="projName" type="text" maxlength="80" value="${p?escapeHtml(p.name):''}" placeholder="Ej. Informe Q4" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:border-cyan-600">
       </span>
       <span class="w-36 shrink-0">
-        <label for="projDue" class="mono text-[10px] text-slate-400">LÍMITE (OPC.)</label>
+        <label for="projDue" class="mono text-[11px] text-slate-400">LÍMITE (OPC.)</label>
         <input id="projDue" type="date" value="${p&&p.due?p.due:''}" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[13px] outline-none focus:border-cyan-600">
       </span>
     </div>
@@ -1509,7 +1519,7 @@ function renderProjects(){
       else txt='· sin fechas límite';
     }
   }
-  sum.textContent=txt; sum.className='mono text-[10px] truncate '+cls;
+  sum.textContent=txt; sum.className='mono text-[11px] truncate '+cls;
 
   body.innerHTML='';
   if(!ps.length&&projEdit!=='new') body.innerHTML='<div class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin proyectos todavía. Crea uno con «+ Nuevo» y podrás vincularle tareas.</div>';
@@ -1524,11 +1534,11 @@ function renderProjects(){
         <span class="mono text-[13px] leading-none shrink-0 ${on?'text-cyan-300':'text-slate-400'}" aria-hidden="true">▣</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[13px] font-semibold truncate">${escapeHtml(p.name)}</span>
-          <span class="block mono text-[10px] mt-0.5 ${m.cls}">${m.text}</span>
+          <span class="block mono text-[11px] mt-0.5 ${m.cls}">${m.text}</span>
         </span>
         <span class="shrink-0 flex items-center gap-1.5">
           <span class="w-11 h-[3px] rounded-full bg-slate-800 overflow-hidden block"><span class="block h-[3px] rounded-full bg-emerald-500" style="width:${pct}%"></span></span>
-          <span class="mono text-[10px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
+          <span class="mono text-[11px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
         </span>
       </button>
       <button data-act="gear" class="shrink-0 text-slate-400 hover:text-cyan-300 p-1.5 leading-none" title="Opciones del proyecto" aria-label="Opciones del proyecto">${GEAR_SVG}</button>
@@ -1554,7 +1564,7 @@ function renderProjects(){
     const b=document.createElement('button');
     b.className='w-full flex items-center gap-2.5 rounded-lg border border-dashed px-2.5 py-2 text-left '+(on?'border-cyan-700 bg-cyan-500/5 text-slate-200':'border-slate-700 text-slate-400');
     b.setAttribute('aria-pressed',on);
-    b.innerHTML=`<span class="flex-1 text-xs">Sin proyecto</span><span class="mono text-[10px]">${n}</span>`;
+    b.innerHTML=`<span class="flex-1 text-xs">Sin proyecto</span><span class="mono text-[11px]">${n}</span>`;
     b.onclick=()=>{ pFilter=on?null:'none'; render(); };
     body.appendChild(b);
   }
@@ -1636,7 +1646,7 @@ function render(){
 /* ---------- render: nave ---------- */
 const condColor=(c)=>c>=70?'#10b981':c>=35?'#f59e0b':'#ef4444';
 const condBar=(c)=>c>=70?'bg-emerald-400':c>=35?'bg-amber-400':'bg-red-400';
-const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-cyan-800 hover:bg-cyan-700':'bg-slate-800 text-slate-500 cursor-not-allowed');
+const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-cyan-800 hover:bg-cyan-700':'bg-slate-800 text-slate-400 cursor-not-allowed');
 /* ---------- nave: ilustración y panel de sistemas ---------- */
 
 // La nave no lleva ni una etiqueta encima: todo el texto vive en el panel de al
@@ -1699,15 +1709,15 @@ function shipSystems(){
       <span class="flex gap-0.5 shrink-0" aria-hidden="true">${pips}</span>
       ${up?`<span class="flex items-center gap-1.5 w-[86px] shrink-0" aria-hidden="true">
         <span class="flex-1 h-1.5 rounded-full bg-slate-700 overflow-hidden"><i class="block h-full rounded-full" style="width:${x.cond}%;background:${col}"></i></span>
-        <span class="mono text-[10px] text-slate-400 w-5 text-right">${x.cond}</span>
-      </span>`:`<span class="mono text-[10px] text-slate-500 w-[86px] shrink-0 text-right" aria-hidden="true">sin mejoras</span>`}
+        <span class="mono text-[11px] text-slate-400 w-5 text-right">${x.cond}</span>
+      </span>`:`<span class="mono text-[11px] text-slate-400 w-[86px] shrink-0 text-right" aria-hidden="true">sin mejoras</span>`}
     </button>`;
   }).join('');
 }
 function paintSysSort(){
   for(const [id,v] of [['sortNave','nave'],['sortEstado','estado']]){
     const b=document.getElementById(id), on=sysSort===v;
-    b.className='mono text-[10px] px-2 py-1 rounded '+(on?'bg-cyan-700 text-white':'text-slate-400 hover:text-white');
+    b.className='mono text-[11px] px-2 py-1 rounded '+(on?'bg-cyan-700 text-white':'text-slate-400 hover:text-white');
     b.setAttribute('aria-pressed',String(on));
   }
 }
@@ -1726,7 +1736,7 @@ function renderRank(){
       <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
     </div>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[10px] text-slate-400">${k}</div></div>`).join('')}</div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[11px] text-slate-400">${k}</div></div>`).join('')}</div>
     <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
 }
@@ -1761,16 +1771,16 @@ function renderCrew(){
         ${roleTile(m.role)}
         <div class="min-w-0 flex-1">
           <div class="font-semibold leading-tight">${escapeHtml(m.name)}</div>
-          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[m.lv-1]}">${CREW_LV[m.lv-1].name}</span></div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[11px] text-slate-300">${R.name}</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[m.lv-1]}">${CREW_LV[m.lv-1].name}</span></div>
         </div>
       </div>
-      <div class="text-sm mt-2 ${m.idle?'text-slate-500 line-through':'text-cyan-200'}">${R.desc(R.eff[m.lv-1])}</div>
+      <div class="text-sm mt-2 ${m.idle?'text-slate-400 line-through':'text-cyan-200'}">${R.desc(R.eff[m.lv-1])}</div>
       <div class="mono text-[11px] mt-1">${status}</div>
       <div class="flex flex-wrap items-center gap-1.5 mt-2.5">${main}${m.idle?'':fire}</div>
     </div>`;
   }).join('')+Array.from({length:Math.max(0,BERTHS-sh.crew.length)},()=>atHome()
-    ?`<button type="button" data-crew="board" class="rounded-xl border border-dashed border-slate-700 hover:border-cyan-600 p-3 grid place-items-center text-sm text-slate-500 hover:text-cyan-300 min-h-[120px]">Litera libre · ver candidatos</button>`
-    :`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-500 min-h-[120px]">Litera libre · contrata al volver al Sistema Madre</div>`).join('');
+    ?`<button type="button" data-crew="board" class="rounded-xl border border-dashed border-slate-700 hover:border-cyan-600 p-3 grid place-items-center text-sm text-slate-400 hover:text-cyan-300 min-h-[120px]">Litera libre · ver candidatos</button>`
+    :`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-400 min-h-[120px]">Litera libre · contrata al volver al Sistema Madre</div>`).join('');
   const nextSun=addDays(sh.crewBoard.week||weekStart(),7), dn=Math.round((dayParse(nextSun)-dayParse(todayStr()))/864e5);
   document.getElementById('crewBoardNote').textContent=`· nuevos el ${fDate(nextSun)} (en ${dn} ${dn===1?'día':'días'})`;
   const cand=document.getElementById('candList');
@@ -1781,7 +1791,7 @@ function renderCrew(){
         ${roleTile(x.role)}
         <div class="min-w-0 flex-1">
           <div class="font-semibold leading-tight">${escapeHtml(x.name)}</div>
-          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[x.lv-1]}">${L.name}</span></div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[11px] text-slate-300">${R.name}</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[x.lv-1]}">${L.name}</span></div>
         </div>
         <span class="mono text-[11px] text-amber-300 shrink-0">${wageOf(L.wage)} ¢/sem</span>
       </div>
@@ -1829,14 +1839,14 @@ function renderMission(c){
         <div class="flex items-center gap-2"><span class="font-semibold text-sm">${MODS[k].name}</span><span class="mono text-[11px] text-slate-300 ml-auto">${m.cond}%</span></div>
         <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
         <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${ok?q.mc:rc} ¢</button>
-      </div>`; }).join('')||'<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
+      </div>`; }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
   const ab=el.querySelector('[data-act="abandon"]');
   ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent=c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
 }
 
-const URGENT_CHIP='<span class="mono text-[10px] px-1.5 py-0.5 rounded border border-amber-600 text-amber-300">URGENTE</span>';
+const URGENT_CHIP='<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-600 text-amber-300">URGENTE</span>';
 const fmtNum=(v)=>String(Math.round(v*10)/10).replace('.',',');
 const dayDiff=(s)=>Math.round((dayParse(s)-dayParse(todayStr()))/864e5);
 const expiryTxt=(o)=>{ const l=dayDiff(o.expiresOn); return l<=0?'caduca hoy':l===1?'caduca mañana':`caduca en ${l} días`; };
@@ -1866,7 +1876,7 @@ function paintSignal(){
     </div>
     ${rep?`<p class="mono text-[11px] text-amber-300 mt-2">Reputación dañada · ${repLeftTxt()}: la señal llega a la mitad y no hay misiones urgentes.</p>`:''}
     <div class="flex flex-wrap items-center gap-2 mt-2.5">
-      <span class="mono text-[11px] text-slate-500 flex-1 min-w-[10rem]">${fmtNum(signalRate(todayStr()))} misiones al día · el barrido adelanta la próxima pagando lo que le falta a la barra</span>
+      <span class="mono text-[11px] text-slate-400 flex-1 min-w-[10rem]">${fmtNum(signalRate(todayStr()))} misiones al día · el barrido adelanta la próxima pagando lo que le falta a la barra</span>
       <button id="btnSweep" class="${btnCls(ok)} px-3" ${ok?'':'disabled'}>${full?'Tablón lleno':`⌁ Barrido de señal · ${cost} ¢`}</button>
     </div>`;
   if(ok) document.getElementById('btnSweep').onclick=sweep;
@@ -1880,7 +1890,7 @@ function renderShip(){
   chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
   if(uiMode!=='ship') return;
 
-  document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-500">${r.name}</span></span>`).join('');
+  document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
 
   renderRank();
   renderCrew();
@@ -1915,15 +1925,15 @@ function renderShip(){
   paintSignal();
   const ol=document.getElementById('offerList'); ol.innerHTML='';
   const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
-  if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
+  if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   offers.forEach(o=>{
     const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=offerAge(o), el=document.createElement('div');
     el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${o.urgent?URGENT_CHIP:''}
+        <span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${o.urgent?URGENT_CHIP:''}
         <span class="mono text-[11px] text-slate-400">${o.days} ${o.days===1?'día':'días'}</span>
-        <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-500 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
+        <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
       <div class="mono text-[11px] text-slate-400 mt-1">Completa ${o.quota} hábitos o tareas en ${o.days===1?'1 día':o.days+' días'}</div>
@@ -1950,10 +1960,10 @@ function renderShip(){
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="font-semibold text-sm">${def.name}</span>
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${def.kind==='area'?AREA_COLORS[def.area]:'border-slate-600 text-slate-300'}">${def.kind==='area'?def.area:'GENERAL'}</span>
+        <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${def.kind==='area'?AREA_COLORS[def.area]:'border-slate-600 text-slate-300'}">${def.kind==='area'?def.area:'GENERAL'}</span>
         <span class="mono text-[11px] ${m.lv>=5?'text-emerald-300':'text-slate-400'} ml-auto">${'●'.repeat(m.lv)}${'○'.repeat(5-m.lv)}</span>
       </div>
-      <div class="mono text-[11px] text-slate-500 mt-1.5">${def.desc}${def.kind==='area'?' · opcional':''}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1.5">${def.desc}${def.kind==='area'?' · opcional':''}</div>
       ${up?`<div class="flex items-center gap-2 mt-2">
         <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
         <span class="mono text-[11px] text-slate-300">${m.cond}%</span>
@@ -1977,15 +1987,15 @@ function renderShip(){
     el.className='rounded-xl border border-slate-700 bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${r.chip}">${r.sym} ${r.name}</span>
+        <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${r.chip}">${r.sym} ${r.name}</span>
         <span class="mono text-[11px] text-slate-400 ml-auto">tienes ${w[k]}</span>
       </div>
-      <div class="text-xl font-bold mt-1.5">${p} ¢ ${p<p0?`<span class="mono text-xs font-normal text-slate-500 line-through">${p0} ¢</span> `:''}<span class="mono text-xs font-normal ${p0>py?'text-red-300':p0<py?'text-emerald-300':'text-slate-500'}">${p0>py?'▲':p0<py?'▼':'='}</span></div>
-      <div class="mono text-[11px] text-slate-500">ayer ${py} ¢ · venta ${sp} ¢</div>
+      <div class="text-xl font-bold mt-1.5">${p} ¢ ${p<p0?`<span class="mono text-xs font-normal text-slate-400 line-through">${p0} ¢</span> `:''}<span class="mono text-xs font-normal ${p0>py?'text-red-300':p0<py?'text-emerald-300':'text-slate-400'}">${p0>py?'▲':p0<py?'▼':'='}</span></div>
+      <div class="mono text-[11px] text-slate-400">ayer ${py} ¢ · venta ${sp} ¢</div>
       <div class="grid grid-cols-3 gap-1.5 mt-2">
         <button data-act="b1" class="${btnCls(w.mc>=p)} px-1" ${w.mc>=p?'':'disabled'}>+1</button>
         <button data-act="b5" class="${btnCls(w.mc>=p*5)} px-1" ${w.mc>=p*5?'':'disabled'}>+5</button>
-        <button data-act="s1" class="px-1 py-2 rounded-lg text-sm font-semibold ${w[k]>=1?'bg-slate-800 border border-slate-600 hover:border-amber-500':'bg-slate-800 text-slate-500 cursor-not-allowed'}" ${w[k]>=1?'':'disabled'}>Vender</button>
+        <button data-act="s1" class="px-1 py-2 rounded-lg text-sm font-semibold ${w[k]>=1?'bg-slate-800 border border-slate-600 hover:border-amber-500':'bg-slate-800 text-slate-400 cursor-not-allowed'}" ${w[k]>=1?'':'disabled'}>Vender</button>
       </div>`;
     el.querySelector('[data-act="b1"]').onclick=()=>buyMat(k,1);
     el.querySelector('[data-act="b5"]').onclick=()=>buyMat(k,5);
@@ -2023,10 +2033,10 @@ function fillProjectSelect(sel){
 }
 function paintProjHint(){
   const h=document.getElementById('fProjHint'), p=projById(document.getElementById('fProject').value);
-  if(!p){ h.textContent=''; h.className='mono text-[10px] mt-1.5 text-slate-400'; return; }
+  if(!p){ h.textContent=''; h.className='mono text-[11px] mt-1.5 text-slate-400'; return; }
   const m=projDue(p);
   h.textContent=(p.due?'FECHA LÍMITE DEL PROYECTO · '+m.text.replace('◷ ',''):'EL PROYECTO NO TIENE FECHA LÍMITE').toUpperCase();
-  h.className='mono text-[10px] mt-1.5 '+m.cls;
+  h.className='mono text-[11px] mt-1.5 '+m.cls;
 }
 function syncDayPicker(){
   const show=document.getElementById('fType').value==='weekly';
@@ -2169,7 +2179,7 @@ async function reviewSave(text){
   catch(e){ msg.textContent=e.message; msg.classList.remove('hidden'); return; }
   const at=Date.parse(pendingSave.savedAt);
   pv.innerHTML=`<div class="rounded-xl border border-cyan-700 bg-cyan-950/30 p-3">
-    <div class="mono text-[10px] tracking-[.18em] text-cyan-300">PARTIDA ENCONTRADA</div>
+    <div class="mono text-[11px] tracking-[.18em] text-cyan-300">PARTIDA ENCONTRADA</div>
     <div class="text-sm font-medium mt-1">Guardada ${Number.isFinite(at)?'el '+fmtStamp(at):'(fecha desconocida)'}</div>
     <div class="mono text-[11px] text-slate-300 mt-1">${summary(normState(pendingSave.data))}</div>
     <div class="text-xs text-amber-200 mt-2">Reemplazará tu partida actual (${summary(state)}). Se guarda una copia por si quieres deshacer.</div>
@@ -2288,7 +2298,7 @@ function renderFocus(){
   const fv=document.getElementById('focus-view'); fv.classList.toggle('f-mode-prep',prep); fv.classList.toggle('f-mode-work',!prep);
   const pl=document.getElementById('focusPhaseLabel');
   pl.textContent=prep?'FASE 1 · PREPARAR':'FASE 2 · TRABAJAR';
-  pl.className='mono text-[10px] font-bold tracking-[.14em] px-2 py-1 rounded border '+(prep?'border-amber-800 text-amber-300':'border-cyan-800 text-cyan-300');
+  pl.className='mono text-[11px] font-bold tracking-[.14em] px-2 py-1 rounded border '+(prep?'border-amber-800 text-amber-300':'border-cyan-800 text-cyan-300');
   document.getElementById('focusPhaseHint').textContent=prep
     ?'Toca una línea para marcarla con un punto: es lo que planeas trabajar. Arrastra desde el asa para reordenar.'
     :'Toca una línea para anotar progreso, completarla, editarla o eliminarla. Las marcadas con punto van primero en tu atención.';
@@ -2303,8 +2313,8 @@ function renderFocus(){
   ol.innerHTML=f.lines.map(l=>{
     const it=focusItem(l), struck=!!l.status, title=escapeHtml(focusTitle(l)), kl=FKIND[l.kind].label.toLowerCase();
     const cls='f-row'+(l.dotted&&!struck?' dot':'')+(struck?' struck':(!prep&&!l.dotted?' dim':''));
-    const stamp=l.status==='done'?'<span class="mono text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-emerald-600 text-emerald-300 shrink-0">COMPLETADO</span>'
-      :l.status==='progress'?'<span class="mono text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-cyan-600 text-cyan-300 shrink-0">PROGRESO</span>':'';
+    const stamp=l.status==='done'?'<span class="mono text-[11px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-emerald-600 text-emerald-300 shrink-0">COMPLETADO</span>'
+      :l.status==='progress'?'<span class="mono text-[11px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-cyan-600 text-cyan-300 shrink-0">PROGRESO</span>':'';
     const label=(prep?(l.dotted?'Quitar punto de ':'Marcar con punto ')+kl:'Opciones de '+kl)+': '+title;
     return `<li class="${cls}" data-id="${l.id}">
       ${prep?`<button type="button" class="f-grip" data-grip aria-label="Mover ${title} (flechas arriba y abajo)">${GRIP_SVG}</button>`:''}
