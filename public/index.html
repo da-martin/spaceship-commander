@@ -562,7 +562,7 @@ tailwind.config = {
   </div>
 </div>
 
-<div id="toast"class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
 <script>
 
@@ -736,7 +736,20 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(
 let shipNews=[];
 function shipToast(msg){ if(!msg) return; if(uiMode==='ship') toast(msg); else shipNews.push(msg); }
 function flushShipNews(){ const n=shipNews.splice(0).slice(-3); if(n.length) toast(n.join(' · ')); }
-function toast(msg){ if(!msg) return; const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),msg.length>40?3500:1800); }
+// Dos niveles, porque un ascenso de rango no puede verse igual que «Proyecto
+// eliminado». El nivel 'win' se queda más tiempo y se pinta en ámbar; si justo
+// detrás llega un aviso normal —el «+10 ¢» de la misma acción—, se le suma en
+// vez de pisarlo.
+const TOAST_BASE='fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm text-center max-w-[calc(100vw-32px)] border ';
+function toast(msg,level){
+  if(!msg) return;
+  const el=document.getElementById('toast'), win=level==='win';
+  if(!win && el._win && !el.classList.contains('hidden')){ el.textContent+=' · '+msg; return; }
+  el.textContent=msg; el._win=win;
+  el.className=TOAST_BASE+(win?'bg-amber-950 border-amber-600 text-amber-100 font-semibold':'bg-slate-900 border-slate-700');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.add('hidden'),win?4000:(msg.length>40?3500:1800));
+}
 
 function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
@@ -779,7 +792,8 @@ function addXP(n){
   if(!n) return 0;
   n=Math.round(n*(1+XP_BONUS*eff('spirit')));
   const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
-  if(after>before) shipToast(`★ Ascenso: ahora eres ${RANKS[after][0]}`);
+  // Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
+  if(after>before) toast(`★ Ascenso: ahora eres ${RANKS[after][0]}`,'win');
   return n;
 }
 const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
@@ -794,8 +808,9 @@ const wageOf=(base)=>Math.max(1,Math.round(base*(1-WAGE_CUT*eff('social'))));
 const addW=(k,n)=>{ state.wallet[k]+=n; };
 const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
 const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
-// Vacío fuera de la nave: la recompensa se sigue ganando, solo que no se anuncia.
-const gainText=(g)=> uiMode!=='ship' ? '' : `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+// La recompensa se anuncia donde ocurrió, también fuera de la nave: era lo que
+// más se jugaba y lo único que no se veía desde donde se juega.
+const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
 function grantTask(x){
   const g={mc:Math.round((x.priority?15:10)*(1+perk('quarter'))),res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
