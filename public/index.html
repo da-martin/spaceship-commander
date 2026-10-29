@@ -91,7 +91,7 @@ tailwind.config = {
 
 <!-- HEADER -->
 <header class="sticky top-0 z-30 border-b border-slate-800/80 bg-[#0a0f1a]/90 backdrop-blur">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 gap-y-2">
     <div class="w-9 h-9 rounded-lg bg-cyan-900/60 border border-cyan-700/50 grid place-items-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="1.6"><path d="M12 2 L15 9 L22 12 L15 15 L12 22 L9 15 L2 12 L9 9 Z"/></svg>
     </div>
@@ -106,12 +106,14 @@ tailwind.config = {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
     </button>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
-    <div id="navToggle" class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
-      <button id="btnCommander" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
-      <button id="btnSpaceship" class="px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
+    <!-- En móvil ocupa su propia fila: la cabecera ya no cabía en una sola. -->
+    <div id="navToggle" role="group" aria-label="Modo" class="flex w-full sm:w-auto bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
+      <button id="btnCommander" aria-pressed="true" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
+      <button id="btnFocusMode" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
+      <button id="btnSpaceship" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
     </div>
-    <div id="focusNav" class="hidden items-center gap-2 shrink-0 ml-auto">
-      <div role="group" aria-label="Fase del Protocolo Forster" class="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+    <div id="focusNav" class="hidden w-full sm:w-auto items-center gap-2 shrink-0 sm:ml-auto">
+      <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
         <button id="btnFocusPrep" aria-pressed="true" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Preparar</button>
         <button id="btnFocusWork" aria-pressed="false" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md whitespace-nowrap">Trabajar<span id="focusClock" class="mono tabular-nums"></span></button>
       </div>
@@ -122,16 +124,6 @@ tailwind.config = {
 
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
-
-  <!-- 0) Entrada al Protocolo Forster -->
-  <section class="panel corner p-4 sm:p-5 flex flex-wrap items-center gap-3">
-    <div class="min-w-0 flex-1">
-      <div class="sys-label">00 // Sistema de enfoque</div>
-      <h2 class="text-lg font-normal mt-1">Protocolo Forster</h2>
-      <p class="mono text-[11px] text-slate-400 mt-1">Una sola lista: marca con punto lo que vas a trabajar y ve anotando el avance.</p>
-    </div>
-    <button id="btnFocus" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold">Iniciar Protocolo Forster</button>
-  </section>
 
   <!-- 1+2) Dos columnas en ancho suficiente: hábitos izquierda, tareas derecha -->
   <div class="grid gap-5 lg:grid-cols-2 items-start">
@@ -1948,7 +1940,8 @@ function finishFocusExit(keep){
   document.getElementById('fcBack').onclick=closeFocusConfirm;
   document.getElementById('fcGo').onclick=()=>{ closeFocusConfirm(); setFocusPhase('work'); scrollTo(0,0); };
   document.getElementById('btnFocusExit').onclick=()=>requestFocusExit('commander');
-  document.getElementById('btnFocus').onclick=enterFocus;
+  // Ya en focus, volver a pulsarlo no debe reiniciar la fase ni el reloj.
+  document.getElementById('btnFocusMode').onclick=()=>{ if(uiMode!=='focus') enterFocus(); };
   document.querySelectorAll('[data-ficon]').forEach(el=>el.innerHTML=FICON[el.dataset.ficon]);
 
   const fm=document.getElementById('focusModal'), body=document.getElementById('fmBody');
@@ -1997,8 +1990,10 @@ function setMode(m){
   document.getElementById('brandText').classList.toggle('max-sm:hidden',focus);
   document.getElementById('btnSaveGame').classList.toggle('max-sm:hidden',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
-  document.getElementById('btnCommander').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(m==='commander'?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
-  document.getElementById('btnSpaceship').className='px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(ship?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
+  const modeBtn=(id,on)=>{ const b=document.getElementById(id);
+    b.className='flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
+    b.setAttribute('aria-pressed',String(on)); };
+  modeBtn('btnCommander',m==='commander'); modeBtn('btnFocusMode',focus); modeBtn('btnSpaceship',ship);
   try{ localStorage.setItem(UIKEY,m); }catch{}
   render(); paintFocusClock(); scrollTo(0,0);
 }
