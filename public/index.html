@@ -97,14 +97,21 @@ tailwind.config = {
     </div>
     <div id="brandText" class="min-w-0 flex-1">
       <h1 class="font-bold tracking-tight leading-none truncate">Spaceship Commander</h1>
-      <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 hidden sm:block">STARDATE <span id="stardate">—</span> · <span id="hdrRank">CADETE</span></p>
+      <!-- En el móvil solo caben la fecha corta y el rango; el resto aparece desde sm. -->
+      <p class="mono text-[10px] tracking-[.2em] text-cyan-300/70 mt-1 truncate"><span class="hidden sm:inline">STARDATE </span><span id="stardate">—</span><span id="stardateYear" class="hidden sm:inline"></span> · <span id="hdrRank">CADETE</span></p>
     </div>
-    <button id="acctChip" style="display:none" class="mono text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 shrink-0 items-center gap-1.5" title="Cuenta">
-      <span id="acctName">Entrar</span><span id="syncDot" class="text-[10px] text-slate-500"></span>
-    </button>
-    <button id="btnSaveGame" class="w-8 h-8 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center shrink-0" title="Guardar / cargar partida">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-    </button>
+    <!-- Cuenta y partida viven aquí dentro: así la primera fila es igual en los
+         tres modos y le queda sitio al subtítulo. -->
+    <div class="relative shrink-0">
+      <button id="btnMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Menú" class="w-10 h-10 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <span id="menuDot" class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
+      <div id="hdrMenu" data-act="menu" role="menu" class="gear-menu hidden right-0 top-12">
+        <button id="miAccount" role="menuitem" class="flex-col !items-start gap-0.5"><span id="miAccountName">Entrar</span><span id="miAccountSub" class="mono text-[10px] text-slate-400"></span></button>
+        <button id="miSave" role="menuitem">Guardar / cargar partida</button>
+      </div>
+    </div>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
     <!-- En móvil ocupa su propia fila: la cabecera ya no cabía en una sola. -->
     <div id="navToggle" role="group" aria-label="Modo" class="flex w-full sm:w-auto bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
@@ -1028,7 +1035,9 @@ function deleteHabit(id){ state.habits=state.habits.filter(y=>y.id!==id); dropFo
 /* ---------- render ---------- */
 function render(){
   const dow=DOW(), t=todayStr();
-  document.getElementById('stardate').textContent = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+  const hoy=new Date();   // el año va aparte: en el móvil no cabe
+  document.getElementById('stardate').textContent = hoy.toLocaleDateString('es-ES',{day:'2-digit',month:'short'});
+  document.getElementById('stardateYear').textContent = ' '+hoy.getFullYear();
   document.getElementById('hdrRank').textContent = RANKS[rankIdx()][0].toUpperCase();
   document.getElementById('todayLabel').textContent = '· '+new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
@@ -1543,8 +1552,14 @@ document.getElementById('modalSave').onclick=()=>{
 };
 document.getElementById('modalCancel').onclick=closeModal;
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));closeSaveModal();if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
-document.addEventListener('click',()=>document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden')));
+// Cierra cualquier menú y deja aria-expanded del de cabecera en su sitio:
+// si no, un lector de pantalla seguiría anunciándolo abierto.
+function closeAllMenus(){
+  document.querySelectorAll('.gear-menu').forEach(m=>m.classList.add('hidden'));
+  document.getElementById('btnMenu')?.setAttribute('aria-expanded','false');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAllMenus();closeSaveModal();if(!document.getElementById('modal').classList.contains('hidden'))closeModal();}});
+document.addEventListener('click',closeAllMenus);
 document.getElementById('fType').onchange=syncDayPicker;
 document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.day);pickedDays.has(d)?pickedDays.delete(d):pickedDays.add(d);syncDayPicker();});
 document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.onclick=()=>{const a=b.dataset.area;pickedAreas.has(a)?pickedAreas.delete(a):pickedAreas.add(a);syncAreaPicker();});
@@ -1666,7 +1681,7 @@ function openSaveModal(){
   paintSaveModal(); document.getElementById('saveModal').classList.remove('hidden');
 }
 function closeSaveModal(){ document.getElementById('saveModal').classList.add('hidden'); }
-document.getElementById('btnSaveGame').onclick=openSaveModal;
+document.getElementById('miSave').onclick=openSaveModal;
 document.getElementById('saveClose').onclick=closeSaveModal;
 document.getElementById('saveModal').addEventListener('click',e=>{ if(e.target.id==='saveModal') closeSaveModal(); });
 document.getElementById('btnExportFile').onclick=exportFile;
@@ -2055,8 +2070,6 @@ function setMode(m){
   document.getElementById('spaceship-view').classList.toggle('hidden',!ship);
   document.getElementById('focus-view').classList.toggle('hidden',!focus);
   document.getElementById('navToggle').classList.toggle('hidden',focus);
-  document.getElementById('brandText').classList.toggle('max-sm:hidden',focus);
-  document.getElementById('btnSaveGame').classList.toggle('max-sm:hidden',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
   const modeBtn=(id,on)=>{ const b=document.getElementById(id);
     b.className='flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
@@ -2081,7 +2094,6 @@ const api=(p,o={})=>fetch(p,{credentials:'same-origin',...o});
 const readLink=()=>{ try{ return JSON.parse(localStorage.getItem(CLOUDKEY)||'null'); }catch{ return null; } };
 const writeLink=()=>{ try{ localStorage.setItem(CLOUDKEY,JSON.stringify({user:cloud.user.id,rev:cloud.rev})); }catch{} };
 const stateEmpty=(st)=>!st.tasks.length&&!st.habits.length&&!st.wallet.mc&&!st.cmd.xp;
-const SYNCMARK={local:'',pending:'·',saving:'·',synced:'✓',offline:'⚠'};
 const SYNCTEXT={local:'solo en este dispositivo',pending:'guardando…',saving:'guardando…',synced:'guardado en la nube',offline:'sin conexión — se reintenta solo'};
 
 function setSync(s){ cloud.status=s; paintAccount(); }
@@ -2159,11 +2171,17 @@ async function logout(){
 }
 
 function paintAccount(){
-  const chip=document.getElementById('acctChip');
-  chip.style.display=(cloud.user||cloud.online)?'inline-flex':'none';
-  document.getElementById('acctName').textContent=cloud.user?(cloud.user.name||'Comandante').split(' ')[0]:'Entrar';
-  document.getElementById('syncDot').textContent=cloud.user?(SYNCMARK[cloud.status]||''):'';
-  chip.title=cloud.user?`${cloud.user.name} · ${SYNCTEXT[cloud.status]||''}`:'Entrar para sincronizar tu partida';
+  const item=document.getElementById('miAccount');
+  item.style.display=(cloud.user||cloud.online)?'flex':'none';
+  document.getElementById('miAccountName').textContent=cloud.user?(cloud.user.name||'Comandante'):'Entrar';
+  document.getElementById('miAccountSub').textContent=cloud.user?(SYNCTEXT[cloud.status]||''):'Sincroniza tu partida entre dispositivos';
+  // Un punto sobre el botón: si el estado de guardado vive solo dentro del menú,
+  // dejas de enterarte de que algo no se guardó.
+  const dot=document.getElementById('menuDot');
+  const aviso=cloud.user&&cloud.status==='offline', curso=cloud.user&&(cloud.status==='pending'||cloud.status==='saving');
+  dot.classList.toggle('hidden',!(aviso||curso));
+  dot.style.background=aviso?'#fbbf24':'#22d3ee';
+  document.getElementById('btnMenu').title=cloud.user?`${cloud.user.name} · ${SYNCTEXT[cloud.status]||''}`:'Menú';
   document.getElementById('footerNote').textContent=cloud.user
     ? 'PARTIDA EN LA NUBE // '+cloud.user.name.toUpperCase()
     : 'DATOS LOCALES // LOCALSTORAGE · SIN CUENTA';
@@ -2229,7 +2247,16 @@ function openAuthModal(mode,srv){
   document.getElementById('authModal').classList.remove('hidden');
 }
 
-document.getElementById('acctChip').onclick=()=>openAuthModal(cloud.user?'account':'login');
+document.getElementById('miAccount').onclick=()=>openAuthModal(cloud.user?'account':'login');
+// El cierre al pulsar fuera y con Escape ya es global para todo .gear-menu
+document.getElementById('btnMenu').onclick=(e)=>{
+  e.stopPropagation();
+  const m=document.getElementById('hdrMenu');
+  document.querySelectorAll('.gear-menu').forEach(x=>{ if(x!==m) x.classList.add('hidden'); });
+  const abierto=m.classList.toggle('hidden')===false;
+  document.getElementById('btnMenu').setAttribute('aria-expanded',String(abierto));
+};
+document.getElementById('hdrMenu').onclick=()=>{ document.getElementById('btnMenu').setAttribute('aria-expanded','false'); };
 document.getElementById('authClose').onclick=closeAuthModal;
 document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal') closeAuthModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAuthModal(); });
