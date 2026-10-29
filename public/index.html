@@ -626,8 +626,12 @@ let state = load();
 // través de schedulePush() y save() se llama desde todas partes.
 const cloud = {user:null, rev:0, timer:null, pending:false, busy:false, status:'local'};
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(); }
-let toastExtra=null;
-function toast(msg){ if(toastExtra){ msg=msg?msg+' · '+toastExtra:toastExtra; toastExtra=null; } const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),msg.length>40?3500:1800); }
+// Noticias de la nave. Fuera de Spaceship se guardan y salen al entrar, en vez
+// de perderse: solo se muestran una vez, así que callarlas sin más las tira.
+let shipNews=[];
+function shipToast(msg){ if(!msg) return; if(uiMode==='ship') toast(msg); else shipNews.push(msg); }
+function flushShipNews(){ const n=shipNews.splice(0).slice(-3); if(n.length) toast(n.join(' · ')); }
+function toast(msg){ if(!msg) return; const el=document.getElementById('toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'),msg.length>40?3500:1800); }
 
 function areaBadges(areas,max=2){ areas=(areas||[]).filter(a=>AREAS.includes(a)); if(!areas.length) return ''; const shown=areas.slice(0,max).map(a=>`<span class="mono text-[10px] px-1.5 py-0.5 rounded border ${AREA_COLORS[a]}">${a}</span>`).join(''); return shown+(areas.length>max?`<span class="mono text-[10px] text-slate-500">+${areas.length-max}</span>`:''); }
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
@@ -637,7 +641,7 @@ const rankIdx=(xp=state.cmd.xp)=>{ let i=0; while(i+1<RANKS.length&&xp>=RANKS[i+
 function addXP(n){
   if(!n) return;
   const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
-  if(after>before){ const m=`★ Ascenso: ahora eres ${RANKS[after][0]}`; toastExtra=toastExtra?toastExtra+' · '+m:m; }
+  if(after>before) shipToast(`★ Ascenso: ahora eres ${RANKS[after][0]}`);
 }
 const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
 const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>!m.idle&&m.until>=t); };   // a bordo sin contrato no da bono
@@ -648,7 +652,8 @@ const perk=(role)=>crewActive().reduce((a,m)=>m.role===role?Math.max(a,ROLES[rol
 const addW=(k,n)=>{ state.wallet[k]+=n; };
 const subW=(k,n)=>{ state.wallet[k]=Math.max(0,state.wallet[k]-n); };
 const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.floor(Math.random()*x.areas.length)]];
-const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+// Vacío fuera de la nave: la recompensa se sigue ganando, solo que no se anuncia.
+const gainText=(g)=> uiMode!=='ship' ? '' : `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
 function grantTask(x){
   const g={mc:Math.round((x.priority?15:10)*(1+perk('quarter'))),res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
@@ -722,7 +727,7 @@ function onComplete(x,g){
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; toastExtra=[`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); addXP(XP_CONTRACT); }
+    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; shipToast([`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · ')); addXP(XP_CONTRACT); }
   }
   g.xp=('type' in x)?XP_HABIT:XP_TASK; addXP(g.xp);
 }
@@ -818,7 +823,7 @@ function dailyTick(){
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(atHome()){ const n=boardNews(); if(n) msg=msg?msg+' · '+n:n; }
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
-  save(); if(msg) toast(msg);
+  save(); shipToast(msg);
 }
 
 /* tripulación */
@@ -1157,14 +1162,15 @@ const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-cyan-80
 // ilustración de verdad, sin tocar nada más.
 function shipArt(){
   const m=state.ship.modules;
-  const tot=Object.values(m).reduce((a,x)=>a+x.lv,0), built=Object.values(m).filter(x=>x.lv>0).length;
-  const on=k=>m[k].lv>0;
-  // El estado solo atenúa la pieza; el dato exacto lo da el panel.
+  const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
+  // Los ocho módulos existen desde el día uno: una nave necesita puente y
+  // motores para volar. El nivel solo decide cuánto crece cada pieza.
+  // El estado solo atenúa; el dato exacto lo da el panel.
   const op=k=>(0.45+0.55*m[k].cond/100).toFixed(2);
-  const pod=(k,x,y)=>{ if(!on(k)) return ''; const d=x<150?-33:33, c=x+d/2;
+  const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" class="w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40, con ${built} de 8 sistemas construidos">
+  let s=`<svg viewBox="0 0 300 300" class="w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -1176,7 +1182,7 @@ function shipArt(){
 
   // Cada sistema construido añade una pieza visible. Eso sí se nota, a
   // diferencia del 12 % de escala que crecía el casco antes.
-  if(on('engines')){
+  {
     const r=8+2*m.engines.lv;
     s+=`<g opacity="${op('engines')}"><ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>
     <path d="M104 206 L90 214 L90 246 L104 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/>
@@ -1187,10 +1193,10 @@ function shipArt(){
   <path d="M150 52 L168 98 L175 162 L186 224 L168 240 L132 240 L114 224 L125 162 L132 98 Z" fill="none" stroke="#2a4c68" stroke-width="1.2"/>
   <path d="M124 92 L176 92 M116 162 L184 162 M110 214 L190 214" stroke="#2a4c68" stroke-width="1.2"/>`;
 
-  if(on('bridge')) s+=`<g opacity="${op('bridge')}"><path d="M138 62 L162 62 L168 88 L132 88 Z" fill="#0e3a4a" stroke="#7dd3fc" stroke-width="1.4"/><path d="M142 68 L158 68 L161 82 L139 82 Z" fill="#9fe7f5" fill-opacity=".3"/></g>`;
+  s+=`<g opacity="${op('bridge')}"><path d="M138 62 L162 62 L168 88 L132 88 Z" fill="#0e3a4a" stroke="#7dd3fc" stroke-width="1.4"/><path d="M142 68 L158 68 L161 82 L139 82 Z" fill="#9fe7f5" fill-opacity=".3"/></g>`;
   // El mástil arranca bajo la cabina: si sube más, el plato se dibuja sobre el cristal.
-  if(on('comms')) s+=`<g opacity="${op('comms')}"><line x1="150" y1="118" x2="150" y2="102" stroke="#4fd0e8" stroke-width="1.6"/><ellipse cx="150" cy="100" rx="${7+m.comms.lv}" ry="4" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.3"/></g>`;
-  if(on('cargo')) s+=`<g opacity="${op('cargo')}"><rect x="131" y="124" width="38" height="${16+4*m.cargo.lv}" rx="4" fill="#16273f" stroke="#3f7f96" stroke-width="1.5"/><path d="M131 136 L169 136" stroke="#2a4c68" stroke-width="1.2"/></g>`;
+  s+=`<g opacity="${op('comms')}"><line x1="150" y1="118" x2="150" y2="102" stroke="#4fd0e8" stroke-width="1.6"/><ellipse cx="150" cy="100" rx="${7+m.comms.lv}" ry="4" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.3"/></g>`;
+  s+=`<g opacity="${op('cargo')}"><rect x="131" y="124" width="38" height="${16+4*m.cargo.lv}" rx="4" fill="#16273f" stroke="#3f7f96" stroke-width="1.5"/><path d="M131 136 L169 136" stroke="#2a4c68" stroke-width="1.2"/></g>`;
 
   return s+pod('spirit',116,110)+pod('social',184,110)+pod('craft',117,166)+pod('health',183,166)+'</svg>';
 }
@@ -1199,19 +1205,20 @@ const SYS_ORDER=['bridge','engines','cargo','comms','spirit','social','craft','h
 let sysSort='nave';
 function shipSystems(){
   const m=state.ship.modules, keys=SYS_ORDER.slice();
-  // Por estado: primero lo más dañado; lo que no existe todavía, al final.
+  // Por estado: primero lo más desgastado; lo que aún no se ha mejorado, al
+  // final, porque en nivel 0 el estado no afecta a nada.
   if(sysSort==='estado') keys.sort((a,b)=>(m[a].lv?m[a].cond:1e3)-(m[b].lv?m[b].cond:1e3));
   return keys.map(k=>{
-    const x=m[k], b=x.lv>0, col=condColor(x.cond);
+    const x=m[k], up=x.lv>0, col=condColor(x.cond);
     const pips=[0,1,2,3,4].map(i=>`<i class="block w-2.5 h-1.5 rounded-sm ${i<x.lv?'bg-cyan-300':'bg-slate-700'}"></i>`).join('');
-    const label=b?`${MODS[k].name}, nivel ${x.lv} de 5, estado ${x.cond} por ciento`:`${MODS[k].name}, sin construir`;
-    return `<button type="button" data-slot="${k}" aria-label="${label}" class="flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] rounded-lg border ${b?'border-[#1f2a3d] bg-[#0f1729]':'border-dashed border-slate-700'} hover:border-cyan-700 text-left">
-      <span class="flex-1 min-w-0 text-sm truncate ${b?'text-slate-100':'text-slate-400'}">${MODS[k].name}</span>
-      ${b?`<span class="flex gap-0.5 shrink-0" aria-hidden="true">${pips}</span>
-      <span class="flex items-center gap-1.5 w-[86px] shrink-0" aria-hidden="true">
+    const label=up?`${MODS[k].name}, nivel ${x.lv} de 5, estado ${x.cond} por ciento`:`${MODS[k].name}, sin mejoras`;
+    return `<button type="button" data-slot="${k}" aria-label="${label}" class="flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] rounded-lg border border-[#1f2a3d] bg-[#0f1729] hover:border-cyan-700 text-left">
+      <span class="flex-1 min-w-0 text-sm truncate ${up?'text-slate-100':'text-slate-400'}">${MODS[k].name}</span>
+      <span class="flex gap-0.5 shrink-0" aria-hidden="true">${pips}</span>
+      ${up?`<span class="flex items-center gap-1.5 w-[86px] shrink-0" aria-hidden="true">
         <span class="flex-1 h-1.5 rounded-full bg-slate-700 overflow-hidden"><i class="block h-full rounded-full" style="width:${x.cond}%;background:${col}"></i></span>
         <span class="mono text-[10px] text-slate-400 w-5 text-right">${x.cond}</span>
-      </span>`:`<span class="mono text-[11px] text-slate-500 shrink-0">+ construir</span>`}
+      </span>`:`<span class="mono text-[10px] text-slate-500 w-[86px] shrink-0 text-right" aria-hidden="true">sin mejoras</span>`}
     </button>`;
   }).join('');
 }
@@ -1370,7 +1377,10 @@ function paintSignal(){
 
 function renderShip(){
   const sh=state.ship, c=sh.contract, w=state.wallet;
-  document.getElementById('shipChip').innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
+  // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
+  const chipEl=document.getElementById('shipChip');
+  chipEl.style.display=uiMode==='ship'?'':'none';
+  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-500">${r.name}</span></span>`).join('');
@@ -1433,10 +1443,10 @@ function renderShip(){
   // módulos
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
-    const m=mod(k), built=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
+    const m=mod(k), up=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
     const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
     const el=document.createElement('div'); el.id='mod-'+k;
-    el.className='rounded-xl border p-3 bg-slate-900/70 '+(!built?'border-slate-700 border-dashed':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
+    el.className='rounded-xl border p-3 bg-slate-900/70 '+(!up?'border-slate-700':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="font-semibold text-sm">${def.name}</span>
@@ -1444,14 +1454,14 @@ function renderShip(){
         <span class="mono text-[11px] ${m.lv>=5?'text-emerald-300':'text-slate-400'} ml-auto">${'●'.repeat(m.lv)}${'○'.repeat(5-m.lv)}</span>
       </div>
       <div class="mono text-[11px] text-slate-500 mt-1.5">${def.desc}${def.kind==='area'?' · opcional':''}</div>
-      ${built?`<div class="flex items-center gap-2 mt-2">
+      ${up?`<div class="flex items-center gap-2 mt-2">
         <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
         <span class="mono text-[11px] text-slate-300">${m.cond}%</span>
       </div>
       <div class="mono text-[11px] text-cyan-200 mt-1">Ahora: ${effTxt}</div>`:''}
       <div class="flex flex-col gap-1.5 mt-2.5">
-        <button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`${built?'Mejorar':'Construir'} · ${fmtCost(cost)}`}</button>
-        ${built&&m.cond<100?`<button data-act="repair" class="${btnCls(w.mc>=REPAIR_MC)}" ${w.mc>=REPAIR_MC?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>`:''}
+        <button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`Mejorar · ${fmtCost(cost)}`}</button>
+        ${up&&m.cond<100?`<button data-act="repair" class="${btnCls(w.mc>=REPAIR_MC)}" ${w.mc>=REPAIR_MC?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>`:''}
       </div>`;
     if(m.lv<5&&ok) el.querySelector('[data-act="build"]').onclick=()=>buildMod(k);
     const rb=el.querySelector('[data-act="repair"]'); if(rb&&w.mc>=REPAIR_MC) rb.onclick=()=>repairMod(k);
@@ -1741,7 +1751,7 @@ function renderFocus(){
   document.getElementById('focusPhaseHint').textContent=prep
     ?'Toca una línea para marcarla con un punto: es lo que planeas trabajar. Arrastra desde el asa para reordenar.'
     :'Toca una línea para anotar progreso, completarla, editarla o eliminarla. Las marcadas con punto van primero en tu atención.';
-  const workChips=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${se.mc} ¢`,'border-amber-800 text-amber-300');
+  const workChips=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300');
   document.getElementById('focusChips').innerHTML=prep
     ?chip('● '+plural(dots,'marcada','marcadas'),'border-amber-800 text-amber-300')+chip(plural(live.length,'línea','líneas')+' en la lista','border-slate-700 text-slate-300')
     :workChips;
@@ -1818,11 +1828,11 @@ function backToPrep(){
 // suma a la sesión (diálogo de salida) y a la ronda actual (modal de fin de ronda)
 function focusCount(k,n){ state.focus.session[k]+=n; state.focus.round[k]+=n; }
 function openRoundModal(r,last,completed=true){
-  const extra=toastExtra; toastExtra=null;   // p. ej. una misión completada con esta acción
   document.getElementById('rmDur').textContent=r.dur?`Tiempo de la ronda · ${r.dur}`:'';
-  document.getElementById('rmChips').innerHTML=chip(plural(r.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(r.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${r.mc} ¢`,'border-amber-800 text-amber-300');
+  // Progresos y completados son hechos del método de Forster, no recompensa.
+  document.getElementById('rmChips').innerHTML=chip(plural(r.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(r.done,'completado','completados'),'border-emerald-800 text-emerald-300');
   document.getElementById('rmTitle').textContent=completed?'¡Ronda completada!':'Ronda terminada';
-  const lastTxt=[last&&'Última acción: '+last,extra].filter(Boolean).join(' · ');
+  const lastTxt=last?'Última acción: '+last:'';
   const rl=document.getElementById('rmLast'); rl.textContent=lastTxt; rl.classList.toggle('hidden',!lastTxt);
   document.getElementById('toast').classList.add('hidden');   // el modal sustituye al aviso pequeño
   document.getElementById('roundModal').classList.remove('hidden');
@@ -1843,8 +1853,8 @@ function focusProgress(l){
   const pm=PROGRESS_MC+perk('pilot');
   addW('mc',pm); addXP(XP_PROGRESS); focusCount('progress',1); focusCount('mc',pm); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
-  if(round) openRoundModal(round,`+${pm} ¢ por el progreso`);
-  else toast(`+${pm} ¢ · Progreso anotado · vuelve al final de la lista`);
+  if(round) openRoundModal(round,'Progreso anotado');
+  else toast('Progreso anotado · vuelve al final de la lista');
 }
 function focusComplete(l){
   const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
@@ -1875,13 +1885,11 @@ function paintFocusModal(){
   const btn2='px-3.5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm';
   let html;
   if(fmStep==='menu'){
-    const mc=isT?(it.priority?15:10):isH?(it.type==='free'?2:it.priority?8:5):0;
-    const mats=it&&!(isH&&it.type==='free'&&countToday(it)>0)?[...new Set((it.areas||[]).map(a=>RES[AREA_RES[a]].sym))]:[];
-    const reward=mc?`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${mc} ¢${mats.length?' · +1 '+mats.join(' o '):''}</span>`:'';
+    const reward='';   // la recompensa existe, pero no se anuncia fuera de la nave
     const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. No da recursos: no está vinculada.';
     html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
       <div class="grid grid-cols-2 gap-2.5">
-        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-800 text-amber-300">+${PROGRESS_MC+perk('pilot')} ¢</span></button>
+        <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span></button>
         <button type="button" data-fm="done" class="f-opt border-emerald-900 bg-[#0b211c]"><span class="flex items-center gap-2 text-emerald-300 text-[15px] font-semibold">${FOPT_ICON.done} Completado</span><span class="text-xs leading-snug text-slate-300">${doneDesc}</span>${reward}</button>
         <button type="button" data-fm="edit" class="f-opt border-slate-700 bg-slate-900"><span class="flex items-center gap-2 text-slate-200 text-[15px] font-semibold">${FOPT_ICON.edit} Editar</span><span class="text-xs leading-snug text-slate-300">${isA?'Cambia el texto de la acción.':'Abre el editor: los cambios se guardan aquí y en el original.'}</span></button>
         <button type="button" data-fm="delete" class="f-opt border-red-900 bg-[#1c0d10]"><span class="flex items-center gap-2 text-red-300 text-[15px] font-semibold">${FOPT_ICON.del} Eliminar</span><span class="text-xs leading-snug text-slate-300">${isA?'Quita la acción de esta sesión.':'Borra el original para siempre. Pide confirmación.'}</span></button>
@@ -1924,7 +1932,7 @@ function requestFocusExit(target='commander'){
 function closeFocusExit(){ document.getElementById('focusExitModal').classList.add('hidden'); }
 function paintFocusExit(){
   const se=state.focus.session;
-  document.getElementById('fxChips').innerHTML=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300')+chip(`+${se.mc} ¢`,'border-amber-800 text-amber-300');
+  document.getElementById('fxChips').innerHTML=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300');
   document.getElementById('fxList').innerHTML=focusCandidates().map(l=>`<li><label class="flex items-center gap-3 min-h-[52px] px-3 py-2 rounded-lg border border-[#1f2a3d] bg-[#0d1526] cursor-pointer">
       <input type="checkbox" data-ref="${l.ref}" ${fxPicks.has(l.ref)?'checked':''} class="w-[18px] h-[18px] accent-cyan-600 shrink-0">
       <span class="f-tile f-acc" aria-hidden="true">${FICON.acc}</span>
@@ -1943,7 +1951,7 @@ function finishFocusExit(keep){
   // las acciones guardadas se quedan en su sitio de la lista larga, ya como tareas
   f.lines=f.lines.filter(l=>l.kind!=='acc'||conv[l.ref]).map(({title,...l})=>l.kind==='acc'?{...l,kind:'task',ref:conv[l.ref]}:(title!==undefined?{...l,title}:l));
   const n=Object.keys(conv).length;
-  const msg=`Sesión cerrada · ${plural(se.progress,'progreso','progresos')} · ${plural(se.done,'completado','completados')} · +${se.mc} ¢`+(n?` · ${plural(n,'tarea nueva','tareas nuevas')}`:'');
+  const msg=`Sesión cerrada · ${plural(se.progress,'progreso','progresos')} · ${plural(se.done,'completado','completados')}`+(n?` · ${plural(n,'tarea nueva','tareas nuevas')}`:'');
   f.session={progress:0,done:0,mc:0}; f.phase='prep'; f.workStart=null;
   closeFocusExit(); save(); setMode(fxTarget); toast(msg);
 }
@@ -2055,6 +2063,7 @@ function setMode(m){
     b.setAttribute('aria-pressed',String(on)); };
   modeBtn('btnCommander',m==='commander'); modeBtn('btnFocusMode',focus); modeBtn('btnSpaceship',ship);
   try{ localStorage.setItem(UIKEY,m); }catch{}
+  if(ship) flushShipNews();   // lo que pasó mientras estabas fuera
   render(); paintFocusClock(); scrollTo(0,0);
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
@@ -2248,7 +2257,7 @@ setInterval(()=>{
   tickBoard();
   if(b.offers.map(o=>o.id).join()!==before){
     const n=atHome()?boardNews():null;
-    save(); renderShip(); if(n) toast(n);
+    save(); renderShip(); shipToast(n);
   } else if(uiMode==='ship'&&atHome()) paintSignal();
 },60000);
 </script>
