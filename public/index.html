@@ -102,7 +102,7 @@ tailwind.config = {
     </div>
     <!-- Cuenta y partida viven aquí dentro: así la primera fila es igual en los
          tres modos y le queda sitio al subtítulo. -->
-    <div class="relative shrink-0">
+    <div class="relative shrink-0 order-1 sm:order-last">
       <button id="btnMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Menú" class="w-10 h-10 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -114,12 +114,12 @@ tailwind.config = {
     </div>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
     <!-- En móvil ocupa su propia fila: la cabecera ya no cabía en una sola. -->
-    <div id="navToggle" role="group" aria-label="Modo" class="flex w-full sm:w-auto bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
+    <div id="navToggle" role="group" aria-label="Modo" class="flex w-full sm:w-auto order-2 sm:order-none bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" aria-pressed="true" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
       <button id="btnFocusMode" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
       <button id="btnSpaceship" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
     </div>
-    <div id="focusNav" class="hidden w-full sm:w-auto items-center gap-2 shrink-0 sm:ml-auto">
+    <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
         <button id="btnFocusPrep" aria-pressed="true" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md">Preparar</button>
         <button id="btnFocusWork" aria-pressed="false" class="fphase px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md whitespace-nowrap">Trabajar<span id="focusClock" class="mono tabular-nums"></span></button>
