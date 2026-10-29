@@ -51,6 +51,12 @@ La persona la pega una vez en el botón «Entrar» de la cabecera y el navegador
 recuerda la sesión 90 días. Solo tiene que repetirlo si cambia de dispositivo o
 borra los datos del navegador.
 
+Para ver quién está dado de alta:
+
+```bash
+node scripts/invite.mjs --list
+```
+
 ### Si alguien pierde su clave, o se filtra
 
 Vuelve a ejecutar el mismo comando con el mismo nombre:
@@ -60,7 +66,36 @@ node scripts/invite.mjs "Ana"
 ```
 
 Le genera una clave nueva, **anula la anterior**, cierra sus sesiones abiertas
-y **no toca su partida**.
+y **no toca su partida**: la fila del usuario conserva su `id`, y `saves.user_id`
+sigue apuntando a ella.
+
+**La clave nueva no es la anterior ni se le parece.** Son 32 bytes nuevos al
+azar, y la vieja es irrecuperable incluso para ti, porque de ella solo queda un
+SHA-256. La persona tendrá que pegar la nueva en cada dispositivo donde juegue.
+
+### El nombre es la identidad
+
+De él depende a qué partida se engancha la clave, así que una errata sería cara:
+crearía un usuario nuevo con la partida vacía. El comando lo vigila por ti.
+
+Si escribes un nombre que solo se diferencia en mayúsculas de uno existente,
+pregunta antes de hacer nada:
+
+```
+  Ya existe «Pedro», y tú escribiste «PEDRO».
+
+    [r] rotarle la clave a «Pedro» (conserva su partida)   ← por defecto
+    [c] crear un usuario nuevo «PEDRO», con la partida vacía
+    [x] cancelar
+```
+
+Y si el nombre no se parece a ninguno, pide confirmación explícita antes de dar
+de alta a nadie. En ambos casos la opción por defecto es la que **no** destruye
+nada.
+
+Para usarlo desde un script, `--yes` se queda siempre con esa opción segura —
+nunca crea un usuario por sorpresa. Sin terminal y sin `--yes`, el comando se
+niega a adivinar y sale con error.
 
 ### Por qué no hace falta hashear despacio
 
