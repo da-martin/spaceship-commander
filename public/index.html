@@ -138,7 +138,7 @@ tailwind.config = {
   <section class="panel corner p-4 sm:p-5">
     <div class="flex flex-wrap items-end gap-3 mb-3">
       <div>
-        <div class="sys-label">01 // Rutinas de tripulación</div>
+        <div class="sys-label">01 // Rutinas de a bordo</div>
         <h2 class="text-xl font-bold mt-1">Mis hábitos <span id="todayLabel" class="text-slate-400 font-medium text-sm"></span></h2>
       </div>
       <div class="ml-auto flex items-center gap-3">
@@ -851,8 +851,13 @@ function hireBlock(x){
   return null;
 }
 const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no hay tablón, mercado ni astillero
+// La tripulación se abre al mejorar el Puente. La segunda condición es una red
+// de seguridad: crewPayroll() corre desde dailyTick sin depender de la interfaz,
+// así que quien ya tenga gente nunca debe quedarse sin panel donde verla.
+const crewUnlocked=()=>mod('bridge').lv>=1||state.ship.crew.length>0;
+const crewHint=()=>`Mejora el Puente a nivel 1 para contratar tripulación · ${fmtCost(modCost('bridge'))}`;
 function hireCrew(id){
-  if(!atHome()) return;
+  if(!atHome()||!crewUnlocked()) return;
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage;
@@ -1247,7 +1252,7 @@ function renderRank(){
   document.getElementById('rankBadge').textContent='R'+(i+1);
   document.getElementById('rankSummary').textContent=`· ${RANKS[i][0]} · ${xp} méritos`;
   const habitDays=state.habits.reduce((a,h)=>a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
-  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions],['Rondas Forster',st.rounds],['Tripulantes contratados',st.hires],['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
+  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions],['Rondas Forster',st.rounds],...(crewUnlocked()?[['Tripulantes contratados',st.hires]]:[]),['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
   document.getElementById('rankPanel').innerHTML=`
     <div class="flex items-center gap-2">
       <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
@@ -1255,10 +1260,22 @@ function renderRank(){
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[10px] text-slate-400">${k}</div></div>`).join('')}</div>
     <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND} · misión +${XP_CONTRACT}. Nunca se gastan.</p>
-    <p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`;
+    ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
 }
 function renderCrew(){
-  const sh=state.ship, w=state.wallet;
+  const sh=state.ship;
+  // Bloqueada: se rellenan los mismos destinos con la pista y se sale antes de
+  // cablear los clics. El marcado no se borra porque abajo se escribe en cinco
+  // ids sin comprobar que existan.
+  if(!crewUnlocked()){
+    const pista=`<p class="sm:col-span-2 mono text-[11px] text-slate-400 border border-dashed border-slate-700 rounded-lg px-3 py-3 text-center">${crewHint()}</p>`;
+    document.getElementById('crewBerths').innerHTML='';
+    document.getElementById('crewWarn').classList.add('hidden');
+    document.getElementById('crewList').innerHTML=pista;
+    document.getElementById('crewBoardNote').textContent='';
+    document.getElementById('candList').innerHTML=pista;
+    return;
+  }
   const wages=sh.crew.filter(m=>!m.idle&&!m.cancel).reduce((a,m)=>a+m.wage,0), short=state.wallet.mc<wages;
   document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${BERTHS}${wages?` · sueldos ${wages} ¢/sem`:''}`;
   const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre se marchará.`:'';
@@ -1336,7 +1353,7 @@ function renderMission(c){
       <span class="mono text-sm text-cyan-200">${c.progress}/${c.quota}</span>
     </div>
     <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
-    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, tripulantes, mercado y astillero vuelven a estar disponibles al terminar la misión. La tripulación sigue a bordo y cobra su sueldo cada semana, y el tablón sigue recibiendo transmisiones.
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), ok=w.mc>=REPAIR_MC;
