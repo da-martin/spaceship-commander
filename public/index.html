@@ -2741,6 +2741,11 @@ function adoptCloud(srv){
 }
 
 function keepLocal(srv){
+  // La partida de la cuenta también se guarda antes de pisarla. El selector
+  // promete poder deshacer la elección y hasta ahora solo cumplía en un
+  // sentido: al quedarte con la local, la de la cuenta se sobrescribía en el
+  // servidor sin dejar copia en ninguna parte.
+  try{ localStorage.setItem(BACKUPKEY,JSON.stringify({at:Date.now(),data:srv.data.data})); }catch{}
   cloud.rev=srv.rev; cloud.pending=true; closeAuthModal(); pushState();
 }
 
