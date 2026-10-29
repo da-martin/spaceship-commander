@@ -540,19 +540,26 @@ const AREA_RES = {Spirit:'ecos',Social:'nexos',Craft:'ale',Health:'bio'};
 const MATS = ['ecos','nexos','ale','bio'];
 
 /* ---------- nave: módulos y contratos (todos los números ajustables) ---------- */
+// Los generales se pagan solo con ¢: las áreas son opcionales y no deben cerrar
+// el paso a lo esencial (el Puente abre la tripulación; la Antena, las misiones).
+// Los de área son el único sumidero de materiales, y a cambio dan ventajas
+// generales que sirvan etiquetes o no por áreas.
 const MODS = {
-  bridge: {name:'Puente',       kind:'gen',  res:'nexos', mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
-  engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de misión por nivel'},
-  cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de misión por nivel'},
-  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
-  spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
-  social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
-  craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'+10% prob. de ⎔ extra en items Craft por nivel'},
-  health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+10% prob. de ❀ extra en items Health por nivel'}
+  bridge: {name:'Puente',       kind:'gen',  mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
+  engines:{name:'Motores',      kind:'gen',  desc:'+1 día de duración máx. de misión por nivel'},
+  cargo:  {name:'Bodega',       kind:'gen',  desc:'+10% ¢ en recompensas de misión por nivel'},
+  comms:  {name:'Antena',       kind:'gen',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
+  spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+8% de méritos por nivel'},
+  social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'−8% en los sueldos de la tripulación por nivel'},
+  craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'−10% en el coste ¢ del astillero por nivel'},
+  health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+1 punto de estado al día por nivel en el módulo más dañado'}
 };
+// Sigue haciendo falta para repartir desgaste y reparación, no para ganar material.
 const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
-const MOD_MC = [50,100,200,400,800], MOD_MAT = [1,2,4,6,9];
+const MOD_MC = [60,125,250,500,1000], MOD_MAT = [1,2,4,6,9];
 const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2;
+// ventajas de los módulos de área, por nivel efectivo
+const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
 const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
 const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
@@ -717,15 +724,22 @@ function deleteProject(id){
   toast(n?`Proyecto eliminado · ${n} ${n===1?'tarea se queda':'tareas se quedan'} sin proyecto`:'Proyecto eliminado');
 }
 
+// Devuelve lo que realmente sumó (el Observatorio lo infla): onComplete guarda
+// ese valor en g.xp y onUndo resta exactamente eso, sin deriva al desmarcar.
 function addXP(n){
-  if(!n) return;
+  if(!n) return 0;
+  n=Math.round(n*(1+XP_BONUS*eff('spirit')));
   const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
   if(after>before) shipToast(`★ Ascenso: ahora eres ${RANKS[after][0]}`);
+  return n;
 }
 const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
 const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>!m.idle&&m.until>=t); };   // a bordo sin contrato no da bono
 // ventaja de una especialidad: la del mejor tripulante a bordo con ese rol (0 si no hay)
 const perk=(role)=>crewActive().reduce((a,m)=>m.role===role?Math.max(a,ROLES[role].eff[m.lv-1]):a,0);
+// Salón: el sueldo se guarda en bruto y se rebaja al cobrarlo, así subir el
+// módulo abarata también a quien ya está a bordo.
+const wageOf=(base)=>Math.max(1,Math.round(base*(1-WAGE_CUT*eff('social'))));
 
 /* ---------- economía ---------- */
 const addW=(k,n)=>{ state.wallet[k]+=n; };
@@ -797,18 +811,27 @@ function healFor(x){
   return mod(k).cond>before?{k,n:mod(k).cond-before}:null;
 }
 
+function selfHeal(){
+  const n=Math.round(SELFHEAL*eff('health')); if(n<=0) return;
+  const hurt=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
+  if(!hurt.length) return;
+  const k=hurt.reduce((a,b)=>mod(b).cond<mod(a).cond?b:a);
+  mod(k).cond=Math.min(100,mod(k).cond+n);
+}
+
 function onComplete(x,g){
   const sh=state.ship, t=todayStr();
   sh.activity[t]=(sh.activity[t]||0)+1;
   const h=healFor(x); if(h) g.heal=h;
-  if(g.res){ const mk=AREA_MOD[RES[g.res].area]; if(mk&&Math.random()<0.1*eff(mk)){ addW(g.res,1); g.bonus=1; } }
-  if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=(g.bonus||0)+1; }
+  // El material extra solo lo da Prospección: los módulos de área ya no suben
+  // la ganancia del material que ellos mismos cuestan.
+  if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=1; }
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
     if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; shipToast([`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · ')); addXP(XP_CONTRACT); }
   }
-  g.xp=('type' in x)?XP_HABIT:XP_TASK; addXP(g.xp);
+  g.xp=addXP(('type' in x)?XP_HABIT:XP_TASK);
 }
 function onUndo(g){
   if(!g) return;
@@ -893,7 +916,7 @@ function dailyTick(){
   const sh=state.ship, t=todayStr(), y=addDays(t,-1);
   if(!sh.lastTick||sh.lastTick>y) sh.lastTick=y;
   let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
-  for(;day<t;day=addDays(day,1)) decayDay(day);
+  for(;day<t;day=addDays(day,1)){ decayDay(day); selfHeal(); }   // la Enfermería recupera algo cada día
   sh.lastTick=y;
   let msg=null;
   const c=sh.contract, gone=c&&c.endsOn<t;
@@ -923,7 +946,7 @@ function hireBlock(x){
   const L=CREW_LV[x.lv-1];
   if(rankIdx()<L.rank) return 'Requiere rango '+RANKS[L.rank][0];
   if(state.ship.crew.length>=BERTHS) return 'Sin litera libre';
-  if(state.wallet.mc<L.wage) return 'Recursos insuficientes';
+  if(state.wallet.mc<wageOf(L.wage)) return 'Recursos insuficientes';
   return null;
 }
 const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no hay tablón, mercado ni astillero
@@ -940,12 +963,12 @@ function hireCrew(id){
   if(!atHome()||!crewUnlocked()) return;
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
   const why=hireBlock(x); if(why){ toast(why); return; }
-  const wage=CREW_LV[x.lv-1].wage;
-  subW('mc',wage);
+  const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
+  subW('mc',paid);
   sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
   state.cmd.stats.hires++;
-  save(); render(); toast(`${x.name} se une a la tripulación · −${wage} ¢/sem, se renueva solo`);
+  save(); render(); toast(`${x.name} se une a la tripulación · −${paid} ¢/sem, se renueva solo`);
 }
 // cobra cada semana vencida mientras haya saldo; si el contrato termina (cancelado o sin ¢),
 // el tripulante se va, salvo en misión: entonces sigue a bordo sin bono hasta volver
@@ -954,7 +977,8 @@ function crewPayroll(t){
   for(const m of sh.crew){
     if(m.idle) continue;
     while(m.until<t){
-      if(!m.cancel&&state.wallet.mc>=m.wage){ subW('mc',m.wage); paid+=m.wage; m.until=addDays(m.until,CREW_DAYS); continue; }
+      const due=wageOf(m.wage);
+      if(!m.cancel&&state.wallet.mc>=due){ subW('mc',due); paid+=due; m.until=addDays(m.until,CREW_DAYS); continue; }
       const why=m.cancel?'termina su contrato':'no había ¢ para su sueldo';
       if(sh.contract){ m.idle=true; notes.push(`${m.name}: ${why}; sigue a bordo sin contrato hasta volver`); }
       else { m.gone=true; notes.push(m.cancel?`${m.name} termina su contrato y se marcha`:`${m.name} se marcha: no había ¢ para su sueldo`); }
@@ -982,9 +1006,10 @@ function toggleCancel(id){
 }
 function rehireCrew(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;
-  if(state.wallet.mc<m.wage){ toast('Recursos insuficientes'); return; }
-  subW('mc',m.wage); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
-  save(); render(); toast(`${m.name} vuelve a contrato · −${m.wage} ¢`);
+  const due=wageOf(m.wage);
+  if(state.wallet.mc<due){ toast('Recursos insuficientes'); return; }
+  subW('mc',due); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
+  save(); render(); toast(`${m.name} vuelve a contrato · −${due} ¢`);
 }
 let crewReleasing=null;   // primer toque de «Despedir ya» pide confirmación
 function releaseCrew(id){
@@ -1032,7 +1057,13 @@ function discardOffer(id){
   const b=state.ship.board; b.offers=b.offers.filter(o=>o.id!==id);
   tickBoard(); save(); render(); toast(['Misión descartada',boardNews()].filter(Boolean).join(' · '));
 }
-const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:Math.round(MOD_MC[lv]*(MODS[k].mcMult||1)),[MODS[k].res]:MOD_MAT[lv]}; };
+// Taller: abarata todo lo que se paga en el astillero, su propia mejora incluida.
+const yardMult=()=>1-YARD_CUT*eff('craft');
+// Solo los de área piden material; los generales se pagan íntegros en ¢.
+const modCost=(k)=>{ const lv=mod(k).lv; if(lv>=5) return null;
+  const c={mc:Math.round(MOD_MC[lv]*(MODS[k].mcMult||1)*yardMult())};
+  if(MODS[k].kind==='area') c[MODS[k].res]=MOD_MAT[lv];
+  return c; };
 const fmtCost=(c)=>Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + ');
 const canAfford=(c)=>Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
 function buildMod(k){
@@ -1044,11 +1075,17 @@ function buildMod(k){
   tickBoard();   // con un hueco más entra la transmisión que esperaba
   save(); render(); toast(`${MODS[k].name} Nv.${m.lv} ✓`);
 }
-const repairCost=(k)=>(100-mod(k).cond)*REPAIR_MC;
+// Lo que se puede reparar ahora mismo y lo que cuesta. El precio por punto es
+// fraccionario (lo baja el Taller), así que solo se redondea el total.
+function repairQuote(k){
+  const per=REPAIR_MC*yardMult(), pts=Math.min(100-mod(k).cond,Math.floor(state.wallet.mc/per));
+  return {per,pts,mc:Math.ceil(pts*per)};
+}
+const repairCost=(k)=>Math.ceil((100-mod(k).cond)*REPAIR_MC*yardMult());
 function repairMod(k){
-  const m=mod(k), pts=Math.min(100-m.cond,Math.floor(state.wallet.mc/REPAIR_MC));
-  if(pts<=0){ toast('Recursos insuficientes'); return; }
-  subW('mc',pts*REPAIR_MC); m.cond+=pts; save(); render(); toast(`${MODS[k].name} reparado +${pts}%`);
+  const m=mod(k), q=repairQuote(k);
+  if(q.pts<=0){ toast('Recursos insuficientes'); return; }
+  subW('mc',q.mc); m.cond+=q.pts; save(); render(); toast(`${MODS[k].name} reparado +${q.pts}%`);
 }
 // precios del mercado: deterministas por día y material
 function hash01(s){
@@ -1481,7 +1518,7 @@ function renderCrew(){
     document.getElementById('candList').innerHTML=pista;
     return;
   }
-  const wages=sh.crew.filter(m=>!m.idle&&!m.cancel).reduce((a,m)=>a+m.wage,0), short=state.wallet.mc<wages;
+  const wages=sh.crew.filter(m=>!m.idle&&!m.cancel).reduce((a,m)=>a+wageOf(m.wage),0), short=state.wallet.mc<wages;
   document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${BERTHS}${wages?` · sueldos ${wages} ¢/sem`:''}`;
   const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre se marchará.`:'';
   const cl=document.getElementById('crewList'), home=atHome();
@@ -1490,8 +1527,8 @@ function renderCrew(){
     const fire=home?`<button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${conf?'¿Seguro? Pierdes lo pagado':'Despedir ya'}</button>`:'';
     const status=m.idle?'<span class="text-slate-400">Sin contrato · desembarca al volver al Sistema Madre</span>'
       :m.cancel?`<span class="text-amber-300">Contrato cancelado · se marcha el ${fDate(addDays(m.until,1))}</span>`
-      :`<span class="text-slate-400">Próximo cobro: ${fDate(addDays(m.until,1))} · ${m.wage} ¢ · se renueva solo</span>`;
-    const main=m.idle?`<button data-crew="rehire" data-id="${m.id}" class="${btnCls(state.wallet.mc>=m.wage)} flex-1" ${state.wallet.mc>=m.wage?'':'disabled'}>Recontratar ${CREW_DAYS} días · ${m.wage} ¢</button>`
+      :`<span class="text-slate-400">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · se renueva solo</span>`;
+    const main=m.idle?`<button data-crew="rehire" data-id="${m.id}" class="${btnCls(state.wallet.mc>=wageOf(m.wage))} flex-1" ${state.wallet.mc>=wageOf(m.wage)?'':'disabled'}>Recontratar ${CREW_DAYS} días · ${wageOf(m.wage)} ¢</button>`
       :`<button data-crew="cancel" data-id="${m.id}" class="flex-1 px-2.5 py-2 rounded-lg text-sm bg-slate-800 border ${m.cancel?'border-amber-600 text-amber-200 hover:border-amber-400':'border-slate-700 text-slate-300 hover:border-slate-500'}">${m.cancel?'Mantener contrato':'Cancelar contrato'}</button>`;
     return `<div class="rounded-xl border ${m.idle?'border-slate-700 border-dashed':m.cancel?'border-amber-600':'border-slate-700'} bg-slate-900/70 p-3">
       <div class="flex items-start gap-3">
@@ -1520,10 +1557,10 @@ function renderCrew(){
           <div class="font-semibold leading-tight">${escapeHtml(x.name)}</div>
           <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[10px] text-slate-300">${R.name}</span><span class="mono text-[10px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[x.lv-1]}">${L.name}</span></div>
         </div>
-        <span class="mono text-[11px] text-amber-300 shrink-0">${L.wage} ¢/sem</span>
+        <span class="mono text-[11px] text-amber-300 shrink-0">${wageOf(L.wage)} ¢/sem</span>
       </div>
       <div class="text-sm text-cyan-200 mt-2">${R.desc(R.eff[x.lv-1])}</div>
-      <button data-crew="hire" data-id="${x.id}" class="${btnCls(!why)} w-full mt-2.5" ${why?'disabled':''}>${why||`Contratar · ${L.wage} ¢`}</button>
+      <button data-crew="hire" data-id="${x.id}" class="${btnCls(!why)} w-full mt-2.5" ${why?'disabled':''}>${why||`Contratar · ${wageOf(L.wage)} ¢`}</button>
     </div>`;
   }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
   const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
@@ -1561,11 +1598,11 @@ function renderMission(c){
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), ok=w.mc>=REPAIR_MC;
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), q=repairQuote(k), ok=q.pts>0;
       return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
         <div class="flex items-center gap-2"><span class="font-semibold text-sm">${MODS[k].name}</span><span class="mono text-[11px] text-slate-300 ml-auto">${m.cond}%</span></div>
         <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
-        <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>
+        <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${ok?q.mc:rc} ¢</button>
       </div>`; }).join('')||'<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
@@ -1678,8 +1715,10 @@ function renderShip(){
   // módulos
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
-    const m=mod(k), up=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k);
-    const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`}[k]||`${Math.round(eff(k)*10)}% prob. de ${RES[def.res].sym} extra`;
+    const m=mod(k), up=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k), q=repairQuote(k);
+    const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`,
+      spirit:`+${Math.round(XP_BONUS*eff(k)*100)}% de méritos`,social:`−${Math.round(WAGE_CUT*eff(k)*100)}% en los sueldos`,
+      craft:`−${Math.round(YARD_CUT*eff(k)*100)}% en el astillero`,health:`+${Math.round(SELFHEAL*eff(k))} de estado al día`}[k];
     const el=document.createElement('div'); el.id='mod-'+k;
     el.className='rounded-xl border p-3 bg-slate-900/70 '+(!up?'border-slate-700':m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800');
     el.innerHTML=`
@@ -1696,10 +1735,10 @@ function renderShip(){
       <div class="mono text-[11px] text-cyan-200 mt-1">Ahora: ${effTxt}</div>`:''}
       <div class="flex flex-col gap-1.5 mt-2.5">
         <button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`Mejorar · ${fmtCost(cost)}`}</button>
-        ${up&&m.cond<100?`<button data-act="repair" class="${btnCls(w.mc>=REPAIR_MC)}" ${w.mc>=REPAIR_MC?'':'disabled'}>Reparar · ${Math.min(rc,Math.floor(w.mc/REPAIR_MC)*REPAIR_MC)||rc} ¢</button>`:''}
+        ${up&&m.cond<100?`<button data-act="repair" class="${btnCls(q.pts>0)}" ${q.pts>0?'':'disabled'}>Reparar · ${q.pts>0?q.mc:rc} ¢</button>`:''}
       </div>`;
     if(m.lv<5&&ok) el.querySelector('[data-act="build"]').onclick=()=>buildMod(k);
-    const rb=el.querySelector('[data-act="repair"]'); if(rb&&w.mc>=REPAIR_MC) rb.onclick=()=>repairMod(k);
+    const rb=el.querySelector('[data-act="repair"]'); if(rb&&q.pts>0) rb.onclick=()=>repairMod(k);
     ml.appendChild(el);
   }
 
