@@ -114,7 +114,30 @@ tailwind.config = {
   .done-chev{transition:transform .15s}
   .done-strip[aria-expanded="true"] .done-chev{transform:rotate(90deg)}
   .grp-chev{transition:transform .15s}
+  .grp-head{min-height:44px}
   .grp-head[aria-expanded="true"] .grp-chev{transform:rotate(90deg)}
+  /* El chip se sigue viendo de 26 px y se pulsa en 44: el área crece hacia
+     fuera con un pseudoelemento, así que no mueve ni un píxel de la maqueta.
+     Va por selector de clase porque el JS reescribe el className de los
+     filtros al pulsarlos y se llevaría por delante cualquier utilidad. */
+  .hfilter,.tfilter,.tafilter,.hafilter,#btnTAreas{position:relative}
+  .hfilter::after,.tfilter::after,.tafilter::after,.hafilter::after,#btnTAreas::after{
+    content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:100%;min-width:44px;height:44px}
+  /* En el móvil manda la barra inferior; el conmutador de la cabecera es de sm
+     en adelante. nav-off lo apaga en los dos sitios (Protocolo Forster). */
+  #navToggle.nav-off{display:none!important}
+  .bnav{color:#94a3b8}
+  .bnav[aria-pressed="true"]{color:#67e8f9}
+  .bnav:hover{color:#e2e8f0}
+  .ctab{min-height:44px;border-radius:10px;border:1px solid #334155;color:#cbd5e1}
+  .ctab[aria-selected="true"]{background:#0e7490;border-color:#22d3ee;color:#fff;font-weight:600}
+  /* Commander en una columna infinita obligaba a bajar 1.600 px para ver una
+     tarea. En el móvil cada mitad es una pestaña; en sm+ vuelven las dos. */
+  @media (max-width:639px){
+    #commander-view.tab-habits [data-cmd="tasks"],
+    #commander-view.tab-tasks [data-cmd="habits"]{display:none}
+  }
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
@@ -135,7 +158,7 @@ tailwind.config = {
     <!-- Cuenta y partida viven aquí dentro: así la primera fila es igual en los
          tres modos y le queda sitio al subtítulo. -->
     <div class="relative shrink-0 order-1 sm:order-last">
-      <button id="btnMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Menú" class="w-10 h-10 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
+      <button id="btnMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Menú" class="w-11 h-11 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <span id="menuDot" class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
@@ -145,11 +168,12 @@ tailwind.config = {
       </div>
     </div>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
-    <!-- En móvil ocupa su propia fila: la cabecera ya no cabía en una sola. -->
-    <div id="navToggle" role="group" aria-label="Modo" class="flex w-full sm:w-auto order-2 sm:order-none bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
-      <button id="btnCommander" aria-pressed="true" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
-      <button id="btnFocusMode" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
-      <button id="btnSpaceship" aria-pressed="false" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
+    <!-- Solo de sm en adelante: en el móvil esto vive en la barra inferior, y
+         la cabecera recupera la fila que ocupaba. -->
+    <div id="navToggle" role="group" aria-label="Modo" class="hidden sm:flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
+      <button id="btnCommander" aria-pressed="true" class="px-3 py-2 text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
+      <button id="btnFocusMode" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
+      <button id="btnSpaceship" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
     </div>
     <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
@@ -164,10 +188,17 @@ tailwind.config = {
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
 
+  <!-- En el móvil, cada mitad de Commander es una pestaña. En sm+ se esconde y
+       vuelven las dos columnas de siempre. -->
+  <div id="cmdTabs" role="tablist" aria-label="Sección" class="sm:hidden flex gap-2">
+    <button type="button" role="tab" data-ctab="habits" aria-selected="true" class="ctab flex-1 text-sm">Hoy <span id="ctabHabits" class="mono text-[11px] opacity-80"></span></button>
+    <button type="button" role="tab" data-ctab="tasks" aria-selected="false" class="ctab flex-1 text-sm">Tareas <span id="ctabTasks" class="mono text-[11px] opacity-80"></span></button>
+  </div>
+
   <!-- 1) HOY: la franja de arriba, a ancho completo. Es lo único a este ancho y
        lleva el marco con esquinas: de ahí saca su peso. La fila de dentro es la
        misma de todas partes, solo que en talla grande. -->
-  <section class="panel corner p-4 sm:p-5">
+  <section data-cmd="habits" class="panel corner p-4 sm:p-5">
     <div class="flex flex-wrap items-end gap-x-6 gap-y-4 mb-4">
       <div class="min-w-0">
         <div class="sys-label">01 // Rutinas de a bordo</div>
@@ -190,7 +221,7 @@ tailwind.config = {
   <!-- 2+3) Dos columnas en ancho suficiente: gestión de hábitos y tareas -->
   <div class="grid gap-5 lg:grid-cols-2 items-start">
   <!-- 2) Gestión de hábitos: entra plegada para no competir con Hoy -->
-  <section id="habitsBox" class="panel p-4 sm:p-5">
+  <section id="habitsBox" data-cmd="habits" class="panel p-4 sm:p-5">
     <button id="habitsToggle" type="button" aria-expanded="false" aria-controls="habitsBody" class="w-full flex items-center gap-2 text-left px-1 py-1.5 rounded-md hover:bg-slate-800/50">
       <span class="habits-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
       <span class="sys-label">Todos mis hábitos</span>
@@ -216,13 +247,13 @@ tailwind.config = {
     </div>
   </section>
 
-  <!-- 2) Tareas (derecha en wide) -->
-  <section class="panel p-4 sm:p-5">
+  <!-- 3) Tareas (derecha en wide) -->
+  <section data-cmd="tasks" class="panel p-4 sm:p-5">
       <div class="sys-label">02 // Operaciones</div>
       <div class="flex items-center gap-2 mt-1 mb-3">
         <h2 class="text-lg font-bold">Tareas</h2>
         <span id="taskCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
-        <button id="btnNewTask" class="ml-auto btn-primary px-3 py-1.5 rounded-lg text-sm">+ Tarea</button>
+        <button id="btnNewTask" class="ml-auto btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">+ Tarea</button>
       </div>
       <!-- Una sola fila: las áreas son un filtro de segunda y viven detrás de su
            botón, que lleva la cuenta de las activas. -->
@@ -243,13 +274,13 @@ tailwind.config = {
       <!-- Proyectos: plegada ocupa una línea y sigue avisando del que peor va -->
       <div id="projBox" class="border border-[#1f2a3d] bg-[#0f1729] rounded-lg mb-3">
         <div class="flex items-center gap-2 p-1.5 pl-1">
-          <button id="projToggle" type="button" aria-expanded="false" aria-controls="projBody" class="flex-1 min-w-0 flex items-center gap-2 text-left px-2 py-2 rounded-md hover:bg-slate-800/50">
+          <button id="projToggle" type="button" aria-expanded="false" aria-controls="projBody" class="flex-1 min-w-0 min-h-11 flex items-center gap-2 text-left px-2 py-2 rounded-md hover:bg-slate-800/50">
             <span class="proj-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
             <span class="sys-label">Proyectos</span>
             <span id="projCount" class="mono text-[10px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
             <span id="projSummary" class="mono text-[10px] truncate text-slate-400"></span>
           </button>
-          <button id="btnNewProj" type="button" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo</button>
+          <button id="btnNewProj" type="button" class="shrink-0 px-3 h-11 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo</button>
         </div>
         <div id="projBody" class="hidden px-2 pb-2 space-y-1"></div>
       </div>
@@ -562,7 +593,23 @@ tailwind.config = {
   </div>
 </div>
 
-<div id="toast" role="status" aria-live="polite" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
+<!-- BARRA INFERIOR (solo móvil): los tres modos al alcance del pulgar -->
+<nav id="bottomNav" role="group" aria-label="Modo" class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex border-t border-slate-800 bg-[#0a0f1a]/95 backdrop-blur">
+  <button type="button" data-mode="commander" aria-pressed="true" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M17.5 15.5l2 2 3-4"/></svg>
+    Commander
+  </button>
+  <button type="button" data-mode="focus" aria-pressed="false" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+    Focus
+  </button>
+  <button type="button" data-mode="ship" aria-pressed="false" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c2.4 2.7 3.7 6.1 3.7 9.5v4.5l2.3 2.3v1.2H6v-1.2L8.3 16.5V12c0-3.4 1.3-6.8 3.7-9.5z"/><circle cx="12" cy="10" r="1.6"/></svg>
+    Spaceship
+  </button>
+</nav>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
 <script>
 
@@ -740,7 +787,7 @@ function flushShipNews(){ const n=shipNews.splice(0).slice(-3); if(n.length) toa
 // eliminado». El nivel 'win' se queda más tiempo y se pinta en ámbar; si justo
 // detrás llega un aviso normal —el «+10 ¢» de la misma acción—, se le suma en
 // vez de pisarlo.
-const TOAST_BASE='fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm text-center max-w-[calc(100vw-32px)] border ';
+const TOAST_BASE='fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm text-center max-w-[calc(100vw-32px)] border ';
 function toast(msg,level){
   if(!msg) return;
   const el=document.getElementById('toast'), win=level==='win';
@@ -1357,6 +1404,8 @@ function taskRowEl(x,t){
 }
 
 let tFilter='all', hFilter='all';
+// En el móvil Commander se parte en dos pestañas; en sm+ esto no se mira.
+let cmdTab='habits';
 // La gestión de hábitos entra plegada: Hoy es lo que manda en esta vista.
 const HABITS_OPEN_KEY='spaceship-commander:habitsOpen';
 let habitsOpen=(()=>{ try{ return localStorage.getItem(HABITS_OPEN_KEY)==='1'; }catch{ return false; } })();
@@ -1552,6 +1601,12 @@ function render(){
   tasks.sort((a,b)=>(a.done-b.done)||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
+  const cv=document.getElementById('commander-view');
+  cv.classList.toggle('tab-habits',cmdTab==='habits');
+  cv.classList.toggle('tab-tasks',cmdTab==='tasks');
+  document.querySelectorAll('#cmdTabs [data-ctab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.ctab===cmdTab)));
+  document.getElementById('ctabHabits').textContent = todays.length?`${done}/${todays.length}`:'';
+  document.getElementById('ctabTasks').textContent = open||'';
   paintTaskAreas();
   const tl=document.getElementById('taskList'); tl.innerHTML='';
   // Agrupar solo cuando la lista es larga y no viene ya recortada: «Hoy» y
@@ -2540,18 +2595,28 @@ function setMode(m){
   document.getElementById('commander-view').classList.toggle('hidden',ship||focus);
   document.getElementById('spaceship-view').classList.toggle('hidden',!ship);
   document.getElementById('focus-view').classList.toggle('hidden',!focus);
-  document.getElementById('navToggle').classList.toggle('hidden',focus);
+  document.getElementById('navToggle').classList.toggle('nav-off',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
   const modeBtn=(id,on)=>{ const b=document.getElementById(id);
-    b.className='flex-1 sm:flex-none px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
+    b.className='px-3 py-2 text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
     b.setAttribute('aria-pressed',String(on)); };
   modeBtn('btnCommander',m==='commander'); modeBtn('btnFocusMode',focus); modeBtn('btnSpaceship',ship);
+  document.querySelectorAll('#bottomNav .bnav').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m)));
   try{ localStorage.setItem(UIKEY,m); }catch{}
   if(ship) flushShipNews();   // lo que pasó mientras estabas fuera
   render(); paintFocusClock(); scrollTo(0,0);
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
+// Barra inferior: mismo comportamiento que la cabecera, incluido el aviso de
+// salida del Protocolo Forster, que si no se perderían las acciones rápidas.
+document.querySelectorAll('#bottomNav .bnav').forEach(b=>b.onclick=()=>{
+  const m=b.dataset.mode;
+  if(m===uiMode) return;
+  if(m==='focus'){ enterFocus(); return; }
+  uiMode==='focus' ? requestFocusExit(m) : setMode(m);
+});
+document.querySelectorAll('#cmdTabs [data-ctab]').forEach(b=>b.onclick=()=>{ cmdTab=b.dataset.ctab; render(); scrollTo(0,0); });
 document.getElementById('shipChip').onclick=()=>uiMode==='focus'?requestFocusExit('ship'):setMode('ship');
 document.getElementById('sortNave').onclick=()=>{ sysSort='nave'; renderShip(); };
 document.getElementById('sortEstado').onclick=()=>{ sysSort='estado'; renderShip(); };
