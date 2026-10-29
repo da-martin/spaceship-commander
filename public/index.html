@@ -35,8 +35,6 @@ tailwind.config = {
   .corner::before{top:-1px;left:-1px;border-width:1px 0 0 1px;border-radius:12px 0 0 0}
   .corner::after{bottom:-1px;right:-1px;border-width:0 1px 1px 0;border-radius:0 0 12px 0}
   .btn-primary{background:#0e7490;color:#fff}.btn-primary:hover{background:#0891b2}
-  .habit-done{border-color:#065f46!important;background:linear-gradient(180deg,#0b211c,#0d1526)!important}
-  .task-done span.title{text-decoration:line-through;opacity:.5}
   .day-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
   .area-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
   .gear-menu{position:absolute;z-index:30;min-width:180px;background:#0f172a;border:1px solid #2a3a55;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);overflow:hidden}
@@ -85,6 +83,38 @@ tailwind.config = {
   .f-main:disabled{cursor:default}
   .f-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px;min-height:112px;border-radius:12px;border-width:1px;border-style:solid;text-align:left}
   .f-opt:hover{filter:brightness(1.15)}
+  /* Fila de lista de Commander. Una sola anatomía para hábitos y tareas; la
+     jerarquía la dan la talla (.row--lg), el marco del panel y la posición,
+     nunca un componente distinto. Comparte tokens con .f-row a propósito. */
+  .row{position:relative;display:flex;align-items:center;gap:11px;border-radius:10px;border:1px solid #1f2a3d;background:#0f1729;padding:10px 12px}
+  .row--lg{gap:14px;border-radius:11px;padding:15px 16px}
+  /* La prioridad la dice la estrella y solo la estrella: el borde ámbar queda
+     libre para lo que de verdad urge, que es el atraso. */
+  .row.over{border-color:#92400e;background:#1c1207}
+  .row.dim{opacity:.55}
+  .row.done .row-title{text-decoration:line-through;color:#94a3b8}
+  /* El control se ve de 24 px (32 en grande) y se pulsa en 44: el relleno crece
+     hacia fuera y el margen negativo se lo descuenta a la maqueta. */
+  .row-hit{flex:none;box-sizing:content-box;display:grid;place-items:center;width:24px;height:24px;padding:10px;margin:-10px;border-radius:12px}
+  .row--lg .row-hit{width:32px;height:32px;padding:8px;margin:-8px}
+  .row-mark{display:grid;place-items:center;width:100%;height:100%;box-sizing:border-box;border:1.5px solid;font-size:13px;line-height:1}
+  .row--lg .row-mark{border-width:2px;font-size:17px}
+  .row-mark.habit{border-radius:999px;border-color:#065f46;background:#0b211c;color:#6ee7b7}
+  .row-mark.task{border-radius:6px;border-color:#0e7490;background:#0c1f33;color:#7dd3fc}
+  .row-mark.on{background:#065f46;border-color:#065f46;color:#ecfdf5}
+  .row-mark.off{border-style:dashed;border-color:#64748b;background:transparent;color:#94a3b8}
+  .row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;padding:7px 0;margin:-7px 0;border-radius:8px}
+  .row-body:hover .row-title{color:#f1f5f9}
+  .row-gear{flex:none;box-sizing:content-box;display:grid;place-items:center;width:20px;height:20px;padding:12px;margin:-12px -2px;border-radius:12px;color:#94a3b8}
+  .row-gear:hover{color:#67e8f9}
+  .row-hit:focus,.row-body:focus,.row-gear:focus{outline:none}
+  .row:has(.row-hit:focus-visible),.row:has(.row-body:focus-visible),.row:has(.row-gear:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
+  .habits-chev{transition:transform .15s}
+  #habitsBox.open .habits-chev{transform:rotate(90deg)}
+  .done-chev{transition:transform .15s}
+  .done-strip[aria-expanded="true"] .done-chev{transform:rotate(90deg)}
+  .grp-chev{transition:transform .15s}
+  .grp-head[aria-expanded="true"] .grp-chev{transform:rotate(90deg)}
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
@@ -134,39 +164,56 @@ tailwind.config = {
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
 
-  <!-- 1+2) Dos columnas en ancho suficiente: hábitos izquierda, tareas derecha -->
-  <div class="grid gap-5 lg:grid-cols-2 items-start">
-  <!-- 1) MÓDULO HÁBITOS (izquierda en wide) -->
+  <!-- 1) HOY: la franja de arriba, a ancho completo. Es lo único a este ancho y
+       lleva el marco con esquinas: de ahí saca su peso. La fila de dentro es la
+       misma de todas partes, solo que en talla grande. -->
   <section class="panel corner p-4 sm:p-5">
-    <div class="flex flex-wrap items-end gap-3 mb-3">
-      <div>
+    <div class="flex flex-wrap items-end gap-x-6 gap-y-4 mb-4">
+      <div class="min-w-0">
         <div class="sys-label">01 // Rutinas de a bordo</div>
-        <h2 class="text-xl font-bold mt-1">Mis hábitos <span id="todayLabel" class="text-slate-400 font-medium text-sm"></span></h2>
+        <h2 class="text-2xl sm:text-3xl font-bold mt-1.5 leading-none">Hoy</h2>
+        <p id="todayLabel" class="text-slate-400 text-sm mt-1.5"></p>
       </div>
-      <div class="ml-auto flex items-center gap-3">
-        <div class="text-right">
-          <div id="todayProgressText" class="mono text-xs text-cyan-200">0/0</div>
-          <div class="w-40 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden"><div id="todayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div></div>
+      <div class="flex-1 basis-64 min-w-0">
+        <div class="flex items-baseline gap-2">
+          <span id="todayDone" class="mono text-3xl sm:text-4xl font-medium text-emerald-300 leading-none tabular-nums">0</span>
+          <span id="todayTotal" class="mono text-base text-slate-500 leading-none">/ 0</span>
+          <span class="mono text-[11px] text-slate-400 leading-none">completados hoy</span>
         </div>
-        <button id="btnNewHabit" class="btn-primary px-3 py-2 rounded-lg text-sm font-medium">+ Nuevo</button>
+        <div class="h-2 bg-slate-800 rounded-full mt-2.5 overflow-hidden"><div id="todayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div></div>
       </div>
+      <button id="btnNewHabit" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold shrink-0">+ Nuevo hábito</button>
     </div>
-    <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
-      <button data-hfilter="hoy" class="hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Hoy</button>
-      <button data-hfilter="free" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Libres</button>
-      <button data-hfilter="daily" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Diarios</button>
-      <button data-hfilter="weekly" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Semanales</button>
-      <button data-hfilter="all" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Todos</button>
+    <div id="todayList" class="space-y-2"></div>
+  </section>
+
+  <!-- 2+3) Dos columnas en ancho suficiente: gestión de hábitos y tareas -->
+  <div class="grid gap-5 lg:grid-cols-2 items-start">
+  <!-- 2) Gestión de hábitos: entra plegada para no competir con Hoy -->
+  <section id="habitsBox" class="panel p-4 sm:p-5">
+    <button id="habitsToggle" type="button" aria-expanded="false" aria-controls="habitsBody" class="w-full flex items-center gap-2 text-left px-1 py-1.5 rounded-md hover:bg-slate-800/50">
+      <span class="habits-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
+      <span class="sys-label">Todos mis hábitos</span>
+      <span id="habitCount" class="mono text-[10px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
+      <span id="habitsSummary" class="mono text-[10px] truncate text-slate-400"></span>
+    </button>
+    <div id="habitsBody" class="hidden mt-3">
+      <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
+        <button data-hfilter="all" class="hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todos</button>
+        <button data-hfilter="daily" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Diarios</button>
+        <button data-hfilter="weekly" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Semanales</button>
+        <button data-hfilter="free" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Libres</button>
+      </div>
+      <div id="habitAreaRow" class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
+        <span class="mono text-[10px] text-slate-400 mr-1">ÁREAS:</span>
+        <button data-harea="__all" class="hafilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Todas</button>
+        <button data-harea="Spirit" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Spirit</button>
+        <button data-harea="Social" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
+        <button data-harea="Craft" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Craft</button>
+        <button data-harea="Health" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Health</button>
+      </div>
+      <div id="allHabitsList" class="space-y-2"></div>
     </div>
-    <div id="habitAreaRow" class="flex flex-wrap items-center gap-1.5 mb-3 text-xs" style="display:none">
-      <span class="mono text-[10px] text-slate-500 mr-1">ÁREAS:</span>
-      <button data-harea="__all" class="hafilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Todas</button>
-      <button data-harea="Spirit" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Spirit</button>
-      <button data-harea="Social" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
-      <button data-harea="Craft" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Craft</button>
-      <button data-harea="Health" class="hafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Health</button>
-    </div>
-    <div id="allHabitsList"></div>
   </section>
 
   <!-- 2) Tareas (derecha en wide) -->
@@ -177,14 +224,16 @@ tailwind.config = {
         <span id="taskCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
         <button id="btnNewTask" class="ml-auto btn-primary px-3 py-1.5 rounded-lg text-sm">+ Tarea</button>
       </div>
-      <div class="flex gap-1.5 mb-3 text-xs">
+      <!-- Una sola fila: las áreas son un filtro de segunda y viven detrás de su
+           botón, que lleva la cuenta de las activas. -->
+      <div class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
         <button data-tfilter="all" class="tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todas</button>
         <button data-tfilter="today" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Hoy</button>
         <button data-tfilter="priority" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">★ Prioridad</button>
         <button data-tfilter="done" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Hechas</button>
+        <button id="btnTAreas" type="button" aria-expanded="false" aria-controls="taskAreaRow" class="ml-auto px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600">Áreas</button>
       </div>
-      <div class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
-        <span class="mono text-[10px] text-slate-500 mr-1">ÁREAS:</span>
+      <div id="taskAreaRow" class="hidden flex-wrap items-center gap-1.5 mb-3 text-xs">
         <button data-tarea="__all" class="tafilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Todas</button>
         <button data-tarea="Spirit" class="tafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Spirit</button>
         <button data-tarea="Social" class="tafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
@@ -1124,7 +1173,179 @@ function wireGear(el,acts){
   menu.querySelector('[data-m="del"]').onclick=()=>{menu.classList.add('hidden');acts.del();};
 }
 
-let tFilter='all', hFilter='hoy';
+/* ---------- la fila de las listas de Commander ----------
+   Una sola anatomía: [control] [título + meta] [extras] [engranaje]. El tipo se
+   lee por la forma del control —círculo hábito, cuadrado tarea—, igual que en el
+   Protocolo Forster, y no por el color. `size:'lg'` es solo talla: misma fila.
+   `title` y `meta` llegan ya escapados por quien llama. */
+function rowHTML(o){
+  const lg=o.size==='lg';
+  const cls=['row',lg?'row--lg':'',o.done?'done':'',o.over?'over':'',o.dim?'dim':''].filter(Boolean).join(' ');
+  const mark=['row-mark',o.kind,o.on?'on':'',o.off?'off':''].filter(Boolean).join(' ');
+  return `<div class="${cls}">
+    <button type="button" data-act="done" class="row-hit" aria-pressed="${!!o.on}" aria-label="${o.markLabel}"><span class="${mark}" aria-hidden="true">${o.markText||''}</span></button>
+    <button type="button" data-act="body" class="row-body" aria-label="Opciones de ${o.title}">
+      <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}</span>
+      ${o.meta?`<span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${o.meta}</span>`:''}
+    </button>
+    ${o.extras||''}
+    <button type="button" data-act="gear" class="row-gear" title="Opciones" aria-label="Opciones de ${o.title}">${GEAR_SVG}</button>
+    ${gearMenuHTML(o.pri)}</div>`;
+}
+// El control marca, el cuerpo abre el detalle y el engranaje sigue en wireGear.
+function wireRow(el,acts){
+  el.querySelector('[data-act="done"]').onclick=acts.done;
+  el.querySelector('[data-act="body"]').onclick=acts.edit;
+  wireGear(el,{pri:acts.pri,edit:acts.edit,del:acts.del});
+  return el;
+}
+// Construye la fila ya cableada, lista para colgar de la lista que toque.
+function rowEl(o,acts){
+  const el=document.createElement('div');
+  el.innerHTML=rowHTML(o);
+  return wireRow(el.firstElementChild,acts);
+}
+// Un hábito, en cualquiera de sus dos listas. Entre Hoy y la gestión solo cambia
+// la talla: en las dos se marca el día desde el mismo control, que es
+// justamente lo que faltaba en la de gestión.
+function habitRowEl(h,size,t){
+  const c=countToday(h), d=isDoneToday(h), free=h.type==='free', sched=isScheduledToday(h), s=streak(h);
+  const title=escapeHtml(h.title);
+  const kind=free?'Libre':h.type==='daily'?'Diario':'Semanal'+((h.days||[]).length?' · '+h.days.map(x=>DOW_NAMES[x]).join(' '):'');
+  const meta=[
+    `<span class="text-slate-400">${kind}</span>`,
+    free?`<span class="text-slate-400">hoy ${c} ${c===1?'vez':'veces'}</span>`:'',
+    (!free&&s>=2)?`<span class="text-emerald-300">🔥 racha ${s}</span>`:'',
+    sched?'':'<span class="text-slate-400">stand-by hoy</span>',
+    areaBadges(h.areas)
+  ].filter(Boolean).join('');
+  const el=rowEl({
+    kind:'habit', size, title, pri:h.priority,
+    done:d&&!free, on:!free&&d, off:!d&&((free&&c===0)||!sched), dim:!sched&&!d,
+    markText:free?String(c):(d?'✓':''),
+    markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
+    meta,
+    extras:(free&&c>0)?`<button type="button" data-act="minus" class="shrink-0 mono text-sm text-slate-300 border border-slate-700 rounded-lg h-11 min-w-[44px] px-3 hover:border-cyan-600" title="Quitar uno" aria-label="Quitar un registro de ${title}">−1</button>`:''
+  },{
+    done:()=>toggleHabitToday(h),
+    edit:()=>openModal('habit',h.id),
+    pri:()=>{h.priority=!h.priority;save();render();},
+    del:()=>deleteHabit(h.id)
+  });
+  const minus=el.querySelector('[data-act="minus"]');
+  if(minus) minus.onclick=()=>{ untapFree(h,t); save(); render(); };
+  return el;
+}
+// Hoy usa la fila grande hasta este número de hábitos; a partir de ahí cede la
+// talla. Cinco filas grandes son 395 px: menos de media pantalla de portátil.
+const HOY_LG_MAX = 5;
+// Un hábito libre nunca está «completado»: siempre puedes registrarlo otra vez,
+// así que se queda arriba con los pendientes por mucho que lo hayas tocado hoy.
+const hechoHoy = (h) => h.type!=='free' && isDoneToday(h);
+let todayDoneOpen = false;
+// Lo completado, recogido al final de Hoy en una línea que se despliega. La
+// franja pasa a decir «te quedan tres» en vez de «tienes ocho», que es lo que
+// uno quiere saber a media tarde, y de paso recoge lo ganado en el día.
+function doneStripEl(hechos,size,t){
+  const n=hechos.length, mc=hechos.reduce((a,h)=>a+(+h.g?.[t]?.mc||0),0);
+  const wrap=document.createElement('div');
+  wrap.className='space-y-2';
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='done-strip w-full flex items-center gap-2.5 rounded-lg border border-[#1f2a3d] bg-[#0d1526] px-3 h-11 hover:border-emerald-800';
+  b.setAttribute('aria-expanded',todayDoneOpen);
+  b.innerHTML=`<span class="done-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
+    <span class="w-5 h-5 shrink-0 rounded-full bg-emerald-800 text-emerald-50 grid place-items-center text-[11px]" aria-hidden="true">✓</span>
+    <span class="mono text-[11px] text-emerald-300">${n} ${n===1?'completado':'completados'}</span>
+    ${mc?`<span class="mono text-[11px] text-slate-400 ml-auto">+${mc} ¢ hoy</span>`:''}`;
+  b.onclick=()=>{ todayDoneOpen=!todayDoneOpen; render(); };
+  wrap.appendChild(b);
+  if(todayDoneOpen) hechos.forEach(h=>wrap.appendChild(habitRowEl(h,size,t)));
+  return wrap;
+}
+/* ---------- tareas: los grupos de «cuándo» ----------
+   Es el orden que uno ya tiene en la cabeza. Dentro de cada grupo sigue
+   mandando la prioridad, pero deja de saltarse el calendario: una ★ sin fecha
+   ya no se pone por delante de algo vencido hace nueve días. */
+const TGROUPS=[
+  {k:'over', name:'Atrasadas',    cls:'text-amber-300',   bd:'border-amber-800'},
+  {k:'today',name:'Hoy',          cls:'text-cyan-300',    bd:'border-cyan-800'},
+  {k:'week', name:'Esta semana',  cls:'text-slate-300',   bd:'border-slate-700'},
+  {k:'later',name:'Más adelante', cls:'text-slate-300',   bd:'border-slate-700'},
+  {k:'none', name:'Sin fecha',    cls:'text-slate-300',   bd:'border-slate-700'},
+  {k:'done', name:'Hechas',       cls:'text-emerald-300', bd:'border-emerald-800'}
+];
+const TGROUP_MAX = 6;   // filas abiertas antes de empezar a plegar
+let tGroupOpen = {};    // solo lo que el usuario ha tocado a mano
+function taskGroup(x,t){
+  if(x.done) return 'done';
+  if(!x.dueDate) return 'none';
+  if(x.dueDate<t) return 'over';
+  if(x.dueDate===t) return 'today';
+  return etaDays(x.dueDate)<=7 ? 'week' : 'later';
+}
+function renderTaskGroups(tl,tasks,t){
+  const by={};
+  for(const x of tasks){ const k=taskGroup(x,t); (by[k]=by[k]||[]).push(x); }
+  let n=0;
+  for(const g of TGROUPS){
+    const items=by[g.k];
+    if(!items) continue;
+    // Se abren grupos hasta llenar unas seis filas. El primero se abre siempre:
+    // una lista que empieza entera plegada no enseña nada.
+    const auto = g.k!=='done' && (n===0 || n+items.length<=TGROUP_MAX);
+    if(auto) n+=items.length;
+    const on = (g.k in tGroupOpen) ? tGroupOpen[g.k] : auto;
+    const head=document.createElement('button');
+    head.type='button';
+    head.className='grp-head w-full flex items-center gap-2 px-1 pt-2 pb-1 rounded-md hover:bg-slate-800/40';
+    head.setAttribute('aria-expanded',on);
+    head.innerHTML=`<span class="grp-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
+      <span class="mono text-[10px] tracking-[.16em] uppercase ${g.cls}">${g.name}</span>
+      <span class="mono text-[10px] px-1.5 py-px rounded border ${g.bd} ${g.cls}">${items.length}</span>`;
+    head.onclick=()=>{ tGroupOpen[g.k]=!on; render(); };
+    tl.appendChild(head);
+    if(on) items.forEach(x=>tl.appendChild(taskRowEl(x,t)));
+  }
+}
+// Las áreas son un filtro de segunda: viven detrás de su botón, que lleva la
+// cuenta de las activas para que plegarlas no esconda que están puestas.
+let tAreaOpen=false;
+function paintTaskAreas(){
+  const row=document.getElementById('taskAreaRow'), b=document.getElementById('btnTAreas'), n=aFilterTasks.size;
+  row.classList.toggle('hidden',!tAreaOpen); row.classList.toggle('flex',tAreaOpen);
+  b.setAttribute('aria-expanded',tAreaOpen);
+  b.textContent = n ? `Áreas · ${n}` : 'Áreas';
+  b.className = 'ml-auto px-2.5 py-1 rounded-md '+(n?'bg-cyan-800 text-white border border-cyan-700':'bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600');
+}
+// Una tarea. El atraso es ámbar, no rojo: el rojo queda para lo destructivo.
+function taskRowEl(x,t){
+  const over=x.dueDate&&x.dueDate<t&&!x.done, eta=x.dueDate?etaDays(x.dueDate):null;
+  const title=escapeHtml(x.title);
+  const date=x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha';
+  const meta=[
+    `<span class="${over?'text-amber-300':x.dueDate===t?'text-cyan-300':'text-slate-400'}">${date}</span>`,
+    (eta!==null&&x.dueDate!==t)?`<span class="px-1.5 py-px rounded border ${over?'border-amber-700 text-amber-300':'border-slate-600 text-slate-300'}">${over?('hace '+(-eta)+(-eta===1?' día':' días')):('ETA '+eta+(eta===1?' día':' días'))}</span>`:'',
+    projBadge(x.projectId), areaBadges(x.areas)
+  ].filter(Boolean).join('');
+  return rowEl({
+    kind:'task', title, pri:x.priority, done:x.done, over, on:x.done,
+    markText:x.done?'✓':'',
+    markLabel:(x.done?'Desmarcar ':'Completar ')+title,
+    meta
+  },{
+    done:()=>{ if(!x.done) completeTask(x); else { x.done=false; revokeTask(x); save(); render(); } },
+    edit:()=>openModal('task',x.id),
+    pri:()=>{x.priority=!x.priority;save();render();},
+    del:()=>deleteTask(x.id)
+  });
+}
+
+let tFilter='all', hFilter='all';
+// La gestión de hábitos entra plegada: Hoy es lo que manda en esta vista.
+const HABITS_OPEN_KEY='spaceship-commander:habitsOpen';
+let habitsOpen=(()=>{ try{ return localStorage.getItem(HABITS_OPEN_KEY)==='1'; }catch{ return false; } })();
+function setHabitsOpen(v){ habitsOpen=v; try{ localStorage.setItem(HABITS_OPEN_KEY,v?'1':'0'); }catch{} }
 // Proyectos: filtro activo (null | 'none' | id), fila en edición ('new' | id) y borrado pendiente.
 const PROJ_OPEN_KEY='spaceship-commander:projOpen';
 let pFilter=null, projEdit=null, projDel=null;
@@ -1277,59 +1498,31 @@ function renderProjects(){
 }
 
 function render(){
-  const dow=DOW(), t=todayStr();
+  const t=todayStr();
   const hoy=new Date();   // el año va aparte: en el móvil no cabe
   document.getElementById('stardate').textContent = hoy.toLocaleDateString('es-ES',{day:'2-digit',month:'short'});
   document.getElementById('stardateYear').textContent = ' '+hoy.getFullYear();
   document.getElementById('hdrRank').textContent = RANKS[rankIdx()][0].toUpperCase();
-  document.getElementById('todayLabel').textContent = '· '+new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
-  // --- 1) Módulo hábitos único (Hoy por defecto) ---
+  // --- 1) La franja Hoy: los hábitos que tocan, en fila grande ---
   const todays = state.habits.filter(isScheduledToday).sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
   const done = todays.filter(isDoneToday).length;
-  document.getElementById('todayProgressText').textContent = `${done}/${todays.length} hoy`;
+  document.getElementById('todayDone').textContent = done;
+  document.getElementById('todayTotal').textContent = '/ '+todays.length;
   document.getElementById('todayProgressBar').style.width = todays.length? (done/todays.length*100)+'%' : '0%';
-  const box=document.getElementById('allHabitsList'); box.innerHTML='';
-  const isHoy = (hFilter==='hoy');
-  document.getElementById('habitAreaRow').style.display = isHoy ? 'none' : 'flex';
   paintAreaFilters();
-  box.className = isHoy ? 'grid sm:grid-cols-2 gap-3' : 'space-y-2';
-  if (isHoy && todays.length===0) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center col-span-full">Sin hábitos para hoy. Crea un diario, un semanal para hoy, o un libre.</div>';
-  todays.forEach(h=>{
-    if(!isHoy) return;
-    const c=countToday(h), d=isDoneToday(h);
-    const card=document.createElement('div');
-    card.className='relative rounded-xl border p-3 '+(d?'habit-done border-emerald-800':h.priority?'border-amber-500/70 bg-amber-950/25':'border-slate-700 bg-slate-900/70');
-    card.innerHTML=`
-      <div class="flex items-center gap-1.5">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border ${h.type==='free'?'border-slate-600 text-slate-300':h.type==='daily'?'border-cyan-800 text-cyan-300':'border-violet-800 text-violet-300'}">${h.type==='free'?'LIBRE':h.type==='daily'?'DIARIO':'SEMANAL'}</span>
-        ${streak(h)>=2?`<span class="mono text-[10px] text-emerald-300">🔥 ${streak(h)}</span>`:''}
-        <button data-act="gear" class="ml-auto text-slate-400 hover:text-cyan-300 p-1 leading-none" title="Opciones">${GEAR_SVG}</button>
-      </div>
-      ${gearMenuHTML(h.priority)}
-      <div class="font-semibold mt-1.5 leading-snug">${escapeHtml(h.title)} ${h.priority?'<span class="mono text-[10px] text-amber-300 font-normal">★</span>':''}</div>
-      ${areaBadges(h.areas)?`<div class="flex flex-wrap gap-1 mt-1.5">${areaBadges(h.areas)}</div>`:''}
-      <div class="mono text-[11px] text-slate-400 mt-1">${h.type==='free'?`hoy: ${c} ${c===1?'vez':'veces'}`:h.type==='weekly'?('toca: '+DOW_NAMES[dow]):'toca hoy'}</div>
-      <div class="flex gap-2 mt-2.5"></div>`;
-    wireGear(card,{
-      pri:()=>{h.priority=!h.priority;save();render();},
-      edit:()=>openModal('habit',h.id),
-      del:()=>deleteHabit(h.id)
-    });
-    const row=card.lastElementChild;
-    if(h.type==='free'){
-      row.innerHTML=`<button class="flex-1 px-2 py-2 rounded-lg bg-cyan-800 hover:bg-cyan-700 text-sm font-semibold">+ Registrar (${c})</button>
-        ${c>0?'<button class="px-2 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" title="Quitar uno">−1</button>':''}`;
-      row.children[0].onclick=()=>{const g=tapFree(h,t); save(); render(); toast(gainText(g));};
-      if(c>0) row.children[1].onclick=()=>{untapFree(h,t); save(); render();};
-    } else {
-      const b=document.createElement('button');
-      b.className='flex-1 px-2 py-2 rounded-lg text-sm font-semibold '+(d?'bg-emerald-700 text-white':'bg-slate-800 border border-slate-600 hover:border-emerald-500');
-      b.textContent=d?'✓ Completado — desmarcar':'Marcar completado';
-      b.onclick=()=>toggleHabitToday(h); row.appendChild(b);
-    }
-    box.appendChild(card);
-  });
+  const box=document.getElementById('todayList'); box.innerHTML='';
+  if(!todays.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Sin hábitos para hoy. Crea un diario, un semanal para hoy, o un libre.</div>';
+  // La talla mira el total del día, no los pendientes: si mirara los
+  // pendientes, la lista encogería sola al marcar el sexto y daría un salto a
+  // media mañana. El resto de la jerarquía —ser lo primero, el ancho completo,
+  // el marco de esquinas y el número grande— no depende del número de filas.
+  const hSize = todays.length>HOY_LG_MAX ? null : 'lg';
+  const pend = todays.filter(h=>!hechoHoy(h)), hechos = todays.filter(hechoHoy);
+  pend.forEach(h=>box.appendChild(habitRowEl(h,hSize,t)));
+  if(todays.length && !pend.length) box.insertAdjacentHTML('beforeend','<p class="mono text-[11px] text-emerald-300 text-center py-2">✓ Jornada completa</p>');
+  if(hechos.length) box.appendChild(doneStripEl(hechos,hSize,t));
 
   // --- 2) Tareas ---
   if(pFilter&&pFilter!=='none'&&!projById(pFilter)) pFilter=null;
@@ -1344,64 +1537,27 @@ function render(){
   tasks.sort((a,b)=>(a.done-b.done)||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
+  paintTaskAreas();
   const tl=document.getElementById('taskList'); tl.innerHTML='';
-  if(!tasks.length) tl.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin tareas aquí.</div>';
-  tasks.forEach(x=>{
-    const over=x.dueDate && x.dueDate<t && !x.done;
-    const eta=x.dueDate?etaDays(x.dueDate):null;
-    const el=document.createElement('div');
-    el.className='relative flex items-center gap-2.5 rounded-xl border px-3 py-2.5 '+(x.done?'task-done border-slate-700 bg-slate-900/70':x.priority?'border-amber-500/70 bg-amber-950/25':'border-slate-700 bg-slate-900/70');
-    el.innerHTML=`
-      <button data-act="done" class="w-5 h-5 rounded-md border ${x.done?'bg-emerald-600 border-emerald-600 text-white':'border-slate-500'} grid place-items-center text-xs shrink-0" title="Completar">${x.done?'✓':''}</button>
-      <div data-act="body" class="min-w-0 flex-1">
-        <span class="title text-sm font-medium block truncate">${x.priority?'<span class="text-amber-300">★ </span>':''}${escapeHtml(x.title)}${(!x.done&&x.priority)?' <span class="mono text-[10px] font-normal text-amber-300/80">PRIORIDAD</span>':''}</span>
-        <span class="mono text-[10px] ${over?'text-red-400':x.dueDate===t?'text-cyan-300':'text-slate-500'}">${x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha'}</span>${(eta!==null&&x.dueDate!==t)?` <span class="mono text-[10px] px-1.5 py-px rounded border ${over?'border-red-800 text-red-300':'border-slate-600 text-slate-300'}">${over?('hace '+(-eta)+(-eta===1?' día':' días')):('ETA '+eta+(eta===1?' día':' días'))}</span>`:''}
-        ${(projBadge(x.projectId)||areaBadges(x.areas))?`<span class="flex flex-wrap items-center gap-1 mt-1">${projBadge(x.projectId)}${areaBadges(x.areas)}</span>`:''}
-      </div>
-      <button data-act="gear" class="text-slate-400 hover:text-cyan-300 p-1 shrink-0 leading-none" title="Opciones">${GEAR_SVG}</button>
-      ${gearMenuHTML(x.priority)}`;
-    el.querySelector('[data-act="done"]').onclick=()=>{
-      if(!x.done) completeTask(x);
-      else { x.done=false; revokeTask(x); save(); render(); }
-    };
-    wireGear(el,{
-      pri:()=>{x.priority=!x.priority;save();render();},
-      edit:()=>openModal('task',x.id),
-      del:()=>deleteTask(x.id)
-    });
-    el.querySelector('[data-act="body"]').ondblclick=()=>openModal('task',x.id);
-    tl.appendChild(el);
-  });
+  // Agrupar solo cuando la lista es larga y no viene ya recortada: «Hoy» y
+  // «★ Prioridad» son un grupo de por sí, y partirlos otra vez no dice nada.
+  if(!tasks.length) tl.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin tareas aquí.</div>';
+  else if(tFilter==='all' && !pFilter && tasks.length>TGROUP_MAX) renderTaskGroups(tl,tasks,t);
+  else tasks.forEach(x=>tl.appendChild(taskRowEl(x,t)));
 
-  // --- 3) Gestión (Libres / Diarios / Semanales / Todos) ---
-  if(!isHoy){
+  // --- 3) Gestión de hábitos: plegada, y ya se puede marcar desde aquí ---
+  document.getElementById('habitsBox').classList.toggle('open',habitsOpen);
+  document.getElementById('habitsBody').classList.toggle('hidden',!habitsOpen);
+  document.getElementById('habitsToggle').setAttribute('aria-expanded',habitsOpen);
+  document.getElementById('habitCount').textContent=state.habits.length;
+  document.getElementById('habitsSummary').textContent=habitsOpen?'':(state.habits.length-todays.length>0?`${state.habits.length-todays.length} en stand-by hoy`:'');
   let hs=[...state.habits];
   if(hFilter!=='all') hs=hs.filter(h=>h.type===hFilter);
   if(aFilterHabits.size>0) hs=hs.filter(h=>matchAreas(h,aFilterHabits));
   hs.sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
   const al=document.getElementById('allHabitsList'); al.innerHTML='';
-  if(!hs.length) al.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin hábitos. Crea el primero.</div>';
-  hs.forEach(h=>{
-    const c=countToday(h), sched=isScheduledToday(h);
-    const el=document.createElement('div');
-    el.className='relative rounded-xl border px-3 py-2.5 '+(h.priority?'border-amber-500/70 bg-amber-950/25':'border-slate-700 bg-slate-900/70');
-    el.innerHTML=`
-      <div class="flex items-center gap-2">
-        <span class="mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${h.type.toUpperCase()}</span>
-        ${h.type==='weekly'?`<span class="mono text-[10px] text-slate-400">${(h.days||[]).map(d=>DOW_NAMES[d]).join(' ')}</span>`:''}
-        ${!sched?'<span class="mono text-[10px] text-slate-500">· stand-by hoy</span>':''}
-        <button data-act="gear" class="ml-auto text-slate-400 hover:text-cyan-300 p-1 leading-none" title="Opciones">${GEAR_SVG}</button>
-      </div>
-      ${gearMenuHTML(h.priority)}
-      <div class="text-sm font-medium mt-1">${h.priority?'<span class="text-amber-300">★ </span>':''}${escapeHtml(h.title)}${h.priority?' <span class="mono text-[10px] font-normal text-amber-300/80">PRIORIDAD</span>':''} <span class="mono text-[10px] text-slate-500">· hoy ${c} · racha ${streak(h)}</span>${areaBadges(h.areas)?` <span class="inline-flex flex-wrap gap-1 align-middle">${areaBadges(h.areas)}</span>`:''}</div>`;
-    wireGear(el,{
-      pri:()=>{h.priority=!h.priority;save();render();},
-      edit:()=>openModal('habit',h.id),
-      del:()=>deleteHabit(h.id)
-    });
-    al.appendChild(el);
-  });
-  }
+  if(!hs.length) al.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin hábitos. Crea el primero.</div>';
+  hs.forEach(h=>al.appendChild(habitRowEl(h,null,t)));
 
   renderShip();
   if(uiMode==='focus') renderFocus();
@@ -1878,6 +2034,8 @@ document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.datase
 document.querySelectorAll('.hfilter').forEach(b=>b.onclick=()=>{hFilter=b.dataset.hfilter;document.querySelectorAll('.hfilter').forEach(x=>x.className='hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
 document.querySelectorAll('.tafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.tarea; if(a==='__all') aFilterTasks.clear(); else aFilterTasks.has(a)?aFilterTasks.delete(a):aFilterTasks.add(a); render();});
 document.querySelectorAll('.hafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.harea; if(a==='__all') aFilterHabits.clear(); else aFilterHabits.has(a)?aFilterHabits.delete(a):aFilterHabits.add(a); render();});
+document.getElementById('habitsToggle').onclick=()=>{ setHabitsOpen(!habitsOpen); render(); };
+document.getElementById('btnTAreas').onclick=()=>{ tAreaOpen=!tAreaOpen; render(); };
 
 /* ---------- guardar / cargar partida ---------- */
 const BACKUPKEY = 'spaceship-commander:backup', EXPKEY = 'spaceship-commander:lastExport';
