@@ -201,12 +201,24 @@ tailwind.config = {
       <span id="shipLevel" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
       <button type="button" id="shipStatus" class="ml-auto mono text-[11px] px-2 py-1 rounded-md border"></button>
     </div>
-    <div id="shipSchematic"></div>
-    <div class="mono text-[10px] text-slate-500 mt-2 flex flex-wrap gap-x-3 gap-y-1">
-      <span><span class="text-emerald-400">■</span> buen estado</span>
-      <span><span class="text-amber-400">■</span> desgastado</span>
-      <span><span class="text-red-400">■</span> dañado</span>
-      <span>┄ sin construir</span>
+    <div class="flex flex-col sm:flex-row gap-4 items-start">
+      <!-- La ilustración no lleva ni una etiqueta encima: es una pieza suelta
+           que se puede sustituir por una imagen sin tocar el panel. -->
+      <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] p-2"></div>
+      <div class="w-full min-w-0 flex-1">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="mono text-[9px] tracking-[.18em] text-slate-500 flex-1">SISTEMAS</span>
+          <div role="group" aria-label="Ordenar sistemas" class="flex bg-slate-900 border border-slate-700 rounded-md p-0.5">
+            <button type="button" id="sortNave" class="mono text-[10px] px-2 py-1 rounded">nave</button>
+            <button type="button" id="sortEstado" class="mono text-[10px] px-2 py-1 rounded">estado</button>
+          </div>
+        </div>
+        <div id="shipSystems" class="flex flex-col gap-1.5"></div>
+      </div>
+    </div>
+    <div class="mono text-[10px] text-slate-500 mt-3 flex flex-wrap gap-x-3 gap-y-1">
+      <span><span class="inline-block w-2.5 h-1.5 rounded-sm bg-cyan-300 align-middle"></span> nivel</span>
+      <span>la barra y su número son el estado: se leen sin depender del color</span>
     </div>
   </section>
 
@@ -1138,31 +1150,77 @@ function render(){
 const condColor=(c)=>c>=70?'#10b981':c>=35?'#f59e0b':'#ef4444';
 const condBar=(c)=>c>=70?'bg-emerald-400':c>=35?'bg-amber-400':'bg-red-400';
 const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-cyan-800 hover:bg-cyan-700':'bg-slate-800 text-slate-500 cursor-not-allowed');
-const SLOTS={
-  engines:{x:30,y:95,w:62,h:50}, cargo:{x:102,y:90,w:92,h:60}, comms:{x:204,y:100,w:58,h:40}, bridge:{x:272,y:100,w:62,h:40},
-  spirit:{x:108,y:20,w:78,h:38}, social:{x:196,y:20,w:78,h:38}, craft:{x:108,y:182,w:78,h:38}, health:{x:196,y:182,w:78,h:38}
-};
-function shipSVG(){
-  const ms=state.ship.modules, tot=Object.values(ms).reduce((a,m)=>a+m.lv,0);
-  const s=1+0.12*tot/40;   // el casco crece con los niveles totales
-  const en=ms.engines;
-  let out=`<svg viewBox="0 0 400 240" class="w-full h-auto" role="img" aria-label="Esquema de la nave">
-    <defs><radialGradient id="glow"><stop offset="0" stop-color="#e0faff"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".7"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient></defs>`;
-  if(en.lv>0) out+=`<ellipse cx="20" cy="120" rx="${10+4*en.lv}" ry="16" fill="url(#glow)" opacity="${(.3+.7*en.cond/100).toFixed(2)}"/>`;
-  out+=`<g transform="translate(200 120) scale(${s.toFixed(3)}) translate(-200 -120)"><path d="M22 84 L200 76 L300 86 L378 120 L300 154 L200 164 L22 156 Z" fill="#0f1a2c" stroke="#22d3ee" stroke-opacity=".5" stroke-width="1.5"/></g>`;
-  for(const k of ['spirit','social','craft','health']){
-    const p=SLOTS[k], b=ms[k].lv>0, cx=p.x+p.w/2, top=p.y<120;
-    out+=`<line x1="${cx}" y1="${top?p.y+p.h:p.y}" x2="${cx}" y2="${top?86:154}" stroke="${b?'#22d3ee':'#334155'}" stroke-opacity="${b?.6:1}" stroke-width="3" ${b?'':'stroke-dasharray="4 3"'}/>`;
+/* ---------- nave: ilustración y panel de sistemas ---------- */
+
+// La nave no lleva ni una etiqueta encima: todo el texto vive en el panel de al
+// lado. Por eso esta función se puede cambiar por un <img> el día que haya una
+// ilustración de verdad, sin tocar nada más.
+function shipArt(){
+  const m=state.ship.modules;
+  const tot=Object.values(m).reduce((a,x)=>a+x.lv,0), built=Object.values(m).filter(x=>x.lv>0).length;
+  const on=k=>m[k].lv>0;
+  // El estado solo atenúa la pieza; el dato exacto lo da el panel.
+  const op=k=>(0.45+0.55*m[k].cond/100).toFixed(2);
+  const pod=(k,x,y)=>{ if(!on(k)) return ''; const d=x<150?-33:33, c=x+d/2;
+    return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
+
+  let s=`<svg viewBox="0 0 300 300" class="w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40, con ${built} de 8 sistemas construidos">
+  <defs>
+    <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
+    <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+    <radialGradient id="skyG"><stop offset="0" stop-color="#1b3a52" stop-opacity=".45"/><stop offset="1" stop-color="#1b3a52" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>
+  <circle cx="64" cy="58" r="1.6" fill="#7dd3fc" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="#7dd3fc" opacity=".45"/>
+  <circle cx="212" cy="228" r="1.5" fill="#7dd3fc" opacity=".5"/><circle cx="76" cy="236" r="1.1" fill="#7dd3fc" opacity=".4"/>`;
+
+  // Cada sistema construido añade una pieza visible. Eso sí se nota, a
+  // diferencia del 12 % de escala que crecía el casco antes.
+  if(on('engines')){
+    const r=8+2*m.engines.lv;
+    s+=`<g opacity="${op('engines')}"><ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>
+    <path d="M104 206 L90 214 L90 246 L104 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/>
+    <path d="M196 206 L210 214 L210 246 L196 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/></g>`;
   }
-  for(const k of Object.keys(SLOTS)){
-    const p=SLOTS[k], m=ms[k], b=m.lv>0, col=b?condColor(m.cond):'#475569', cx=p.x+p.w/2, cy=p.y+p.h/2;
-    out+=`<g data-slot="${k}" style="cursor:pointer">
-      <rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="7" fill="${b?col:'#0a0f1a'}" fill-opacity="${b?.18:.6}" stroke="${col}" stroke-width="1.5" ${b?'':'stroke-dasharray="4 3"'}/>
-      <text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="9" fill="${b?'#e5e7eb':'#64748b'}" font-family="JetBrains Mono,monospace">${MODS[k].name}</text>
-      <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="8" fill="${col}" font-family="JetBrains Mono,monospace">${b?'●'.repeat(m.lv)+'○'.repeat(5-m.lv):'+ construir'}</text>
-    </g>`;
+
+  s+=`<path d="M150 34 L176 92 L184 162 L198 232 L172 254 L128 254 L102 232 L116 162 L124 92 Z" fill="url(#hullG)" stroke="#4fd0e8" stroke-width="2.2"/>
+  <path d="M150 52 L168 98 L175 162 L186 224 L168 240 L132 240 L114 224 L125 162 L132 98 Z" fill="none" stroke="#2a4c68" stroke-width="1.2"/>
+  <path d="M124 92 L176 92 M116 162 L184 162 M110 214 L190 214" stroke="#2a4c68" stroke-width="1.2"/>`;
+
+  if(on('bridge')) s+=`<g opacity="${op('bridge')}"><path d="M138 62 L162 62 L168 88 L132 88 Z" fill="#0e3a4a" stroke="#7dd3fc" stroke-width="1.4"/><path d="M142 68 L158 68 L161 82 L139 82 Z" fill="#9fe7f5" fill-opacity=".3"/></g>`;
+  // El mástil arranca bajo la cabina: si sube más, el plato se dibuja sobre el cristal.
+  if(on('comms')) s+=`<g opacity="${op('comms')}"><line x1="150" y1="118" x2="150" y2="102" stroke="#4fd0e8" stroke-width="1.6"/><ellipse cx="150" cy="100" rx="${7+m.comms.lv}" ry="4" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.3"/></g>`;
+  if(on('cargo')) s+=`<g opacity="${op('cargo')}"><rect x="131" y="124" width="38" height="${16+4*m.cargo.lv}" rx="4" fill="#16273f" stroke="#3f7f96" stroke-width="1.5"/><path d="M131 136 L169 136" stroke="#2a4c68" stroke-width="1.2"/></g>`;
+
+  return s+pod('spirit',116,110)+pod('social',184,110)+pod('craft',117,166)+pod('health',183,166)+'</svg>';
+}
+
+const SYS_ORDER=['bridge','engines','cargo','comms','spirit','social','craft','health'];
+let sysSort='nave';
+function shipSystems(){
+  const m=state.ship.modules, keys=SYS_ORDER.slice();
+  // Por estado: primero lo más dañado; lo que no existe todavía, al final.
+  if(sysSort==='estado') keys.sort((a,b)=>(m[a].lv?m[a].cond:1e3)-(m[b].lv?m[b].cond:1e3));
+  return keys.map(k=>{
+    const x=m[k], b=x.lv>0, col=condColor(x.cond);
+    const pips=[0,1,2,3,4].map(i=>`<i class="block w-2.5 h-1.5 rounded-sm ${i<x.lv?'bg-cyan-300':'bg-slate-700'}"></i>`).join('');
+    const label=b?`${MODS[k].name}, nivel ${x.lv} de 5, estado ${x.cond} por ciento`:`${MODS[k].name}, sin construir`;
+    return `<button type="button" data-slot="${k}" aria-label="${label}" class="flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] rounded-lg border ${b?'border-[#1f2a3d] bg-[#0f1729]':'border-dashed border-slate-700'} hover:border-cyan-700 text-left">
+      <span class="flex-1 min-w-0 text-sm truncate ${b?'text-slate-100':'text-slate-400'}">${MODS[k].name}</span>
+      ${b?`<span class="flex gap-0.5 shrink-0" aria-hidden="true">${pips}</span>
+      <span class="flex items-center gap-1.5 w-[86px] shrink-0" aria-hidden="true">
+        <span class="flex-1 h-1.5 rounded-full bg-slate-700 overflow-hidden"><i class="block h-full rounded-full" style="width:${x.cond}%;background:${col}"></i></span>
+        <span class="mono text-[10px] text-slate-400 w-5 text-right">${x.cond}</span>
+      </span>`:`<span class="mono text-[11px] text-slate-500 shrink-0">+ construir</span>`}
+    </button>`;
+  }).join('');
+}
+function paintSysSort(){
+  for(const [id,v] of [['sortNave','nave'],['sortEstado','estado']]){
+    const b=document.getElementById(id), on=sysSort===v;
+    b.className='mono text-[10px] px-2 py-1 rounded '+(on?'bg-cyan-700 text-white':'text-slate-400 hover:text-white');
+    b.setAttribute('aria-pressed',String(on));
   }
-  return out+'</svg>';
 }
 /* ---------- render: rango y tripulación ---------- */
 const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300'];
@@ -1329,7 +1387,9 @@ function renderShip(){
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
   const tot=Object.values(sh.modules).reduce((a,m)=>a+m.lv,0);
   document.getElementById('shipLevel').textContent=`Nv. total ${tot}/40`;
-  const sc=document.getElementById('shipSchematic'); sc.innerHTML=shipSVG();
+  document.getElementById('shipArt').innerHTML=shipArt();
+  const sc=document.getElementById('shipSystems'); sc.innerHTML=shipSystems();
+  paintSysSort();
   sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
     const k=g.dataset.slot;
     if(!sh.contract&&homeTab!=='yard') showHomeTab('yard',false);
@@ -2000,6 +2060,8 @@ function setMode(m){
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
 document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
 document.getElementById('shipChip').onclick=()=>uiMode==='focus'?requestFocusExit('ship'):setMode('ship');
+document.getElementById('sortNave').onclick=()=>{ sysSort='nave'; renderShip(); };
+document.getElementById('sortEstado').onclick=()=>{ sysSort='estado'; renderShip(); };
 
 /* ---------- nube: cuenta y sincronización ---------- */
 /* El servidor solo almacena. localStorage sigue siendo la fuente inmediata, así
