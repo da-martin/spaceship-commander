@@ -244,13 +244,21 @@ tailwind.config = {
       <div class="sys-label">05 // Situación táctica</div>
       <h2 class="text-lg font-bold mt-1">En Sistema Madre</h2>
       <div id="homeTabs" role="tablist" aria-label="Sistema Madre" class="grid grid-cols-2 sm:flex gap-1 mt-3 p-1 rounded-lg bg-slate-900 border border-slate-700">
+        <button type="button" role="tab" data-tab="yard" class="home-tab">Astillero</button>
+        <button type="button" role="tab" data-tab="market" class="home-tab">Mercado</button>
         <button type="button" role="tab" data-tab="missions" class="home-tab">Misiones</button>
         <button type="button" role="tab" data-tab="crew" class="home-tab">Tripulantes</button>
-        <button type="button" role="tab" data-tab="market" class="home-tab">Mercado</button>
-        <button type="button" role="tab" data-tab="yard" class="home-tab">Astillero</button>
       </div>
       <div class="mt-4">
-        <div data-pane="missions" role="tabpanel">
+        <div data-pane="yard" role="tabpanel">
+          <p class="mono text-[11px] text-slate-500 mb-3">Construye y mejora módulos. El descuido los desgasta y reduce su bonus; completar hábitos y tareas los repara poco a poco.</p>
+          <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        </div>
+        <div data-pane="market" role="tabpanel" class="hidden">
+          <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
+          <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        </div>
+        <div data-pane="missions" role="tabpanel" class="hidden">
           <p class="mono text-[11px] text-slate-500 mb-3">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
           <div id="signalBox" class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 mb-3"></div>
           <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
@@ -258,14 +266,6 @@ tailwind.config = {
         <div data-pane="crew" role="tabpanel" class="hidden">
           <div class="flex flex-wrap items-baseline gap-x-2 mb-3"><span class="sys-label">Candidatos de la semana</span><span id="crewBoardNote" class="mono text-[11px] text-slate-400"></span></div>
           <div id="candList" class="grid sm:grid-cols-2 gap-3"></div>
-        </div>
-        <div data-pane="market" role="tabpanel" class="hidden">
-          <p class="mono text-[11px] text-slate-500 mb-3">Los precios cambian cada día. Venta al 60% del precio de compra.</p>
-          <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
-        </div>
-        <div data-pane="yard" role="tabpanel" class="hidden">
-          <p class="mono text-[11px] text-slate-500 mb-3">Construye y mejora módulos. El descuido los desgasta y reduce su bonus; completar hábitos y tareas los repara poco a poco.</p>
-          <div id="modList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
       </div>
     </div>
@@ -513,10 +513,10 @@ const MATS = ['ecos','nexos','ale','bio'];
 
 /* ---------- nave: módulos y contratos (todos los números ajustables) ---------- */
 const MODS = {
-  bridge: {name:'Puente',       kind:'gen',  res:'nexos', desc:'+1 hueco en el tablón de misiones por nivel'},
+  bridge: {name:'Puente',       kind:'gen',  res:'nexos', mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
   engines:{name:'Motores',      kind:'gen',  res:'ale',   desc:'+1 día de duración máx. de misión por nivel'},
   cargo:  {name:'Bodega',       kind:'gen',  res:'bio',   desc:'+10% ¢ en recompensas de misión por nivel'},
-  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  desc:'+0,5 misiones al día en el tablón por nivel'},
+  comms:  {name:'Antena',       kind:'gen',  res:'ecos',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
   spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+10% prob. de ∿ extra en items Spirit por nivel'},
   social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'+10% prob. de ⋈ extra en items Social por nivel'},
   craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'+10% prob. de ⎔ extra en items Craft por nivel'},
@@ -777,6 +777,10 @@ const agedMc=(o)=>Math.round(o.reward.mc*(1+AGE_BONUS*offerAge(o)));   // la pag
 // señal en tiempo real, simulada día a día: caducan las viejas y llegan nuevas mientras haya hueco
 function tickBoard(){
   const b=state.ship.board, now=Date.now();
+  // Congelado hasta la Antena. Vaciar sigAt en cada tick es lo que evita que al
+  // desbloquear se reproduzcan los días acumulados y entren varias de golpe:
+  // la primera llamada tras abrirlo cae en la rama de «primera vez» de abajo.
+  if(!missionsUnlocked()){ b.sigAt=null; return; }
   if(!b.sigAt){ b.sigAt=now; b.signal=1; }   // primera vez: una transmisión al momento
   let at=Math.min(now,Math.max(b.sigAt,now-7*864e5));
   for(;;){
@@ -856,6 +860,10 @@ const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no hay tabl�
 // así que quien ya tenga gente nunca debe quedarse sin panel donde verla.
 const crewUnlocked=()=>mod('bridge').lv>=1||state.ship.crew.length>0;
 const crewHint=()=>`Mejora el Puente a nivel 1 para contratar tripulación · ${fmtCost(modCost('bridge'))}`;
+// Las misiones se abren con la Antena. La segunda condición evita dejar a nadie
+// tirado a mitad de una misión si llegara con la Antena sin mejorar.
+const missionsUnlocked=()=>mod('comms').lv>=1||!!state.ship.contract;
+const missionHint=()=>`Mejora la Antena a nivel 1 para recibir misiones · ${fmtCost(modCost('comms'))}`;
 function hireCrew(id){
   if(!atHome()||!crewUnlocked()) return;
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
@@ -918,7 +926,7 @@ function releaseCrew(id){
 /* acciones del tablón, módulos y mercado */
 let offerSailing=null;   // primer toque de «Aceptar y zarpar» pide confirmación
 function acceptOffer(id){
-  const sh=state.ship; if(sh.contract) return;
+  const sh=state.ship; if(sh.contract||!missionsUnlocked()) return;
   const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
   if(offerSailing!==id){ offerSailing=id; offerDiscarding=null; render(); return; }
   offerSailing=null;
@@ -937,7 +945,7 @@ function abandonContract(){
 // barrido de señal: paga lo que le falta a la barra y la transmisión llega ya
 const sweepCost=()=>Math.max(1,Math.ceil((1-state.ship.board.signal)*SWEEP_MC-1e-9));
 function sweep(){
-  if(!atHome()) return;
+  if(!atHome()||!missionsUnlocked()) return;
   tickBoard();
   const b=state.ship.board, cost=sweepCost();
   if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
@@ -952,7 +960,7 @@ function discardOffer(id){
   const b=state.ship.board; b.offers=b.offers.filter(o=>o.id!==id);
   tickBoard(); save(); render(); toast(['Misión descartada',boardNews()].filter(Boolean).join(' · '));
 }
-const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:MOD_MC[lv],[MODS[k].res]:MOD_MAT[lv]}; };
+const modCost=(k)=>{ const lv=mod(k).lv; return lv>=5?null:{mc:Math.round(MOD_MC[lv]*(MODS[k].mcMult||1)),[MODS[k].res]:MOD_MAT[lv]}; };
 const fmtCost=(c)=>Object.entries(c).map(([k,n])=>`${n} ${RES[k].sym}`).join(' + ');
 const canAfford=(c)=>Object.entries(c).every(([k,n])=>state.wallet[k]>=n);
 function buildMod(k){
@@ -1252,14 +1260,14 @@ function renderRank(){
   document.getElementById('rankBadge').textContent='R'+(i+1);
   document.getElementById('rankSummary').textContent=`· ${RANKS[i][0]} · ${xp} méritos`;
   const habitDays=state.habits.reduce((a,h)=>a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
-  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions],['Rondas Forster',st.rounds],...(crewUnlocked()?[['Tripulantes contratados',st.hires]]:[]),['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
+  const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],...(missionsUnlocked()?[[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions]]:[]),['Rondas Forster',st.rounds],...(crewUnlocked()?[['Tripulantes contratados',st.hires]]:[]),['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
   document.getElementById('rankPanel').innerHTML=`
     <div class="flex items-center gap-2">
       <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso hacia el siguiente rango" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[10px] text-slate-400">${k}</div></div>`).join('')}</div>
-    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND} · misión +${XP_CONTRACT}. Nunca se gastan.</p>
+    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
 }
 function renderCrew(){
@@ -1328,8 +1336,8 @@ function renderCrew(){
 
 // pestañas del Sistema Madre: se recuerda la última abierta
 const HOMEKEY='spaceship-commander:home';
-const HOME_TABS=['missions','crew','market','yard'];
-let homeTab=(()=>{ try{ const t=localStorage.getItem(HOMEKEY); return HOME_TABS.includes(t)?t:'missions'; }catch{ return 'missions'; } })();
+const HOME_TABS=['yard','market','missions','crew'];
+let homeTab=(()=>{ try{ const t=localStorage.getItem(HOMEKEY); return HOME_TABS.includes(t)?t:'yard'; }catch{ return 'yard'; } })();
 function showHomeTab(t,scroll=true){
   homeTab=t; try{ localStorage.setItem(HOMEKEY,t); }catch{}
   render();
@@ -1381,8 +1389,11 @@ function boardLine(){
 }
 // barra de señal y barrido (se repinta sola cada minuto)
 function paintSignal(){
-  const b=state.ship.board, cap=boardCap(), full=b.offers.length>=cap, pct=Math.floor(b.signal*100), cost=sweepCost(), ok=!full&&state.wallet.mc>=cost, rep=repDamaged();
   const el=document.getElementById('signalBox');
+  // No se borra el marcado: esta función también corre sola desde el
+  // temporizador de cada minuto, y un id ausente reventaría cada 60 s.
+  if(!missionsUnlocked()){ el.innerHTML=`<p class="mono text-[11px] text-slate-400 text-center py-1">${missionHint()}</p>`; return; }
+  const b=state.ship.board, cap=boardCap(), full=b.offers.length>=cap, pct=Math.floor(b.signal*100), cost=sweepCost(), ok=!full&&state.wallet.mc>=cost, rep=repDamaged();
   el.innerHTML=`
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span class="sys-label">Señal</span>
@@ -1443,8 +1454,9 @@ function renderShip(){
   const b=sh.board;
   paintSignal();
   const ol=document.getElementById('offerList'); ol.innerHTML='';
-  if(!b.offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
-  b.offers.forEach(o=>{
+  const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
+  if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-500 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
+  offers.forEach(o=>{
     const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=offerAge(o), el=document.createElement('div');
     el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
