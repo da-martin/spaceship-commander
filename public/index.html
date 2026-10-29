@@ -199,9 +199,9 @@ tailwind.config = {
        lleva el marco con esquinas: de ahí saca su peso. La fila de dentro es la
        misma de todas partes, solo que en talla grande. -->
   <section data-cmd="habits" class="panel corner p-4 sm:p-5">
-    <div class="flex flex-wrap items-end gap-x-6 gap-y-4 mb-4">
+    <div id="todayHead" class="flex flex-wrap items-end gap-x-6 gap-y-4 mb-4">
       <div class="min-w-0">
-        <div class="sys-label">01 // Rutinas de a bordo</div>
+        <div class="sys-label">Rutinas de a bordo</div>
         <h2 class="text-2xl sm:text-3xl font-bold mt-1.5 leading-none">Hoy</h2>
         <p id="todayLabel" class="text-slate-400 text-sm mt-1.5"></p>
       </div>
@@ -249,7 +249,7 @@ tailwind.config = {
 
   <!-- 3) Tareas (derecha en wide) -->
   <section data-cmd="tasks" class="panel p-4 sm:p-5">
-      <div class="sys-label">02 // Operaciones</div>
+      <div class="sys-label">Operaciones</div>
       <div class="flex items-center gap-2 mt-1 mb-3">
         <h2 class="text-lg font-bold">Tareas</h2>
         <span id="taskCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
@@ -257,7 +257,7 @@ tailwind.config = {
       </div>
       <!-- Una sola fila: las áreas son un filtro de segunda y viven detrás de su
            botón, que lleva la cuenta de las activas. -->
-      <div class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
+      <div id="taskFilterRow" class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
         <button data-tfilter="all" class="tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todas</button>
         <button data-tfilter="today" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Hoy</button>
         <button data-tfilter="priority" class="tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">★ Prioridad</button>
@@ -297,7 +297,7 @@ tailwind.config = {
 
   <!-- 3) Esquema de la nave + estado (en el Sistema Madre / en misión) -->
   <section class="panel corner p-4 sm:p-5">
-    <div class="sys-label">03 // Esquema de la nave</div>
+    <div class="sys-label">Esquema de la nave</div>
     <div class="flex flex-wrap items-center gap-2 mt-1 mb-3">
       <h2 class="text-lg font-bold">Tu nave</h2>
       <span id="shipLevel" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
@@ -326,7 +326,7 @@ tailwind.config = {
 
   <!-- 4) Tripulación a bordo -->
   <section class="panel p-4 sm:p-5">
-    <div class="sys-label">04 // Tripulación</div>
+    <div class="sys-label">Tripulación</div>
     <h2 class="text-lg font-bold mt-1 mb-1">A bordo <span id="crewBerths" class="text-slate-400 font-medium text-sm"></span></h2>
     <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Contratos semanales que se renuevan solos y cobran el sueldo cada 7 días. Si cancelas, el tripulante trabaja hasta el final de lo pagado. Sin ¢ el día del cobro, se marcha.</p>
     <p id="crewWarn" class="hidden mono text-[11px] text-amber-300 border border-amber-700/60 bg-amber-950/30 rounded-lg px-3 py-2 mb-3"></p>
@@ -336,7 +336,7 @@ tailwind.config = {
   <!-- 5) Sistema Madre (misiones, tripulantes, mercado, astillero) o misión en curso -->
   <section id="homePanel" class="panel corner p-4 sm:p-5">
     <div id="homeDock">
-      <div class="sys-label">05 // Situación táctica</div>
+      <div class="sys-label">Situación táctica</div>
       <h2 class="text-lg font-bold mt-1">En Sistema Madre</h2>
       <div id="homeTabs" role="tablist" aria-label="Sistema Madre" class="grid grid-cols-2 sm:flex gap-1 mt-3 p-1 rounded-lg bg-slate-900 border border-slate-700">
         <button type="button" role="tab" data-tab="yard" class="home-tab">Astillero</button>
@@ -372,7 +372,7 @@ tailwind.config = {
     <button type="button" class="acc-head w-full flex items-center gap-3 text-left" aria-expanded="false">
       <span id="rankBadge" class="w-10 h-10 shrink-0 rounded-lg grid place-items-center border border-amber-600 bg-amber-950/40 mono text-sm font-bold text-amber-300" aria-hidden="true"></span>
       <div class="flex-1 min-w-0">
-        <div class="sys-label">06 // Hoja de servicios</div>
+        <div class="sys-label">Hoja de servicios</div>
         <h2 class="text-lg font-bold mt-1">Hoja de servicios <span id="rankSummary" class="text-slate-400 font-medium text-sm"></span></h2>
       </div>
       <span class="acc-chev mono text-slate-400 text-lg">▸</span>
@@ -385,7 +385,7 @@ tailwind.config = {
 <main id="focus-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-6 space-y-4">
   <section class="flex flex-wrap items-end gap-4">
     <div class="min-w-0 flex-1 basis-72">
-      <div class="sys-label">00 // Sistema de enfoque</div>
+      <div class="sys-label">Sistema de enfoque</div>
       <h2 class="text-3xl font-normal tracking-tight text-slate-50 mt-1.5">Protocolo Forster</h2>
       <p class="mono text-[11px] text-slate-400 mt-1.5">En memoria de Mark Forster · Marca, trabaja un poco, repite</p>
     </div>
@@ -1308,6 +1308,29 @@ function habitRowEl(h,size,t){
   if(minus) minus.onclick=()=>{ untapFree(h,t); save(); render(); };
   return el;
 }
+/* ---------- el primer día ----------
+   En frío la app enseñaba once chips de filtro y dos cajas vacías: ni rastro de
+   la nave, el rango ni la economía, que es justo lo que la hace distinta de una
+   lista de tareas cualquiera. Esto lo cuenta y deja empezar de un toque. */
+const SEED_HABITS=[{title:'Beber agua',type:'free'},{title:'Leer 20 minutos',type:'daily'},{title:'Salir a andar',type:'daily'}];
+function welcomeEl(){
+  const el=document.createElement('div');
+  el.className='text-center py-3 sm:py-5';
+  el.innerHTML=`
+    <svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="0.9" stroke-linejoin="round" aria-hidden="true" class="mx-auto opacity-80"><path d="M12 2c2.6 2.8 4 6.4 4 10v5l2.4 2.4V21H5.6v-1.6L8 17v-5c0-3.6 1.4-7.2 4-10z"/><circle cx="12" cy="10" r="1.7"/><path d="M8 15l-3 2.6V21M16 15l3 2.6V21"/></svg>
+    <h3 class="text-xl sm:text-2xl font-bold mt-4 text-slate-50">Tu nave está en el astillero</h3>
+    <p class="text-sm leading-relaxed text-slate-300 max-w-md mx-auto mt-3">Cada hábito que cumples y cada tarea que cierras paga los módulos, la tripulación y las misiones. Empieza por un hábito: la nave se construye sola a partir de ahí.</p>
+    <button id="wcNew" type="button" class="btn-primary mt-5 px-5 h-12 rounded-xl text-[15px] font-semibold">Crear mi primer hábito</button>
+    <p class="sys-label mt-6 mb-2.5">o empieza con uno de estos</p>
+    <div class="flex flex-wrap justify-center gap-2">${SEED_HABITS.map((h,i)=>`<button type="button" data-seed="${i}" class="h-11 px-4 rounded-full border border-slate-700 text-sm text-slate-200 hover:border-cyan-600">+ ${escapeHtml(h.title)}</button>`).join('')}</div>`;
+  el.querySelector('#wcNew').onclick=()=>openModal('habit');
+  el.querySelectorAll('[data-seed]').forEach(b=>b.onclick=()=>{
+    const s=SEED_HABITS[+b.dataset.seed];
+    state.habits.push({id:uid(),title:s.title,type:s.type,days:null,priority:false,areas:[],log:{},createdAt:Date.now()});
+    save(); render(); toast('Hábito creado: '+s.title);
+  });
+  return el;
+}
 // Hoy usa la fila grande hasta este número de hábitos; a partir de ahí cede la
 // talla. Cinco filas grandes son 395 px: menos de media pantalla de portátil.
 const HOY_LG_MAX = 5;
@@ -1586,8 +1609,20 @@ function render(){
   document.getElementById('todayTotal').textContent = '/ '+todays.length;
   document.getElementById('todayProgressBar').style.width = todays.length? (done/todays.length*100)+'%' : '0%';
   paintAreaFilters();
+  // En frío, Commander es solo la bienvenida: ni filtros, ni cajas vacías, ni
+  // pestañas que repartan la nada entre dos mitades.
+  const fresh = !state.habits.length && !state.tasks.length;
+  document.getElementById('todayHead').classList.toggle('hidden',fresh);
+  document.getElementById('cmdTabs').classList.toggle('hidden',fresh);
+  document.querySelector('[data-cmd="tasks"]').classList.toggle('hidden',fresh);
+  document.getElementById('habitsBox').classList.toggle('hidden',!state.habits.length);
+  // Los filtros de tareas aparecen cuando hay algo que filtrar.
+  const hayTareas = state.tasks.length>0;
+  document.getElementById('taskFilterRow').classList.toggle('hidden',!hayTareas);
+  document.getElementById('projBox').classList.toggle('hidden',!hayTareas&&!state.projects.length);
   const box=document.getElementById('todayList'); box.innerHTML='';
-  if(!todays.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Sin hábitos para hoy. Crea un diario, un semanal para hoy, o un libre.</div>';
+  if(fresh){ box.appendChild(welcomeEl()); }
+  else if(!todays.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Sin hábitos para hoy. Crea un diario, un semanal para hoy, o un libre.</div>';
   // La talla mira el total del día, no los pendientes: si mirara los
   // pendientes, la lista encogería sola al marcar el sexto y daría un salto a
   // media mañana. El resto de la jerarquía —ser lo primero, el ancho completo,
@@ -1819,7 +1854,7 @@ function renderMission(c){
   const dmg=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
   const el=document.getElementById('homeMission');
   el.innerHTML=`
-    <div class="sys-label">05 // Situación táctica</div>
+    <div class="sys-label">Situación táctica</div>
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
       <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${c.urgent?URGENT_CHIP:''}
