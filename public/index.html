@@ -45,6 +45,8 @@ tailwind.config = {
   .gear-menu button.danger{color:#fca5a5}
   .gear-menu button.danger:hover{background:#3b1212}
   .acc-chev{transition:transform .15s}
+  .proj-chev{transition:transform .15s}
+  #projBox.open .proj-chev{transform:rotate(90deg)}
   .acc.open .acc-chev{transform:rotate(90deg)}
   .acc-head:hover h2{color:#67e8f9}
   .home-tab{padding:.4rem .75rem;border-radius:.375rem;font-size:.875rem;color:#cbd5e1}
@@ -188,6 +190,19 @@ tailwind.config = {
         <button data-tarea="Social" class="tafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Social</button>
         <button data-tarea="Craft" class="tafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Craft</button>
         <button data-tarea="Health" class="tafilter area-pill mono px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Health</button>
+      </div>
+      <!-- Proyectos: plegada ocupa una línea y sigue avisando del que peor va -->
+      <div id="projBox" class="border border-[#1f2a3d] bg-[#0f1729] rounded-lg mb-3">
+        <div class="flex items-center gap-2 p-1.5 pl-1">
+          <button id="projToggle" type="button" aria-expanded="false" aria-controls="projBody" class="flex-1 min-w-0 flex items-center gap-2 text-left px-2 py-2 rounded-md hover:bg-slate-800/50">
+            <span class="proj-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
+            <span class="sys-label">Proyectos</span>
+            <span id="projCount" class="mono text-[10px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
+            <span id="projSummary" class="mono text-[10px] truncate text-slate-400"></span>
+          </button>
+          <button id="btnNewProj" type="button" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo</button>
+        </div>
+        <div id="projBody" class="hidden px-2 pb-2 space-y-1"></div>
       </div>
       <div id="taskList" class="space-y-2"></div>
   </section>
@@ -403,6 +418,19 @@ tailwind.config = {
         <label class="mono text-[11px] text-slate-400">FECHA DE VENCIMIENTO (OPCIONAL)</label>
         <input id="fDate" type="date" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
       </div>
+      <div id="rowTaskProject">
+        <div class="flex items-center gap-2">
+          <label for="fProject" class="mono text-[11px] text-slate-400">PROYECTO (OPCIONAL)</label>
+          <button id="btnModalNewProj" type="button" class="ml-auto px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-[11px] text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo proyecto</button>
+        </div>
+        <select id="fProject" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600"></select>
+        <div id="fProjNew" class="hidden mt-2 flex gap-2">
+          <input id="fProjName" type="text" maxlength="80" placeholder="Nombre del proyecto" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
+          <input id="fProjDue" type="date" aria-label="Fecha límite del nuevo proyecto" class="w-36 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:border-cyan-600">
+          <button id="fProjAdd" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">Crear</button>
+        </div>
+        <p id="fProjHint" class="mono text-[10px] mt-1.5 text-slate-400"></p>
+      </div>
       <div id="rowHabitType" class="hidden">
         <label class="mono text-[11px] text-slate-400">TIPO DE HÁBITO</label>
         <select id="fType" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none">
@@ -600,7 +628,7 @@ function normShip(s){
       :{week:null,cands:[]}
   };
 }
-function freshState(){ return {tasks:[],habits:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)}}; }
+function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)}}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
@@ -610,11 +638,25 @@ function normFocus(f){
     session:counts(f?.session),round:counts(f?.round)};
 }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
+// Proyectos: lista propia con fecha límite opcional. Los hábitos no llevan
+// proyecto: un proyecto se termina y un hábito no.
+function normProjects(a){
+  const seen=new Set();
+  return (Array.isArray(a)?a:[]).filter(p=>p&&typeof p==='object'&&typeof p.name==='string'&&p.name.trim())
+    .map(p=>({id:typeof p.id==='string'&&p.id?p.id:uid(), name:p.name.trim().slice(0,80),
+      due:/^\d{4}-\d{2}-\d{2}$/.test(p.due||'')?p.due:null,
+      createdAt:Number.isFinite(+p.createdAt)?+p.createdAt:Date.now()}))
+    .filter(p=>!seen.has(p.id)&&seen.add(p.id));
+}
 // normaliza un estado guardado (localStorage o partida importada)
 function normState(s){
   const items=(a)=>Array.isArray(a)?a.filter(x=>x&&typeof x==='object'&&typeof x.title==='string'):[];
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
   [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
+  st.projects=normProjects(s?.projects);
+  // una tarea va en un proyecto como mucho; si el proyecto ya no existe, se queda sin él
+  const pids=new Set(st.projects.map(p=>p.id));
+  st.tasks.forEach(x=>{ x.projectId=(typeof x.projectId==='string'&&pids.has(x.projectId))?x.projectId:null; });
   st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus);
   // partidas sin rango: los méritos se calculan con el historial (tareas hechas y días de hábito cumplidos)
   st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st),stats:normStats(s?.cmd?.stats)};
@@ -645,6 +687,36 @@ const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 
 /* ---------- rango y ventajas de la tripulación ---------- */
 const rankIdx=(xp=state.cmd.xp)=>{ let i=0; while(i+1<RANKS.length&&xp>=RANKS[i+1][1]) i++; return i; };
+/* ---------- proyectos ---------- */
+const projById = (id) => state.projects.find(p=>p.id===id)||null;
+// La fecha límite se lee con el mismo código de color que las tareas: el rojo
+// significa «atrasado» en toda la app, nunca «proyecto».
+function projDue(p){
+  if(!p.due) return {text:'sin fecha límite',cls:'text-slate-400',short:'sin fecha'};
+  const e=etaDays(p.due), d=fmtDate(p.due);
+  if(e<0) return {text:`◷ ${d} · ATRASADA`,cls:'text-red-400',short:'ATRASADA'};
+  if(e===0) return {text:`◷ ${d} · HOY`,cls:'text-cyan-300',short:'vence HOY'};
+  const r=`en ${e} ${e===1?'día':'días'}`;
+  return {text:`◷ ${d} · ${r}`,cls:'text-slate-400',short:r};
+}
+// El proyecto no se distingue por color —los cuatro tonos ya son de las áreas—
+// sino por forma: pastilla rellena con ▣.
+function projBadge(id){
+  const p=projById(id);
+  return p?`<span class="mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300">▣ ${escapeHtml(p.name)}</span>`:'';
+}
+function projTaskCount(id){ let d=0,t=0; for(const x of state.tasks) if(x.projectId===id){ t++; if(x.done) d++; } return {done:d,total:t}; }
+function addProject(name,due){ const p={id:uid(),name:name.trim().slice(0,80),due:due||null,createdAt:Date.now()}; state.projects.push(p); save(); return p; }
+// Borrar un proyecto no borra tareas: las deja sin proyecto.
+function deleteProject(id){
+  const n=state.tasks.filter(x=>x.projectId===id).length;
+  state.tasks.forEach(x=>{ if(x.projectId===id) x.projectId=null; });
+  state.projects=state.projects.filter(p=>p.id!==id);
+  if(pFilter===id) pFilter=null;
+  projEdit=null; projDel=null; save(); render();
+  toast(n?`Proyecto eliminado · ${n} ${n===1?'tarea se queda':'tareas se quedan'} sin proyecto`:'Proyecto eliminado');
+}
+
 function addXP(n){
   if(!n) return;
   const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
@@ -1016,6 +1088,11 @@ function wireGear(el,acts){
 }
 
 let tFilter='all', hFilter='hoy';
+// Proyectos: filtro activo (null | 'none' | id), fila en edición ('new' | id) y borrado pendiente.
+const PROJ_OPEN_KEY='spaceship-commander:projOpen';
+let pFilter=null, projEdit=null, projDel=null;
+let projOpen=(()=>{ try{ return localStorage.getItem(PROJ_OPEN_KEY)==='1'; }catch{ return false; } })();
+function setProjOpen(v){ projOpen=v; try{ localStorage.setItem(PROJ_OPEN_KEY,v?'1':'0'); }catch{} }
 let aFilterTasks=new Set(), aFilterHabits=new Set();
 let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set();
 
@@ -1046,6 +1123,122 @@ function deleteTask(id){ state.tasks=state.tasks.filter(y=>y.id!==id); dropFocus
 function deleteHabit(id){ state.habits=state.habits.filter(y=>y.id!==id); dropFocusRef(id); save(); render(); toast('Hábito eliminado'); }
 
 /* ---------- render ---------- */
+/* ---------- proyectos: la tira plegable dentro de Tareas ---------- */
+function projFormEl(p){
+  const el=document.createElement('div');
+  el.className='rounded-lg border border-cyan-800 bg-cyan-500/5 p-2.5 space-y-2';
+  el.innerHTML=`
+    <div class="flex gap-2">
+      <span class="flex-1 min-w-0">
+        <label for="projName" class="mono text-[10px] text-slate-400">NOMBRE</label>
+        <input id="projName" type="text" maxlength="80" value="${p?escapeHtml(p.name):''}" placeholder="Ej. Informe Q4" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:border-cyan-600">
+      </span>
+      <span class="w-36 shrink-0">
+        <label for="projDue" class="mono text-[10px] text-slate-400">LÍMITE (OPC.)</label>
+        <input id="projDue" type="date" value="${p&&p.due?p.due:''}" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[13px] outline-none focus:border-cyan-600">
+      </span>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button data-p="cancel" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs">Cancelar</button>
+      <button data-p="ok" class="px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-medium">${p?'Guardar':'Crear'}</button>
+    </div>`;
+  const commit=()=>{
+    const name=el.querySelector('#projName').value.trim(), due=el.querySelector('#projDue').value||null;
+    if(!name){ toast('Escribe un nombre'); return; }
+    if(p){ p.name=name.slice(0,80); p.due=due; } else addProject(name,due);
+    projEdit=null; save(); render(); toast(p?'Proyecto guardado ✓':'Proyecto creado ✓');
+  };
+  el.querySelector('[data-p="ok"]').onclick=commit;
+  el.querySelector('[data-p="cancel"]').onclick=()=>{ projEdit=null; renderProjects(); };
+  el.querySelector('#projName').onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } };
+  return el;
+}
+function projDelEl(p){
+  const n=state.tasks.filter(x=>x.projectId===p.id).length;
+  const el=document.createElement('div');
+  el.className='rounded-lg border border-red-800 bg-red-950/40 p-2.5';
+  el.innerHTML=`<p class="text-[13px] font-semibold text-red-100">Eliminar «${escapeHtml(p.name)}»</p>
+    <p class="text-xs text-red-200 mt-1 leading-snug">${n?`Sus ${n} ${n===1?'tarea se queda tal cual, solo que pasa':'tareas se quedan tal cual, solo que pasan'} a estar sin proyecto.`:'No tiene tareas vinculadas.'} No se borra nada más.</p>
+    <div class="flex justify-end gap-2 mt-2.5">
+      <button data-p="cancel" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs">Cancelar</button>
+      <button data-p="ok" class="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-semibold">Eliminar</button>
+    </div>`;
+  el.querySelector('[data-p="cancel"]').onclick=()=>{ projDel=null; renderProjects(); };
+  el.querySelector('[data-p="ok"]').onclick=()=>deleteProject(p.id);
+  return el;
+}
+function renderProjects(){
+  const box=document.getElementById('projBox'), body=document.getElementById('projBody'), ps=state.projects;
+  box.classList.toggle('open',projOpen);
+  document.getElementById('projToggle').setAttribute('aria-expanded',projOpen);
+  body.classList.toggle('hidden',!projOpen);
+  document.getElementById('projCount').textContent=ps.length;
+
+  // Plegada, la tira sigue diciendo algo: el filtro activo, o el proyecto que peor va.
+  const sum=document.getElementById('projSummary');
+  let txt='', cls='text-slate-400';
+  if(!projOpen){
+    if(pFilter==='none'){ txt='· filtrando: sin proyecto'; cls='text-cyan-300'; }
+    else if(pFilter){ txt='· filtrando: '+projById(pFilter).name; cls='text-cyan-300'; }
+    else if(!ps.length){ txt='· ninguno todavía'; }
+    else {
+      const next=ps.filter(p=>p.due).sort((a,b)=>a.due<b.due?-1:1)[0];
+      if(next){ const m=projDue(next); txt='· '+next.name+' '+m.short; cls=m.cls; }
+      else txt='· sin fechas límite';
+    }
+  }
+  sum.textContent=txt; sum.className='mono text-[10px] truncate '+cls;
+
+  body.innerHTML='';
+  if(!ps.length&&projEdit!=='new') body.innerHTML='<div class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin proyectos todavía. Crea uno con «+ Nuevo» y podrás vincularle tareas.</div>';
+  ps.forEach(p=>{
+    if(projEdit===p.id){ body.appendChild(projFormEl(p)); return; }
+    if(projDel===p.id){ body.appendChild(projDelEl(p)); return; }
+    const on=pFilter===p.id, c=projTaskCount(p.id), m=projDue(p), pct=c.total?Math.round(c.done/c.total*100):0;
+    const el=document.createElement('div');
+    el.className='relative flex items-center gap-1 rounded-lg border pr-1 '+(on?'border-cyan-700 bg-cyan-500/5':'border-[#1f2a3d] bg-[#0d1526]');
+    el.innerHTML=`
+      <button data-act="pick" aria-pressed="${on}" class="flex-1 min-w-0 flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg">
+        <span class="mono text-[13px] leading-none shrink-0 ${on?'text-cyan-300':'text-slate-400'}" aria-hidden="true">▣</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-[13px] font-semibold truncate">${escapeHtml(p.name)}</span>
+          <span class="block mono text-[10px] mt-0.5 ${m.cls}">${m.text}</span>
+        </span>
+        <span class="shrink-0 flex items-center gap-1.5">
+          <span class="w-11 h-[3px] rounded-full bg-slate-800 overflow-hidden block"><span class="block h-[3px] rounded-full bg-emerald-500" style="width:${pct}%"></span></span>
+          <span class="mono text-[10px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
+        </span>
+      </button>
+      <button data-act="gear" class="shrink-0 text-slate-400 hover:text-cyan-300 p-1.5 leading-none" title="Opciones del proyecto" aria-label="Opciones del proyecto">${GEAR_SVG}</button>
+      <div data-act="menu" class="gear-menu hidden right-2 top-10">
+        <button data-m="edit">✎ Renombrar o cambiar fecha</button>
+        ${p.due?'<button data-m="nodue">◷ Quitar fecha límite</button>':''}
+        <button data-m="del" class="danger">✕ Eliminar proyecto</button>
+      </div>`;
+    el.querySelector('[data-act="pick"]').onclick=()=>{ pFilter=on?null:p.id; render(); };
+    const gear=el.querySelector('[data-act="gear"]'), menu=el.querySelector('[data-act="menu"]');
+    gear.onclick=(e)=>{ e.stopPropagation(); document.querySelectorAll('.gear-menu').forEach(o=>{ if(o!==menu) o.classList.add('hidden'); }); menu.classList.toggle('hidden'); };
+    menu.onclick=(e)=>e.stopPropagation();
+    menu.querySelector('[data-m="edit"]').onclick=()=>{ menu.classList.add('hidden'); projEdit=p.id; projDel=null; renderProjects(); };
+    const nd=menu.querySelector('[data-m="nodue"]');
+    if(nd) nd.onclick=()=>{ menu.classList.add('hidden'); p.due=null; save(); render(); toast('Fecha límite quitada'); };
+    menu.querySelector('[data-m="del"]').onclick=()=>{ menu.classList.add('hidden'); projDel=p.id; projEdit=null; renderProjects(); };
+    body.appendChild(el);
+  });
+  if(projEdit==='new') body.appendChild(projFormEl(null));
+  // «Sin proyecto»: para encontrar lo que anda suelto
+  if(ps.length){
+    const n=state.tasks.filter(x=>!x.projectId&&!x.done).length, on=pFilter==='none';
+    const b=document.createElement('button');
+    b.className='w-full flex items-center gap-2.5 rounded-lg border border-dashed px-2.5 py-2 text-left '+(on?'border-cyan-700 bg-cyan-500/5 text-slate-200':'border-slate-700 text-slate-400');
+    b.setAttribute('aria-pressed',on);
+    b.innerHTML=`<span class="flex-1 text-xs">Sin proyecto</span><span class="mono text-[10px]">${n}</span>`;
+    b.onclick=()=>{ pFilter=on?null:'none'; render(); };
+    body.appendChild(b);
+  }
+  if(projEdit){ const i=document.getElementById('projName'); if(i) setTimeout(()=>i.focus(),30); }
+}
+
 function render(){
   const dow=DOW(), t=todayStr();
   const hoy=new Date();   // el año va aparte: en el móvil no cabe
@@ -1102,11 +1295,15 @@ function render(){
   });
 
   // --- 2) Tareas ---
+  if(pFilter&&pFilter!=='none'&&!projById(pFilter)) pFilter=null;
+  renderProjects();
   let tasks=[...state.tasks];
   if(tFilter==='today') tasks=tasks.filter(x=>x.dueDate===t);
   if(tFilter==='priority') tasks=tasks.filter(x=>x.priority && !x.done);
   if(tFilter==='done') tasks=tasks.filter(x=>x.done);
   if(aFilterTasks.size>0) tasks=tasks.filter(x=>matchAreas(x,aFilterTasks));
+  if(pFilter==='none') tasks=tasks.filter(x=>!x.projectId);
+  else if(pFilter) tasks=tasks.filter(x=>x.projectId===pFilter);
   tasks.sort((a,b)=>(a.done-b.done)||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
@@ -1122,7 +1319,7 @@ function render(){
       <div data-act="body" class="min-w-0 flex-1">
         <span class="title text-sm font-medium block truncate">${x.priority?'<span class="text-amber-300">★ </span>':''}${escapeHtml(x.title)}${(!x.done&&x.priority)?' <span class="mono text-[10px] font-normal text-amber-300/80">PRIORIDAD</span>':''}</span>
         <span class="mono text-[10px] ${over?'text-red-400':x.dueDate===t?'text-cyan-300':'text-slate-500'}">${x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha'}</span>${(eta!==null&&x.dueDate!==t)?` <span class="mono text-[10px] px-1.5 py-px rounded border ${over?'border-red-800 text-red-300':'border-slate-600 text-slate-300'}">${over?('hace '+(-eta)+(-eta===1?' día':' días')):('ETA '+eta+(eta===1?' día':' días'))}</span>`:''}
-        ${areaBadges(x.areas)?`<span class="flex flex-wrap gap-1 mt-1">${areaBadges(x.areas)}</span>`:''}
+        ${(projBadge(x.projectId)||areaBadges(x.areas))?`<span class="flex flex-wrap items-center gap-1 mt-1">${projBadge(x.projectId)}${areaBadges(x.areas)}</span>`:''}
       </div>
       <button data-act="gear" class="text-slate-400 hover:text-cyan-300 p-1 shrink-0 leading-none" title="Opciones">${GEAR_SVG}</button>
       ${gearMenuHTML(x.priority)}`;
@@ -1541,14 +1738,30 @@ function openModal(mode,id=null){
   document.getElementById('modalKicker').textContent=(isEdit?'EDITAR // ':'NUEVO // ')+(mode==='task'?'TASK':'HABIT');
   document.getElementById('modalTitle').textContent=mode==='task'?(isEdit?'Editar tarea':'Nueva tarea'):(isEdit?'Editar hábito':'Nuevo hábito');
   document.getElementById('rowTaskDate').classList.toggle('hidden',mode!=='task');
+  document.getElementById('rowTaskProject').classList.toggle('hidden',mode!=='task');
   document.getElementById('rowHabitType').classList.toggle('hidden',mode!=='habit');
   const t=document.getElementById('fTitle'), d=document.getElementById('fDate'), p=document.getElementById('fPriority'), ty=document.getElementById('fType');
   t.value='';d.value='';p.checked=false;ty.value='daily';syncDayPicker();syncAreaPicker();
+  document.getElementById('fProjNew').classList.add('hidden');
+  document.getElementById('fProjName').value=''; document.getElementById('fProjDue').value='';
+  fillProjectSelect('');
   if(isEdit){
-    if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker();}
+    if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker(); fillProjectSelect(x.projectId||'');}
     else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
   }
   setTimeout(()=>t.focus(),30);
+}
+function fillProjectSelect(sel){
+  const s=document.getElementById('fProject');
+  s.innerHTML='<option value="">— Sin proyecto —</option>'+state.projects.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  s.value=sel||''; paintProjHint();
+}
+function paintProjHint(){
+  const h=document.getElementById('fProjHint'), p=projById(document.getElementById('fProject').value);
+  if(!p){ h.textContent=''; h.className='mono text-[10px] mt-1.5 text-slate-400'; return; }
+  const m=projDue(p);
+  h.textContent=(p.due?'FECHA LÍMITE DEL PROYECTO · '+m.text.replace('◷ ',''):'EL PROYECTO NO TIENE FECHA LÍMITE').toUpperCase();
+  h.className='mono text-[10px] mt-1.5 '+m.cls;
 }
 function syncDayPicker(){
   const show=document.getElementById('fType').value==='weekly';
@@ -1569,8 +1782,9 @@ document.getElementById('modalSave').onclick=()=>{
   if(!title){toast('Escribe un título');return;}
   if(modalMode==='task'){
     const due=document.getElementById('fDate').value||null, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
-    if(editingId){const x=state.tasks.find(y=>y.id===editingId); Object.assign(x,{title,dueDate:due,priority:pri,areas});}
-    else state.tasks.push({id:uid(),title,dueDate:due,priority:pri,done:false,areas,createdAt:Date.now()});
+    const pid=document.getElementById('fProject').value||null;
+    if(editingId){const x=state.tasks.find(y=>y.id===editingId); Object.assign(x,{title,dueDate:due,priority:pri,areas,projectId:pid});}
+    else state.tasks.push({id:uid(),title,dueDate:due,priority:pri,done:false,areas,projectId:pid,createdAt:Date.now()});
   } else {
     const type=document.getElementById('fType').value, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     if(type==='weekly'&&pickedDays.size===0){toast('Elige al menos un día');return;}
@@ -1605,6 +1819,21 @@ document.querySelectorAll('.acc-head').forEach(h=>h.onclick=()=>{
   });
 });
 document.getElementById('btnNewTask').onclick=()=>openModal('task');
+document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
+document.getElementById('btnNewProj').onclick=()=>{ setProjOpen(true); projEdit='new'; projDel=null; renderProjects(); };
+document.getElementById('fProject').onchange=paintProjHint;
+document.getElementById('btnModalNewProj').onclick=()=>{
+  const box=document.getElementById('fProjNew'), hidden=box.classList.toggle('hidden');
+  if(!hidden) setTimeout(()=>document.getElementById('fProjName').focus(),30);
+};
+document.getElementById('fProjAdd').onclick=()=>{
+  const n=document.getElementById('fProjName'), d=document.getElementById('fProjDue'), name=n.value.trim();
+  if(!name){ toast('Escribe un nombre'); return; }
+  const p=addProject(name,d.value||null);
+  n.value=''; d.value=''; document.getElementById('fProjNew').classList.add('hidden');
+  fillProjectSelect(p.id); toast('Proyecto creado ✓');
+};
+document.getElementById('fProjName').onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('fProjAdd').click(); } };
 document.getElementById('btnNewHabit').onclick=()=>openModal('habit');
 document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.dataset.tfilter;document.querySelectorAll('.tfilter').forEach(x=>x.className='tfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='tfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
 document.querySelectorAll('.hfilter').forEach(b=>b.onclick=()=>{hFilter=b.dataset.hfilter;document.querySelectorAll('.hfilter').forEach(x=>x.className='hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
@@ -1780,7 +2009,8 @@ function focusMeta(l){
 }
 const focusMetaHTML=(l)=>{ const k=FKIND[l.kind], m=focusMeta(l), it=focusItem(l);
   return `<span class="font-bold tracking-wider ${k.cls}">${k.label}</span><span class="${m.cls}">${escapeHtml(m.text)}</span>`
-    +(l.re?`<span class="text-cyan-300">${l.re+1}.ª vuelta</span>`:'')+(it?areaBadges(it.areas):''); };
+    +(l.re?`<span class="text-cyan-300">${l.re+1}.ª vuelta</span>`:'')
+    +(l.kind==='task'&&it?projBadge(it.projectId):'')+(it?areaBadges(it.areas):''); };
 
 function renderFocus(){
   syncFocus();
@@ -1990,7 +2220,7 @@ function finishFocusExit(keep){
   f.lines=f.lines.filter(l=>!l.status);
   for(const ref of keep){
     const l=f.lines.find(x=>x.ref===ref); if(!l) continue;
-    const id=uid(); state.tasks.push({id,title:l.title,dueDate:null,priority:false,done:false,areas:[],createdAt:Date.now()}); conv[ref]=id;
+    const id=uid(); state.tasks.push({id,title:l.title,dueDate:null,priority:false,done:false,areas:[],projectId:null,createdAt:Date.now()}); conv[ref]=id;
   }
   // las acciones guardadas se quedan en su sitio de la lista larga, ya como tareas
   f.lines=f.lines.filter(l=>l.kind!=='acc'||conv[l.ref]).map(({title,...l})=>l.kind==='acc'?{...l,kind:'task',ref:conv[l.ref]}:(title!==undefined?{...l,title}:l));
