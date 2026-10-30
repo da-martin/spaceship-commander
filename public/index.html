@@ -40,6 +40,14 @@ tailwind.config = {
   .gear-menu{position:absolute;z-index:30;min-width:180px;background:#0f172a;border:1px solid #2a3a55;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);overflow:hidden}
   .gear-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 12px;font-size:13px;color:#e5e7eb}
   .gear-menu button:hover{background:#1e293b}
+  /* Interruptor de los ajustes: se ve de 44×26 y se pulsa en 44 de alto */
+  .switch{flex:none;position:relative;width:44px;height:44px;border-radius:999px}
+  .switch::before{content:"";position:absolute;left:0;right:0;top:9px;height:26px;border-radius:999px;background:#1e293b;border:1px solid #334155;transition:background .15s,border-color .15s}
+  .switch-knob{position:absolute;left:4px;top:13px;width:18px;height:18px;border-radius:999px;background:#94a3b8;transition:transform .15s,background .15s}
+  .switch[aria-checked="true"]::before{background:#0e7490;border-color:#22d3ee}
+  .switch[aria-checked="true"] .switch-knob{transform:translateX(18px);background:#fff}
+  .switch:focus{outline:none}
+  .switch:focus-visible::before{outline:2px solid #22d3ee;outline-offset:2px}
   .gear-menu button.danger{color:#fca5a5}
   .gear-menu button.danger:hover{background:#3b1212}
   .acc-chev{transition:transform .15s}
@@ -170,6 +178,7 @@ tailwind.config = {
       <div id="hdrMenu" data-act="menu" role="menu" class="gear-menu hidden right-0 top-12">
         <button id="miAccount" role="menuitem" class="flex-col !items-start gap-0.5"><span id="miAccountName">Entrar</span><span id="miAccountSub" class="mono text-[11px] text-slate-400"></span></button>
         <button id="miSave" role="menuitem">Guardar / cargar partida</button>
+        <button id="miSettings" role="menuitem">Ajustes</button>
       </div>
     </div>
     <button id="shipChip" class="mono text-[11px] px-2 py-1 rounded-md border border-amber-700 text-amber-300 hover:border-amber-500 shrink-0" title="Ir a la nave"></button>
@@ -592,6 +601,28 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- AJUSTES: una sección por grupo. Se aplican al momento, sin botón Guardar. -->
+<div id="settingsModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div class="panel w-full max-w-md p-5 mx-auto my-8">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Nave // Ajustes</div>
+        <h3 class="text-lg font-bold mt-1">Ajustes</h3>
+      </div>
+      <button id="settingsClose" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+
+    <div class="sys-label mt-5 mb-2">Hábitos</div>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div id="lblStreaks" class="text-sm font-medium">Mostrar rachas</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">El 🔥 con los días seguidos cumplidos</div>
+      </div>
+      <button id="setStreaks" type="button" role="switch" aria-checked="true" aria-labelledby="lblStreaks" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+  </div>
+</div>
+
 <div id="authModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm">
   <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-[#0f1729] p-5 shadow-2xl">
     <div class="sys-label">CUENTA</div>
@@ -744,7 +775,7 @@ function normShip(s){
       :{week:null,cands:[]}
   };
 }
-function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)}}; }
+function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)},settings:normSettings(null)}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
@@ -753,6 +784,9 @@ function normFocus(f){
   return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,workStart:Number.isFinite(+f?.workStart)&&f?.workStart!==null?+f.workStart:null,
     session:counts(f?.session),round:counts(f?.round)};
 }
+// Ajustes: van en la partida para viajar con la cuenta y con los archivos.
+// Solo entran claves conocidas y del tipo de su valor por defecto.
+function normSettings(x){ const d={showStreaks:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // Proyectos: lista propia con fecha límite opcional. Los hábitos no llevan
 // proyecto: un proyecto se termina y un hábito no.
@@ -773,7 +807,7 @@ function normState(s){
   // una tarea va en un proyecto como mucho; si el proyecto ya no existe, se queda sin él
   const pids=new Set(st.projects.map(p=>p.id));
   st.tasks.forEach(x=>{ x.projectId=(typeof x.projectId==='string'&&pids.has(x.projectId))?x.projectId:null; });
-  st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus);
+  st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus); st.settings=normSettings(s?.settings);
   // partidas sin rango: los méritos se calculan con el historial (tareas hechas y días de hábito cumplidos)
   st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st),stats:normStats(s?.cmd?.stats)};
   return st;
@@ -1297,7 +1331,7 @@ function habitRowEl(h,size,t){
   const meta=[
     `<span class="text-slate-400">${kind}</span>`,
     free?`<span class="text-slate-400">hoy ${c} ${c===1?'vez':'veces'}</span>`:'',
-    (!free&&s>=2)?`<span class="text-emerald-300">🔥 racha ${s}</span>`:'',
+    (!free&&s>=2&&state.settings.showStreaks)?`<span class="text-emerald-300">🔥 racha ${s}</span>`:'',
     sched?'':'<span class="text-slate-400">stand-by hoy</span>',
     areaBadges(h.areas)
   ].filter(Boolean).join('');
@@ -2261,6 +2295,14 @@ function openSaveModal(){
 }
 function closeSaveModal(){ document.getElementById('saveModal').classList.add('hidden'); }
 document.getElementById('miSave').onclick=openSaveModal;
+// Ajustes: cada interruptor escribe en state.settings y se ve al momento
+function paintSettings(){ document.getElementById('setStreaks').setAttribute('aria-checked',String(state.settings.showStreaks)); }
+function openSettings(){ paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); }
+function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
+document.getElementById('miSettings').onclick=openSettings;
+document.getElementById('settingsClose').onclick=closeSettings;
+document.getElementById('settingsModal').addEventListener('click',e=>{ if(e.target.id==='settingsModal') closeSettings(); });
+document.getElementById('setStreaks').onclick=()=>{ state.settings.showStreaks=!state.settings.showStreaks; save(); render(); paintSettings(); };
 document.getElementById('saveClose').onclick=closeSaveModal;
 document.getElementById('saveModal').addEventListener('click',e=>{ if(e.target.id==='saveModal') closeSaveModal(); });
 document.getElementById('btnExportFile').onclick=exportFile;
