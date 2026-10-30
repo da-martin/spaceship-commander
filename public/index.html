@@ -152,6 +152,12 @@ tailwind.config = {
     input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;min-height:2.375rem;display:block}
     input[type="date"]::-webkit-date-and-time-value{text-align:left;min-height:1.25rem}
   }
+  /* Estrellas de la nave en misión: cada capa baja una altura entera de la
+     ilustración y vuelve a empezar; como va dibujada dos veces, el corte no se ve. */
+  .warp{animation:warp 7s linear infinite}
+  .warp.far{animation-duration:16s}
+  @keyframes warp{from{transform:translateY(0)}to{transform:translateY(300px)}}
+  @media (prefers-reduced-motion:reduce){.warp{animation:none}}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
 </head>
@@ -322,7 +328,7 @@ tailwind.config = {
     <div class="flex flex-col sm:flex-row gap-4 items-start">
       <!-- La ilustración no lleva ni una etiqueta encima: es una pieza suelta
            que se puede sustituir por una imagen sin tocar el panel. -->
-      <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] p-2"></div>
+      <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] overflow-hidden"></div>
       <div class="w-full min-w-0 flex-1">
         <div class="flex items-center gap-2 mb-2">
           <span class="mono text-[11px] tracking-[.18em] text-slate-400 flex-1">SISTEMAS</span>
@@ -1731,8 +1737,38 @@ const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-cyan-80
 // La nave no lleva ni una etiqueta encima: todo el texto vive en el panel de al
 // lado. Por eso esta función se puede cambiar por un <img> el día que haya una
 // ilustración de verdad, sin tocar nada más.
+// Fondo según dónde esté la nave. En el Sistema Madre asoma el planeta por la
+// esquina inferior izquierda; en misión no hay planeta y las estrellas pasan
+// hacia abajo, como si la nave avanzara.
+function shipBackdrop(home){
+  if(home){
+    // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
+    const P='cx="-20" cy="330" r="120"';
+    return `<defs>
+      <radialGradient id="planetG" cx=".78" cy=".15" r=".7"><stop offset="0" stop-color="#2f7fa0"/><stop offset=".5" stop-color="#174565"/><stop offset="1" stop-color="#0a1a2c"/></radialGradient>
+      <radialGradient id="atmoG"><stop offset=".87" stop-color="#38bdf8" stop-opacity="0"/><stop offset=".9" stop-color="#38bdf8" stop-opacity=".3"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+      <clipPath id="planetC"><circle ${P}/></clipPath>
+    </defs>
+    <circle cx="64" cy="58" r="1.6" fill="#7dd3fc" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="#7dd3fc" opacity=".45"/>
+    <circle cx="212" cy="228" r="1.5" fill="#7dd3fc" opacity=".5"/><circle cx="262" cy="160" r="1.1" fill="#7dd3fc" opacity=".4"/>
+    <circle cx="-20" cy="330" r="134" fill="url(#atmoG)"/>
+    <circle ${P} fill="url(#planetG)"/>
+    <g clip-path="url(#planetC)">
+      <g fill="#2f8f7a" opacity=".5"><path d="M6 234 q14 -9 30 -3 q10 6 3 14 q-12 7 -23 2 q-14 -3 -10 -13Z"/><path d="M48 260 q16 -7 31 2 q6 9 -6 13 q-15 4 -25 -5Z"/><path d="M6 286 q11 -5 18 2 q-4 8 -18 4Z"/></g>
+      <path d="M-10 252 q40 -14 80 -2 M10 300 q36 -10 82 -4" fill="none" stroke="#e0f2fe" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <circle ${P} fill="none" stroke="#7dd3fc" stroke-opacity=".45" stroke-width="1.2"/>`;
+  }
+  // Cada capa va dibujada dos veces (y, y-300) para que el bucle no tenga corte.
+  // La cercana lleva trazos y va rápida; la lejana, puntos que van despacio.
+  const twice=(f,pts)=>pts.map(([x,y])=>f(x,y)+f(x,y-300)).join('');
+  const far=twice((x,y)=>`<circle cx="${x}" cy="${y}" r="1.1" fill="#7dd3fc" opacity=".45"/>`,[[38,40],[262,22],[88,150],[230,196],[24,250],[180,280]]);
+  const near=twice((x,y)=>`<line x1="${x}" y1="${y}" x2="${x}" y2="${y+12}" stroke="#bae6fd" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,[[56,90],[246,130],[20,198],[272,250],[70,284]]);
+  return `<g class="warp far">${far}</g><g class="warp">${near}</g>`;
+}
+
 function shipArt(){
-  const m=state.ship.modules;
+  const m=state.ship.modules, home=atHome();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
   // Los ocho módulos existen desde el día uno: una nave necesita puente y
   // motores para volar. El nivel solo decide cuánto crece cada pieza.
@@ -1741,15 +1777,13 @@ function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" class="w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40">
+  let s=`<svg viewBox="0 0 300 300" class="block w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40, ${home?'en el Sistema Madre':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
     <radialGradient id="skyG"><stop offset="0" stop-color="#1b3a52" stop-opacity=".45"/><stop offset="1" stop-color="#1b3a52" stop-opacity="0"/></radialGradient>
   </defs>
-  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>
-  <circle cx="64" cy="58" r="1.6" fill="#7dd3fc" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="#7dd3fc" opacity=".45"/>
-  <circle cx="212" cy="228" r="1.5" fill="#7dd3fc" opacity=".5"/><circle cx="76" cy="236" r="1.1" fill="#7dd3fc" opacity=".4"/>`;
+  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>${shipBackdrop(home)}`;
 
   // Cada sistema construido añade una pieza visible. Eso sí se nota, a
   // diferencia del 12 % de escala que crecía el casco antes.
@@ -1961,6 +1995,7 @@ function paintSignal(){
   if(ok) document.getElementById('btnSweep').onclick=sweep;
 }
 
+let lastShipArt='';
 function renderShip(){
   const sh=state.ship, c=sh.contract, w=state.wallet;
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
@@ -1983,7 +2018,9 @@ function renderShip(){
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
   const tot=Object.values(sh.modules).reduce((a,m)=>a+m.lv,0);
   document.getElementById('shipLevel').textContent=`Nv. total ${tot}/40`;
-  document.getElementById('shipArt').innerHTML=shipArt();
+  // Solo se repinta si cambia: rehacerla en cada render reiniciaría las estrellas.
+  const art=shipArt();
+  if(art!==lastShipArt){ document.getElementById('shipArt').innerHTML=art; lastShipArt=art; }
   const sc=document.getElementById('shipSystems'); sc.innerHTML=shipSystems();
   paintSysSort();
   sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
