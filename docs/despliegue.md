@@ -32,87 +32,82 @@ No hace falta configurar nada más: **no hay secretos ni servicios externos**.
 Tras el primer despliegue, desactiva GitHub Pages (Settings → Pages) para que
 no quede sirviéndose una versión vieja en paralelo.
 
-## Dar acceso a alguien
+## Cuentas
 
-El acceso es por clave: una cadena aleatoria de 32 bytes, al estilo de los
-tokens personales de GitHub. No hay registro público — **solo entra quien
-reciba una clave tuya**.
+Cualquiera puede crearse una cuenta desde **Menú → Entrar → Crear cuenta**, con
+un nombre (3–24 caracteres) y una contraseña (mínimo 8). No hace falta pasar
+por ti. El nombre es a la vez el usuario y el nombre visible, y no distingue
+mayúsculas: «Ana» y «ana» son la misma cuenta.
 
-```bash
-node scripts/invite.mjs "Ana"            # producción
-node scripts/invite.mjs --local "Ana"    # base local
-```
+El navegador recuerda la sesión 90 días. Desde su cuenta, cada persona puede
+cambiar la contraseña, y al hacerlo se cierran sus otros dispositivos.
 
-Imprime la clave **una sola vez**: en la base de datos solo queda su SHA-256,
-así que ni tú puedes recuperarla después. Mándasela en privado — quien la tenga
-entra a esa partida.
-
-La persona la pega una vez en el botón «Entrar» de la cabecera y el navegador
-recuerda la sesión 90 días. Solo tiene que repetirlo si cambia de dispositivo o
-borra los datos del navegador.
-
-Para ver quién está dado de alta:
+Para ver quién tiene cuenta:
 
 ```bash
-node scripts/invite.mjs --list
+npm run reset-password -- --list
 ```
 
-### Si alguien pierde su clave, o se filtra
+### Las cuentas de antes, con clave de acceso
 
-Vuelve a ejecutar el mismo comando con el mismo nombre:
+Quien recibió una clave `sc_…` de `invite.mjs` la escribe **como contraseña**,
+junto a su nombre. La app le pide entonces que elija una contraseña de verdad,
+y a partir de ahí la clave deja de valer. No tienes que hacer nada. En
+`--list` aparecen como «aún entra con su clave de antes» hasta que lo hagan.
+
+### Si alguien olvida su contraseña
+
+No hay correo con el que mandar un enlace, así que la recuperación pasa por ti:
 
 ```bash
-node scripts/invite.mjs "Ana"
+npm run reset-password -- "Ana"          # producción
+npm run reset-password:local -- "Ana"    # base local
 ```
 
-Le genera una clave nueva, **anula la anterior**, cierra sus sesiones abiertas
-y **no toca su partida**: la fila del usuario conserva su `id`, y `saves.user_id`
-sigue apuntando a ella.
+Le pone una contraseña temporal, que se imprime **una sola vez**, cierra sus
+sesiones y **no toca su partida**. Mándasela en privado: entra con ella y la
+cambia en Menú → su nombre → Cambiar contraseña.
 
-**La clave nueva no es la anterior ni se le parece.** Son 32 bytes nuevos al
-azar, y la vieja es irrecuperable incluso para ti, porque de ella solo queda un
-SHA-256. La persona tendrá que pegar la nueva en cada dispositivo donde juegue.
+### Cómo se guardan las contraseñas
 
-### El nombre es la identidad
+Con **PBKDF2-SHA256 de Web Crypto, 30.000 iteraciones y una sal aleatoria por
+usuario** (`src/password.js`). Es nativo en Workers, así que no hay
+dependencias.
 
-De él depende a qué partida se engancha la clave, así que una errata sería cara:
-crearía un usuario nuevo con la partida vacía. El comando lo vigila por ti.
+OWASP recomienda 600.000 iteraciones, pero el plan gratis de Workers da 10 ms de
+CPU por petición. Medido: ~0,11 µs por iteración, así que 30.000 son ~3,3 ms.
+Ninguna petición hace más de dos hashes: cambiar la contraseña verifica la
+actual y guarda la nueva. Las iteraciones van dentro del hash
+(`pbkdf2$30000$sal$hash`), así que se pueden subir con el plan de pago sin
+romper nada: cada contraseña se rehashea la próxima vez que su dueño entra.
 
-Si escribes un nombre que solo se diferencia en mayúsculas de uno existente,
-pregunta antes de hacer nada:
+Contra quien prueba contraseñas desde fuera, el límite está en el número de
+intentos, que se cuenta en D1 **antes** de hashear para que nadie pueda gastar
+nuestra CPU:
 
-```
-  Ya existe «Pedro», y tú escribiste «PEDRO».
+| Qué           | Límite                                  |
+| ------------- | --------------------------------------- |
+| Login fallido | 10 por usuario y 30 por IP cada 15 min  |
+| Registro      | 10 por IP cada hora                     |
 
-    [r] rotarle la clave a «Pedro» (conserva su partida)   ← por defecto
-    [c] crear un usuario nuevo «PEDRO», con la partida vacía
-    [x] cancelar
-```
+Tanto si el usuario no existe como si la contraseña está mal, la respuesta es
+la misma.
 
-Y si el nombre no se parece a ninguno, pide confirmación explícita antes de dar
-de alta a nadie. En ambos casos la opción por defecto es la que **no** destruye
-nada.
+**Lo que no cubre:** no hay *pepper* (un secreto del Worker mezclado con cada
+contraseña). Por eso, si alguien se llevara una copia de la base D1, podría
+probar contraseñas por su cuenta, y las débiles caerían rápido con 30.000
+iteraciones. Añadirlo cuesta un `wrangler secret put` y obliga a no perder
+nunca ese secreto.
 
-Para usarlo desde un script, `--yes` se queda siempre con esa opción segura —
-nunca crea un usuario por sorpresa. Sin terminal y sin `--yes`, el comando se
-niega a adivinar y sale con error.
-
-### Por qué no hace falta hashear despacio
-
-Las contraseñas se hashean con algoritmos lentos porque las elige una persona y
-son adivinables. Estas claves las genera el ordenador con 256 bits de entropía:
-no hay nada que adivinar, así que un SHA-256 basta. Eso además esquiva el límite
-de 10 ms de CPU del plan gratis de Workers, que es lo que hacía incómodo un
-login con contraseña.
-
-La clave viaja siempre en el cuerpo de la petición, nunca en la URL, para que no
-acabe en el historial del navegador ni en los registros del servidor.
+Las contraseñas viajan siempre en el cuerpo de la petición, nunca en la URL,
+para que no acaben en el historial del navegador ni en los registros del
+servidor.
 
 ## Cómo funciona la sincronización
 
 El servidor **solo almacena**: la economía se sigue calculando en el cliente.
 
-- `localStorage` sigue siendo la fuente inmediata, así que sin clave o sin
+- `localStorage` sigue siendo la fuente inmediata, así que sin cuenta o sin
   conexión la app se comporta igual que siempre.
 - `save()` escribe en local y programa un envío agrupado (1,5 s) a
   `PUT /api/state`. Ninguna de las ~43 llamadas a `save()` tuvo que cambiar.
@@ -137,3 +132,7 @@ El servidor **solo almacena**: la economía se sigue calculando en el cliente.
 3. **El reloj es el del dispositivo.** `todayStr()` usa hora local sin zona
    horaria, y de ahí salen precios de mercado, caducidad de misiones y rachas.
 4. **Tailwind sigue por CDN**, que avisa en consola que no es para producción.
+5. **El registro es abierto y sin captcha.** El límite por IP frena a un bot
+   sencillo, pero no a uno que cambie de IP. Si aparecen cuentas basura, el
+   siguiente paso es Turnstile (el captcha gratuito de Cloudflare) en
+   `/api/auth/signup`.

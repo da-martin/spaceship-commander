@@ -7,8 +7,8 @@
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 migrations apply spaceship-commander --local",
     "db:remote": "wrangler d1 migrations apply spaceship-commander --remote",
-    "invite": "node scripts/invite.mjs",
-    "invite:local": "node scripts/invite.mjs --local"
+    "reset-password": "node scripts/reset-password.mjs",
+    "reset-password:local": "node scripts/reset-password.mjs --local"
   },
   "devDependencies": {
     "wrangler": "^4.153.0"

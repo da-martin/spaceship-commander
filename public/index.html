@@ -2842,55 +2842,139 @@ function paintAccount(){
 const mkEl=(tag,cls,txt)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; };
 // Cerrar levanta SIEMPRE la retención: si quedara puesta, este dispositivo
 // dejaría de sincronizar en silencio y volvería a preguntar en cada arranque.
-let authMode=null;
-const closeAuthModal=()=>{ cloud.hold=false; authMode=null; document.getElementById('authModal').classList.add('hidden'); };
+let authMode=null, authForced=null;
+const closeAuthModal=()=>{ cloud.hold=false; authMode=null; authForced=null; document.getElementById('authModal').classList.add('hidden'); };
 // El selector de partidas no se descarta: mientras no se elija no hay vínculo,
 // así que cerrarlo solo aplaza el problema hasta el siguiente arranque. Las dos
 // opciones son reversibles desde «Deshacer», de modo que no hay nada de lo que
-// escapar.
-const dismissAuth=()=>{ if(authMode!=='choose') closeAuthModal(); };
+// escapar. Tampoco se descarta el paso de elegir contraseña tras entrar con una
+// clave de las de antes: la sesión ya está abierta en el servidor, pero aquí no
+// se adopta la cuenta hasta tener contraseña.
+const dismissAuth=()=>{ if(authMode!=='choose'&&!authForced) closeAuthModal(); };
 
-function openAuthModal(mode,srv){
-  authMode=mode;
-  document.getElementById('authClose').classList.toggle('hidden',mode==='choose');
+const AUTHERR={
+  invalid_login:'Usuario o contraseña incorrectos.',
+  name_taken:'Ese nombre ya está cogido. Prueba con otro.',
+  bad_name:'El nombre debe tener entre 3 y 24 caracteres: letras, números, espacios, punto o guion.',
+  bad_password:'La contraseña debe tener al menos 8 caracteres.',
+  wrong_password:'La contraseña actual no es correcta.',
+  mismatch:'Las dos contraseñas no coinciden.',
+  throttled:'Demasiados intentos. Espera unos minutos y vuelve a probar.',
+};
+const authInput=(type,autocomplete,placeholder)=>{
+  const i=mkEl('input','w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm');
+  Object.assign(i,{type,autocomplete,placeholder,spellcheck:false,autocapitalize:'off'}); return i;
+};
+const authBtn=(txt)=>{ const b=mkEl('button','w-full px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-medium',txt); b.type='submit'; return b; };
+// Envía un formulario de cuenta y devuelve el JSON si fue bien; si no, pinta el
+// error y devuelve null. El botón vuelve a su texto en ambos casos.
+async function authPost(path,payload,go,err,busy){
+  const label=go.textContent;
+  go.disabled=true; go.textContent=busy; err.classList.add('hidden');
+  let r,res={};
+  try{ r=await api(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}); res=await r.json().catch(()=>({})); }
+  catch{}
+  go.disabled=false; go.textContent=label;
+  if(r?.ok) return res;
+  err.textContent=AUTHERR[res.error]||'No se pudo conectar. Inténtalo de nuevo.'; err.classList.remove('hidden');
+  return null;
+}
+const authFail=(err,code)=>{ err.textContent=AUTHERR[code]; err.classList.remove('hidden'); };
+
+function openAuthModal(mode,srv,forced=null){
+  authMode=mode; authForced=forced;
+  document.getElementById('authClose').classList.toggle('hidden',mode==='choose'||!!forced);
   const body=document.getElementById('authBody'); body.innerHTML='';
   const title=document.getElementById('authTitle');
 
-  if(mode==='login'){
-    title.textContent='Entrar';
-    body.appendChild(mkEl('p','text-sm text-slate-400','Pega la clave de acceso que te pasaron. Tu partida se guardará en la nube y podrás seguirla en otro dispositivo. Sin clave la app funciona igual, pero solo en este navegador.'));
+  if(mode==='login'||mode==='signup'){
+    const nuevo=mode==='signup';
+    title.textContent=nuevo?'Crear cuenta':'Entrar';
+    const tabs=mkEl('div','flex gap-2'); tabs.setAttribute('role','tablist');
+    for(const [m,label] of [['login','Entrar'],['signup','Crear cuenta']]){
+      const t=mkEl('button','ctab flex-1 text-sm',label); t.type='button';
+      t.setAttribute('role','tab'); t.setAttribute('aria-selected',String(m===mode));
+      t.onclick=()=>{ if(m!==mode) openAuthModal(m); };
+      tabs.appendChild(t);
+    }
+    body.appendChild(tabs);
+    body.appendChild(mkEl('p','text-sm text-slate-400',nuevo
+      ? 'Elige un nombre y una contraseña. Tu partida se guardará en la nube y podrás seguirla en otro dispositivo. Sin cuenta la app funciona igual, pero solo en este navegador.'
+      : 'Entra con tu nombre y tu contraseña para seguir tu partida en este dispositivo.'));
 
-    const inp=mkEl('input','w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm mono');
-    inp.type='password'; inp.placeholder='sc_…'; inp.autocomplete='off'; inp.spellcheck=false;
+    // Un <form> de verdad, con autocomplete, para que el gestor de contraseñas
+    // ofrezca guardarla y rellenarla.
+    const form=mkEl('form','space-y-3'); form.noValidate=true;
+    const user=authInput('text','username',nuevo?'Nombre (3–24 caracteres)':'Nombre');
+    user.name='username'; user.maxLength=nuevo?24:60;
+    const pass=authInput('password',nuevo?'new-password':'current-password',nuevo?'Contraseña (mínimo 8 caracteres)':'Contraseña');
+    pass.name='password';
     const err=mkEl('p','text-sm text-rose-400 hidden');
-    const go=mkEl('button','w-full px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-medium','Entrar');
+    const go=authBtn(nuevo?'Crear cuenta':'Entrar');
+    form.append(user,pass,err,go);
+    if(!nuevo) form.appendChild(mkEl('p','text-xs text-slate-500','¿Te pasaron una clave de acceso? Escríbela como contraseña y después elegirás una nueva.'));
 
-    const submit=async()=>{
-      const key=inp.value.trim(); if(!key) return;
-      go.disabled=true; go.textContent='Comprobando…'; err.classList.add('hidden');
-      try{
-        const r=await api('/api/auth/key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key})});
-        if(!r.ok) throw new Error('invalid');
-        cloud.user=(await r.json()).user; inp.value='';
-        closeAuthModal(); paintAccount(); toast('Sesión iniciada ✓');
-        await hydrate();                 // sube la partida local o pregunta cuál conservar
-      }catch{
-        err.textContent='Esa clave no es válida.'; err.classList.remove('hidden');
-        go.disabled=false; go.textContent='Entrar';
-      }
+    form.onsubmit=async(e)=>{
+      e.preventDefault();
+      const name=user.value.trim(), password=pass.value;
+      if(!name||!password) return;
+      if(nuevo&&password.length<8) return authFail(err,'bad_password');
+      const res=await authPost(nuevo?'/api/auth/signup':'/api/auth/login',{name,password},go,err,nuevo?'Creando…':'Comprobando…');
+      if(!res) return;
+      pass.value='';
+      // Clave de las de antes: primero la contraseña. Hasta entonces cloud.user
+      // sigue vacío, así que nada se sube ni salta el selector de partidas.
+      if(res.needsPassword) return openAuthModal('password',null,res.user);
+      cloud.user=res.user;
+      closeAuthModal(); paintAccount(); toast(nuevo?'Cuenta creada ✓':'Sesión iniciada ✓');
+      await hydrate();                   // sube la partida local o pregunta cuál conservar
     };
-    go.onclick=submit;
-    inp.onkeydown=e=>{ if(e.key==='Enter') submit(); };
-    body.append(inp,err,go);
-    setTimeout(()=>inp.focus(),30);
+    body.appendChild(form);
+    setTimeout(()=>user.focus(),30);
+  }
+
+  if(mode==='password'){
+    const who=forced||cloud.user, conActual=who.hasPassword;
+    title.textContent=conActual?'Cambiar contraseña':'Elige una contraseña';
+    body.appendChild(mkEl('p','text-sm text-slate-400',forced
+      ? `Hola, ${who.name}. Tu clave de acceso deja de hacer falta: elige una contraseña y a partir de ahora entrarás con tu nombre y ella.`
+      : conActual
+        ? 'Se cerrará la sesión en tus otros dispositivos.'
+        : 'Ahora entras con tu clave de acceso. Ponle una contraseña a tu cuenta y la clave dejará de valer.'));
+    const form=mkEl('form','space-y-3'); form.noValidate=true;
+    // Oculto: le dice al gestor de contraseñas de qué cuenta es la nueva.
+    const user=authInput('text','username',''); user.value=who.name; user.className='hidden'; user.tabIndex=-1;
+    const cur=conActual?authInput('password','current-password','Contraseña actual'):null;
+    const p1=authInput('password','new-password','Contraseña nueva (mínimo 8 caracteres)');
+    const p2=authInput('password','new-password','Repite la contraseña nueva');
+    const err=mkEl('p','text-sm text-rose-400 hidden');
+    const go=authBtn('Guardar contraseña');
+    form.append(...[user,cur,p1,p2,err,go].filter(Boolean));
+    form.onsubmit=async(e)=>{
+      e.preventDefault();
+      if(cur&&!cur.value) return cur.focus();
+      if(p1.value.length<8) return authFail(err,'bad_password');
+      if(p1.value!==p2.value) return authFail(err,'mismatch');
+      const res=await authPost('/api/auth/password',{current:cur?.value,password:p1.value},go,err,'Guardando…');
+      if(!res) return;
+      cloud.user=res.user;
+      closeAuthModal(); paintAccount(); toast('Contraseña guardada ✓');
+      if(forced) await hydrate();
+    };
+    body.appendChild(form);
+    setTimeout(()=>(cur||p1).focus(),30);
   }
 
   if(mode==='account'){
     title.textContent=cloud.user.name||'Tu cuenta';
-    body.appendChild(mkEl('p','text-sm text-slate-400','Sesión abierta con tu clave de acceso.'));
+    body.appendChild(mkEl('p','text-sm text-slate-400',cloud.user.hasPassword
+      ? 'Entras con tu nombre y tu contraseña.'
+      : 'Tu cuenta aún entra con la clave de acceso de antes. Ponle una contraseña para no depender de ella.'));
     body.appendChild(mkEl('p','text-sm text-slate-300','Estado: '+(SYNCTEXT[cloud.status]||cloud.status)));
+    const pw=mkEl('button','w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm',cloud.user.hasPassword?'Cambiar contraseña':'Ponle contraseña');
+    pw.onclick=()=>openAuthModal('password');
     const out=mkEl('button','w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm','Cerrar sesión');
-    out.onclick=logout; body.appendChild(out);
+    out.onclick=logout; body.append(pw,out);
   }
 
   if(mode==='choose'){
