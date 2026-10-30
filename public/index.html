@@ -2791,9 +2791,19 @@ function paintAccount(){
 }
 
 const mkEl=(tag,cls,txt)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; };
-const closeAuthModal=()=>document.getElementById('authModal').classList.add('hidden');
+// Cerrar levanta SIEMPRE la retención: si quedara puesta, este dispositivo
+// dejaría de sincronizar en silencio y volvería a preguntar en cada arranque.
+let authMode=null;
+const closeAuthModal=()=>{ cloud.hold=false; authMode=null; document.getElementById('authModal').classList.add('hidden'); };
+// El selector de partidas no se descarta: mientras no se elija no hay vínculo,
+// así que cerrarlo solo aplaza el problema hasta el siguiente arranque. Las dos
+// opciones son reversibles desde «Deshacer», de modo que no hay nada de lo que
+// escapar.
+const dismissAuth=()=>{ if(authMode!=='choose') closeAuthModal(); };
 
 function openAuthModal(mode,srv){
+  authMode=mode;
+  document.getElementById('authClose').classList.toggle('hidden',mode==='choose');
   const body=document.getElementById('authBody'); body.innerHTML='';
   const title=document.getElementById('authTitle');
 
@@ -2860,9 +2870,9 @@ document.getElementById('btnMenu').onclick=(e)=>{
   document.getElementById('btnMenu').setAttribute('aria-expanded',String(abierto));
 };
 document.getElementById('hdrMenu').onclick=()=>{ document.getElementById('btnMenu').setAttribute('aria-expanded','false'); };
-document.getElementById('authClose').onclick=closeAuthModal;
-document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal') closeAuthModal(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAuthModal(); });
+document.getElementById('authClose').onclick=dismissAuth;
+document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal') dismissAuth(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') dismissAuth(); });
 addEventListener('online',()=>{ if(cloud.pending) pushState(); });
 // Dos pestañas del mismo navegador comparten cuenta: al escribir una, la otra
 // adopta su rev para no chocar contra sí misma con un 409 falso.
