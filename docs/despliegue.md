@@ -70,16 +70,24 @@ cambia en Menú → su nombre → Cambiar contraseña.
 
 ### Cómo se guardan las contraseñas
 
-Con **PBKDF2-SHA256 de Web Crypto, 30.000 iteraciones y una sal aleatoria por
+Con **PBKDF2-SHA256 de Web Crypto, 10.000 iteraciones y una sal aleatoria por
 usuario** (`src/password.js`). Es nativo en Workers, así que no hay
 dependencias.
 
 OWASP recomienda 600.000 iteraciones, pero el plan gratis de Workers da 10 ms de
-CPU por petición. Medido: ~0,11 µs por iteración, así que 30.000 son ~3,3 ms.
-Ninguna petición hace más de dos hashes: cambiar la contraseña verifica la
-actual y guarda la nueva. Las iteraciones van dentro del hash
-(`pbkdf2$30000$sal$hash`), así que se pueden subir con el plan de pago sin
-romper nada: cada contraseña se rehashea la próxima vez que su dueño entra.
+CPU por petición. Empezamos con 30.000, que en un Mac costaban ~3,3 ms, pero
+en producción el login medía 8–15 ms: en Cloudflare cada iteración es más del
+doble de lenta, y el resto de la petición se lleva otros 2–3 ms. Con 10.000
+cabe incluso cambiar la contraseña, que hace dos hashes (verificar la actual y
+guardar la nueva).
+
+Las iteraciones van dentro del hash (`pbkdf2$10000$sal$hash`), así que se
+pueden cambiar sin romper nada: cada contraseña se rehashea a la cifra actual
+la próxima vez que su dueño entra. Con el plan de pago se pueden subir.
+
+Para medirlo, deja corriendo `npx wrangler tail spaceship-commander --format json`
+mientras alguien entra: cada petición trae su `cpuTime` en milisegundos. No
+sirve medir en local, porque allí va mucho más rápido.
 
 Contra quien prueba contraseñas desde fuera, el límite está en el número de
 intentos, que se cuenta en D1 **antes** de hashear para que nadie pueda gastar
@@ -95,7 +103,7 @@ la misma.
 
 **Lo que no cubre:** no hay *pepper* (un secreto del Worker mezclado con cada
 contraseña). Por eso, si alguien se llevara una copia de la base D1, podría
-probar contraseñas por su cuenta, y las débiles caerían rápido con 30.000
+probar contraseñas por su cuenta, y las débiles caerían rápido con 10.000
 iteraciones. Añadirlo cuesta un `wrangler secret put` y obliga a no perder
 nunca ese secreto.
 

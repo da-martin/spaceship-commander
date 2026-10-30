@@ -7,14 +7,17 @@
  * Formato guardado: pbkdf2$<iteraciones>$<sal b64url>$<hash b64url>
  *
  * Las iteraciones no son las 600.000 que recomienda OWASP porque el plan gratis
- * de Workers da 10 ms de CPU por petición. Medido: ~0,11 µs por iteración, así
- * que 30.000 son ~3,3 ms y una petición puede hacer dos hashes (verificar la
- * contraseña actual y guardar la nueva) sin pasarse. Como las iteraciones
- * viajan dentro del hash, subirlas no rompe las contraseñas ya guardadas: se
- * rehashean al entrar.
+ * de Workers da 10 ms de CPU por petición. En un Mac M cada iteración cuesta
+ * ~0,11 µs, pero en producción, con 30.000, el login medía 8–15 ms de CPU: allí
+ * es más del doble de lento, y el resto de la petición se lleva otros 2–3 ms.
+ * Con 10.000 cabe incluso cambiar la contraseña, que hace dos hashes (verificar
+ * la actual y guardar la nueva). Medir siempre con `wrangler tail`, no en local.
+ *
+ * Como las iteraciones viajan dentro del hash, cambiarlas no rompe las
+ * contraseñas ya guardadas: se rehashean al entrar.
  */
 
-export const ITERATIONS = 30_000;
+export const ITERATIONS = 10_000;
 
 const enc = new TextEncoder();
 
@@ -34,8 +37,9 @@ export async function hashPassword(password) {
   return `pbkdf2$${ITERATIONS}$${b64url(salt)}$${b64url(await derive(password, salt, ITERATIONS))}`;
 }
 
-// { ok, stale }: `stale` avisa de que el hash se hizo con menos iteraciones de
-// las actuales y conviene guardarlo de nuevo ahora que tenemos la contraseña.
+// { ok, stale }: `stale` avisa de que el hash se hizo con otras iteraciones y
+// conviene guardarlo de nuevo ahora que tenemos la contraseña. También cuando
+// eran más: verificar un hash de 30.000 en cada login se pasaría de CPU.
 export async function verifyPassword(password, stored) {
   const [scheme, it, salt, hash] = String(stored).split('$');
   const iterations = Number(it);
@@ -47,5 +51,5 @@ export async function verifyPassword(password, stored) {
   // Comparación en tiempo constante: recorre siempre todos los bytes.
   let diff = want.length ^ got.length;
   for (let i = 0; i < got.length; i++) diff |= got[i] ^ (want[i] ?? 0);
-  return { ok: diff === 0, stale: iterations < ITERATIONS };
+  return { ok: diff === 0, stale: iterations !== ITERATIONS };
 }
