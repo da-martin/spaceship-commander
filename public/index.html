@@ -139,6 +139,12 @@ tailwind.config = {
     #commander-view.tab-tasks [data-cmd="habits"]{display:none}
   }
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
+  /* iOS da a los date un ancho mínimo propio que se salta el w-full, y vacíos
+     salen más altos que el resto de campos y sin texto. Solo en iOS. */
+  @supports (-webkit-touch-callout:none){
+    input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;min-height:2.375rem;display:block}
+    input[type="date"]::-webkit-date-and-time-value{text-align:left;min-height:1.25rem}
+  }
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
 </head>
@@ -219,7 +225,7 @@ tailwind.config = {
   </section>
 
   <!-- 2+3) Dos columnas en ancho suficiente: gestión de hábitos y tareas -->
-  <div class="grid gap-5 lg:grid-cols-2 items-start">
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
   <!-- 2) Gestión de hábitos: entra plegada para no competir con Hoy -->
   <section id="habitsBox" data-cmd="habits" class="panel p-4 sm:p-5">
     <button id="habitsToggle" type="button" aria-expanded="false" aria-controls="habitsBody" class="w-full flex items-center gap-2 text-left px-1 py-1.5 rounded-md hover:bg-slate-800/50">
@@ -485,8 +491,8 @@ tailwind.config = {
 </div>
 
 <!-- MODAL -->
-<div id="modal"class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/70 backdrop-blur-sm">
-  <div class="panel w-full max-w-md p-5">
+<div id="modal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div class="panel w-full max-w-md p-5 mx-auto my-8">
     <div class="sys-label" id="modalKicker">Nuevo</div>
     <h3 id="modalTitle" class="text-lg font-bold mt-1 mb-3">—</h3>
     <div class="space-y-3">
@@ -504,9 +510,10 @@ tailwind.config = {
           <button id="btnModalNewProj" type="button" class="ml-auto px-2 py-1 rounded-md bg-slate-800 border border-slate-700 text-[11px] text-slate-300 hover:text-white hover:border-cyan-600">+ Nuevo proyecto</button>
         </div>
         <select id="fProject" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600"></select>
-        <div id="fProjNew" class="hidden mt-2 flex gap-2">
-          <input id="fProjName" type="text" maxlength="80" placeholder="Nombre del proyecto" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
-          <input id="fProjDue" type="date" aria-label="Fecha límite del nuevo proyecto" class="w-36 shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:border-cyan-600">
+        <!-- En el móvil el nombre va en su propia línea: los tres en fila no caben. -->
+        <div id="fProjNew" class="hidden mt-2 flex flex-wrap sm:flex-nowrap gap-2">
+          <input id="fProjName" type="text" maxlength="80" placeholder="Nombre del proyecto" class="w-full sm:w-auto sm:flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
+          <input id="fProjDue" type="date" aria-label="Fecha límite del nuevo proyecto" class="flex-1 min-w-0 sm:flex-none sm:w-36 bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm outline-none focus:border-cyan-600">
           <button id="fProjAdd" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm">Crear</button>
         </div>
         <p id="fProjHint" class="mono text-[11px] mt-1.5 text-slate-400"></p>
