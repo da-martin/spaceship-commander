@@ -109,8 +109,6 @@ tailwind.config = {
   .row-gear:hover{color:#67e8f9}
   .row-hit:focus,.row-body:focus,.row-gear:focus{outline:none}
   .row:has(.row-hit:focus-visible),.row:has(.row-body:focus-visible),.row:has(.row-gear:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
-  .habits-chev{transition:transform .15s}
-  #habitsBox.open .habits-chev{transform:rotate(90deg)}
   .done-chev{transition:transform .15s}
   .done-strip[aria-expanded="true"] .done-chev{transform:rotate(90deg)}
   .grp-chev{transition:transform .15s}
@@ -133,10 +131,11 @@ tailwind.config = {
   .ctab{min-height:44px;border-radius:10px;border:1px solid #334155;color:#cbd5e1}
   .ctab[aria-selected="true"]{background:#0e7490;border-color:#22d3ee;color:#fff;font-weight:600}
   /* Commander en una columna infinita obligaba a bajar 1.600 px para ver una
-     tarea. En el móvil cada mitad es una pestaña; en sm+ vuelven las dos. */
+     tarea. En el móvil cada bloque es una pestaña; en sm+ vuelven los tres. */
   @media (max-width:639px){
-    #commander-view.tab-habits [data-cmd="tasks"],
-    #commander-view.tab-tasks [data-cmd="habits"]{display:none}
+    #commander-view:not(.tab-today) [data-cmd="today"],
+    #commander-view:not(.tab-habits) [data-cmd="habits"],
+    #commander-view:not(.tab-tasks) [data-cmd="tasks"]{display:none}
   }
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   /* iOS da a los date un ancho mínimo propio que se salta el w-full, y vacíos
@@ -194,20 +193,22 @@ tailwind.config = {
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
 
-  <!-- En el móvil, cada mitad de Commander es una pestaña. En sm+ se esconde y
-       vuelven las dos columnas de siempre. -->
+  <!-- En el móvil, cada bloque de Commander es una pestaña. En sm+ se esconde y
+       vuelven los tres a la vista. -->
   <div id="cmdTabs" role="tablist" aria-label="Sección" class="sm:hidden flex gap-2">
-    <button type="button" role="tab" data-ctab="habits" aria-selected="true" class="ctab flex-1 text-sm">Hoy <span id="ctabHabits" class="mono text-[11px] opacity-80"></span></button>
+    <button type="button" role="tab" data-ctab="today" aria-selected="true" class="ctab flex-1 text-sm">Hoy <span id="ctabToday" class="mono text-[11px] opacity-80"></span></button>
+    <button type="button" role="tab" data-ctab="habits" aria-selected="false" class="ctab flex-1 text-sm">Hábitos <span id="ctabHabits" class="mono text-[11px] opacity-80"></span></button>
     <button type="button" role="tab" data-ctab="tasks" aria-selected="false" class="ctab flex-1 text-sm">Tareas <span id="ctabTasks" class="mono text-[11px] opacity-80"></span></button>
   </div>
 
-  <!-- 1) HOY: la franja de arriba, a ancho completo. Es lo único a este ancho y
-       lleva el marco con esquinas: de ahí saca su peso. La fila de dentro es la
-       misma de todas partes, solo que en talla grande. -->
-  <section data-cmd="habits" class="panel corner p-4 sm:p-5">
+  <!-- 1) ORDEN DEL DÍA: la franja de arriba, a ancho completo. Junta lo que toca
+       hoy —hábitos con frecuencia y tareas con fecha— y lleva el marco con
+       esquinas: de ahí saca su peso. La fila de dentro es la misma de todas
+       partes, solo que en talla grande. -->
+  <section data-cmd="today" class="panel corner p-4 sm:p-5">
     <div id="todayHead" class="flex flex-wrap items-end gap-x-6 gap-y-4 mb-4">
       <div class="min-w-0">
-        <div class="sys-label">Rutinas de a bordo</div>
+        <div class="sys-label">Orden del día</div>
         <h2 class="text-2xl sm:text-3xl font-bold mt-1.5 leading-none">Hoy</h2>
         <p id="todayLabel" class="text-slate-400 text-sm mt-1.5"></p>
       </div>
@@ -219,22 +220,22 @@ tailwind.config = {
         </div>
         <div class="h-2 bg-slate-800 rounded-full mt-2.5 overflow-hidden"><div id="todayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div></div>
       </div>
-      <button id="btnNewHabit" class="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold shrink-0">+ Nuevo hábito</button>
     </div>
     <div id="todayList" class="space-y-2"></div>
   </section>
 
-  <!-- 2+3) Dos columnas en ancho suficiente: gestión de hábitos y tareas -->
+  <!-- 2+3) Dos columnas en ancho suficiente: hábitos y tareas -->
   <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
-  <!-- 2) Gestión de hábitos: entra plegada para no competir con Hoy -->
+  <!-- 2) Hábitos: todos, libres incluidos. Los libres solo viven aquí, así que
+       va siempre abierto. -->
   <section id="habitsBox" data-cmd="habits" class="panel p-4 sm:p-5">
-    <button id="habitsToggle" type="button" aria-expanded="false" aria-controls="habitsBody" class="w-full flex items-center gap-2 text-left px-1 py-1.5 rounded-md hover:bg-slate-800/50">
-      <span class="habits-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
-      <span class="sys-label">Todos mis hábitos</span>
-      <span id="habitCount" class="mono text-[11px] px-1.5 py-px rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
-      <span id="habitsSummary" class="mono text-[11px] truncate text-slate-400"></span>
-    </button>
-    <div id="habitsBody" class="hidden mt-3">
+    <div class="sys-label">Rutinas de a bordo</div>
+    <div class="flex items-center gap-2 mt-1 mb-3">
+      <h2 class="text-lg font-bold">Hábitos</h2>
+      <span id="habitCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
+      <button id="btnNewHabit" class="ml-auto btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">+ Hábito</button>
+    </div>
+    <div id="habitsBody">
       <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
         <button data-hfilter="all" class="hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todos</button>
         <button data-hfilter="daily" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Diarios</button>
@@ -1340,16 +1341,14 @@ function welcomeEl(){
   });
   return el;
 }
-// Hoy usa la fila grande hasta este número de hábitos; a partir de ahí cede la
+// Hoy usa la fila grande hasta este número de filas; a partir de ahí cede la
 // talla. Cinco filas grandes son 395 px: menos de media pantalla de portátil.
 const HOY_LG_MAX = 5;
-// Un hábito libre nunca está «completado»: siempre puedes registrarlo otra vez,
-// así que se queda arriba con los pendientes por mucho que lo hayas tocado hoy.
-const hechoHoy = (h) => h.type!=='free' && isDoneToday(h);
 let todayDoneOpen = false;
 // Lo completado, recogido al final de Hoy en una línea que se despliega. La
 // franja pasa a decir «te quedan tres» en vez de «tienes ocho», que es lo que
 // uno quiere saber a media tarde, y de paso recoge lo ganado en el día.
+// Llegan hábitos y tareas mezclados; solo los hábitos guardan lo ganado por día.
 function doneStripEl(hechos,size,t){
   const n=hechos.length, mc=hechos.reduce((a,h)=>a+(+h.g?.[t]?.mc||0),0);
   const wrap=document.createElement('div');
@@ -1364,7 +1363,7 @@ function doneStripEl(hechos,size,t){
     ${mc?`<span class="mono text-[11px] text-slate-400 ml-auto">+${mc} ¢ hoy</span>`:''}`;
   b.onclick=()=>{ todayDoneOpen=!todayDoneOpen; render(); };
   wrap.appendChild(b);
-  if(todayDoneOpen) hechos.forEach(h=>wrap.appendChild(habitRowEl(h,size,t)));
+  if(todayDoneOpen) hechos.forEach(x=>wrap.appendChild(x.type?habitRowEl(x,size,t):taskRowEl(x,t,size)));
   return wrap;
 }
 /* ---------- tareas: los grupos de «cuándo» ----------
@@ -1423,7 +1422,7 @@ function paintTaskAreas(){
   b.className = 'ml-auto px-2.5 py-1 rounded-md '+(n?'bg-cyan-800 text-white border border-cyan-700':'bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600');
 }
 // Una tarea. El atraso es ámbar, no rojo: el rojo queda para lo destructivo.
-function taskRowEl(x,t){
+function taskRowEl(x,t,size){
   const over=x.dueDate&&x.dueDate<t&&!x.done, eta=x.dueDate?etaDays(x.dueDate):null;
   const title=escapeHtml(x.title);
   const date=x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha';
@@ -1433,7 +1432,7 @@ function taskRowEl(x,t){
     projBadge(x.projectId), areaBadges(x.areas)
   ].filter(Boolean).join('');
   return rowEl({
-    kind:'task', title, pri:x.priority, done:x.done, over, on:x.done,
+    kind:'task', size, title, pri:x.priority, done:x.done, over, on:x.done,
     markText:x.done?'✓':'',
     markLabel:(x.done?'Desmarcar ':'Completar ')+title,
     meta
@@ -1446,12 +1445,8 @@ function taskRowEl(x,t){
 }
 
 let tFilter='all', hFilter='all';
-// En el móvil Commander se parte en dos pestañas; en sm+ esto no se mira.
-let cmdTab='habits';
-// La gestión de hábitos entra plegada: Hoy es lo que manda en esta vista.
-const HABITS_OPEN_KEY='spaceship-commander:habitsOpen';
-let habitsOpen=(()=>{ try{ return localStorage.getItem(HABITS_OPEN_KEY)==='1'; }catch{ return false; } })();
-function setHabitsOpen(v){ habitsOpen=v; try{ localStorage.setItem(HABITS_OPEN_KEY,v?'1':'0'); }catch{} }
+// En el móvil Commander se parte en tres pestañas; en sm+ esto no se mira.
+let cmdTab='today';
 // Proyectos: filtro activo (null | 'none' | id), fila en edición ('new' | id) y borrado pendiente.
 const PROJ_OPEN_KEY='spaceship-commander:projOpen';
 let pFilter=null, projEdit=null, projDel=null;
@@ -1611,35 +1606,45 @@ function render(){
   document.getElementById('hdrRank').textContent = RANKS[rankIdx()][0].toUpperCase();
   document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
-  // --- 1) La franja Hoy: los hábitos que tocan, en fila grande ---
-  const todays = state.habits.filter(isScheduledToday).sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
-  const done = todays.filter(isDoneToday).length;
+  // --- 1) Orden del día: hábitos que tocan y tareas con fecha de hoy ---
+  // Los libres no tienen día: viven en Hábitos. Las atrasadas se enseñan
+  // arriba, pero no cuentan en el progreso: al cerrarlas dejan de ser de hoy y
+  // el total encogería a media mañana.
+  const porPri = (a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
+  const todays = state.habits.filter(h=>h.type!=='free'&&isScheduledToday(h)).sort(porPri);
+  const dueTasks = state.tasks.filter(x=>x.dueDate===t).sort(porPri);
+  const overTasks = state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<t).sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
+  const total = todays.length+dueTasks.length;
+  const done = todays.filter(isDoneToday).length+dueTasks.filter(x=>x.done).length;
   document.getElementById('todayDone').textContent = done;
-  document.getElementById('todayTotal').textContent = '/ '+todays.length;
-  document.getElementById('todayProgressBar').style.width = todays.length? (done/todays.length*100)+'%' : '0%';
+  document.getElementById('todayTotal').textContent = '/ '+total;
+  document.getElementById('todayProgressBar').style.width = total? (done/total*100)+'%' : '0%';
   paintAreaFilters();
   // En frío, Commander es solo la bienvenida: ni filtros, ni cajas vacías, ni
   // pestañas que repartan la nada entre dos mitades.
   const fresh = !state.habits.length && !state.tasks.length;
+  if(fresh) cmdTab='today';   // la bienvenida vive en Hoy; sin pestañas no hay forma de volver
   document.getElementById('todayHead').classList.toggle('hidden',fresh);
   document.getElementById('cmdTabs').classList.toggle('hidden',fresh);
   document.querySelector('[data-cmd="tasks"]').classList.toggle('hidden',fresh);
-  document.getElementById('habitsBox').classList.toggle('hidden',!state.habits.length);
+  document.getElementById('habitsBox').classList.toggle('hidden',fresh);
   // Los filtros de tareas aparecen cuando hay algo que filtrar.
   const hayTareas = state.tasks.length>0;
   document.getElementById('taskFilterRow').classList.toggle('hidden',!hayTareas);
   document.getElementById('projBox').classList.toggle('hidden',!hayTareas&&!state.projects.length);
   const box=document.getElementById('todayList'); box.innerHTML='';
   if(fresh){ box.appendChild(welcomeEl()); }
-  else if(!todays.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Sin hábitos para hoy. Crea un diario, un semanal para hoy, o un libre.</div>';
+  else if(!total && !overTasks.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada en el orden del día. Los hábitos libres están en Hábitos.</div>';
   // La talla mira el total del día, no los pendientes: si mirara los
   // pendientes, la lista encogería sola al marcar el sexto y daría un salto a
   // media mañana. El resto de la jerarquía —ser lo primero, el ancho completo,
   // el marco de esquinas y el número grande— no depende del número de filas.
-  const hSize = todays.length>HOY_LG_MAX ? null : 'lg';
-  const pend = todays.filter(h=>!hechoHoy(h)), hechos = todays.filter(hechoHoy);
-  pend.forEach(h=>box.appendChild(habitRowEl(h,hSize,t)));
-  if(todays.length && !pend.length) box.insertAdjacentHTML('beforeend','<p class="mono text-[11px] text-emerald-300 text-center py-2">✓ Jornada completa</p>');
+  const hSize = total+overTasks.length>HOY_LG_MAX ? null : 'lg';
+  overTasks.forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
+  todays.filter(h=>!isDoneToday(h)).forEach(h=>box.appendChild(habitRowEl(h,hSize,t)));
+  dueTasks.filter(x=>!x.done).forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
+  const hechos = [...todays.filter(isDoneToday), ...dueTasks.filter(x=>x.done)];
+  if(total && hechos.length===total && !overTasks.length) box.insertAdjacentHTML('beforeend','<p class="mono text-[11px] text-emerald-300 text-center py-2">✓ Jornada completa</p>');
   if(hechos.length) box.appendChild(doneStripEl(hechos,hSize,t));
 
   // --- 2) Tareas ---
@@ -1656,10 +1661,10 @@ function render(){
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
   const cv=document.getElementById('commander-view');
-  cv.classList.toggle('tab-habits',cmdTab==='habits');
-  cv.classList.toggle('tab-tasks',cmdTab==='tasks');
+  for(const k of ['today','habits','tasks']) cv.classList.toggle('tab-'+k,cmdTab===k);
   document.querySelectorAll('#cmdTabs [data-ctab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.ctab===cmdTab)));
-  document.getElementById('ctabHabits').textContent = todays.length?`${done}/${todays.length}`:'';
+  document.getElementById('ctabToday').textContent = total?`${done}/${total}`:'';
+  document.getElementById('ctabHabits').textContent = state.habits.length||'';
   document.getElementById('ctabTasks').textContent = open||'';
   paintTaskAreas();
   const tl=document.getElementById('taskList'); tl.innerHTML='';
@@ -1669,12 +1674,8 @@ function render(){
   else if(tFilter==='all' && !pFilter && tasks.length>TGROUP_MAX) renderTaskGroups(tl,tasks,t);
   else tasks.forEach(x=>tl.appendChild(taskRowEl(x,t)));
 
-  // --- 3) Gestión de hábitos: plegada, y ya se puede marcar desde aquí ---
-  document.getElementById('habitsBox').classList.toggle('open',habitsOpen);
-  document.getElementById('habitsBody').classList.toggle('hidden',!habitsOpen);
-  document.getElementById('habitsToggle').setAttribute('aria-expanded',habitsOpen);
+  // --- 3) Hábitos: todos, libres incluidos, y se marcan desde aquí ---
   document.getElementById('habitCount').textContent=state.habits.length;
-  document.getElementById('habitsSummary').textContent=habitsOpen?'':(state.habits.length-todays.length>0?`${state.habits.length-todays.length} en stand-by hoy`:'');
   let hs=[...state.habits];
   if(hFilter!=='all') hs=hs.filter(h=>h.type===hFilter);
   if(aFilterHabits.size>0) hs=hs.filter(h=>matchAreas(h,aFilterHabits));
@@ -2158,7 +2159,6 @@ document.querySelectorAll('.tfilter').forEach(b=>b.onclick=()=>{tFilter=b.datase
 document.querySelectorAll('.hfilter').forEach(b=>b.onclick=()=>{hFilter=b.dataset.hfilter;document.querySelectorAll('.hfilter').forEach(x=>x.className='hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300');b.className='hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white';render();});
 document.querySelectorAll('.tafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.tarea; if(a==='__all') aFilterTasks.clear(); else aFilterTasks.has(a)?aFilterTasks.delete(a):aFilterTasks.add(a); render();});
 document.querySelectorAll('.hafilter').forEach(b=>b.onclick=()=>{const a=b.dataset.harea; if(a==='__all') aFilterHabits.clear(); else aFilterHabits.has(a)?aFilterHabits.delete(a):aFilterHabits.add(a); render();});
-document.getElementById('habitsToggle').onclick=()=>{ setHabitsOpen(!habitsOpen); render(); };
 document.getElementById('btnTAreas').onclick=()=>{ tAreaOpen=!tAreaOpen; render(); };
 
 /* ---------- guardar / cargar partida ---------- */
