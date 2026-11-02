@@ -668,8 +668,15 @@ tailwind.config = {
     <div class="sys-label mt-6 mb-2">Calendarios</div>
     <div class="flex items-center gap-3">
       <div class="flex-1 min-w-0">
+        <div id="lblProjects" class="text-sm font-medium">Mostrar proyectos</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Los que vencen en las próximas 13 semanas y los atrasados</div>
+      </div>
+      <button id="setProjects" type="button" role="switch" aria-checked="true" aria-labelledby="lblProjects" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+    <div class="flex items-center gap-3 mt-2">
+      <div class="flex-1 min-w-0">
         <div id="lblEvents" class="text-sm font-medium">Mostrar eventos</div>
-        <div class="mono text-[11px] text-slate-400 mt-0.5">En las próximas 13 semanas, junto a los proyectos</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Los de tus calendarios iCal conectados</div>
       </div>
       <button id="setEvents" type="button" role="switch" aria-checked="true" aria-labelledby="lblEvents" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
     </div>
@@ -866,7 +873,7 @@ function normFocus(f){
 }
 // Ajustes: van en la partida para viajar con la cuenta y con los archivos.
 // Solo entran claves conocidas y del tipo de su valor por defecto.
-function normSettings(x){ const d={showStreaks:true,showEvents:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
+function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // Proyectos: lista propia con fecha límite opcional. Los hábitos no llevan
 // proyecto: un proyecto se termina y un hábito no.
@@ -1788,7 +1795,8 @@ function parseIcs(text,from,to){
   return out.sort((a,b)=>(a.date+(a.time||'')<b.date+(b.time||''))?-1:1).slice(0,ICS_MAX_EVENTS);
 }
 function weeksData(){
-  const t=todayStr(), mon=mondayOf(t), dated=state.projects.filter(p=>p.due).sort((a,b)=>a.due<b.due?-1:1);
+  // Con los proyectos ocultos en Ajustes, el panel queda solo como calendario.
+  const t=todayStr(), mon=mondayOf(t), dated=state.settings.showProjects?state.projects.filter(p=>p.due).sort((a,b)=>a.due<b.due?-1:1):[];
   // Los eventos que ya pasaron no son atraso: simplemente no se enseñan.
   const evs=state.settings.showEvents
     ? ical.calendars.flatMap(c=>c.events.map(e=>({...e,cal:c.name}))).filter(e=>e.date>=t)
@@ -1850,7 +1858,8 @@ function renderWeeks(){
   const badge=document.getElementById('weeksBadge');
   badge.textContent=now; badge.classList.toggle('hidden',!now);
   document.getElementById('btnWeeks').setAttribute('aria-label',`Próximas 13 semanas${now?` · ${now} ${now===1?'vence':'vencen'} esta semana`:''}`);
-  document.getElementById('weeksRange').textContent=`${fmtDate(d.weeks[0].start)} – ${fmtDate(addDays(d.weeks[12].start,6))} · ${total} ${total===1?'proyecto':'proyectos'}${nev?` · ${nev} ${nev===1?'evento':'eventos'}`:''}`;
+  const showP=state.settings.showProjects, showE=state.settings.showEvents;
+  document.getElementById('weeksRange').textContent=`${fmtDate(d.weeks[0].start)} – ${fmtDate(addDays(d.weeks[12].start,6))}${showP?` · ${total} ${total===1?'proyecto':'proyectos'}`:''}${nev?` · ${nev} ${nev===1?'evento':'eventos'}`:''}`;
 
   let h='';
   if(d.overdue.length){
@@ -1873,7 +1882,9 @@ function renderWeeks(){
     </section>`;
   }
   if(d.later) h+=`<p class="mono text-[11px] text-slate-400 pt-3 border-t border-[#1f2a3d]">Más adelante: ${d.later} ${d.later===1?'proyecto':'proyectos'}</p>`;
-  if(!state.projects.some(p=>p.due)&&!nev) h+=`<p class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">Ningún proyecto tiene fecha límite. Pónsela en Commander › Tareas › Proyectos y aparecerá en su semana.</p>`;
+  const note=(t)=>`<p class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">${t}</p>`;
+  if(!showP&&!showE) h+=note('Proyectos y eventos ocultos. Actívalos en Ajustes › Calendarios.');
+  else if(showP&&!state.projects.some(p=>p.due)&&!nev) h+=note('Ningún proyecto tiene fecha límite. Pónsela en Commander › Tareas › Proyectos y aparecerá en su semana.');
   const body=document.getElementById('weeksBody');
   body.innerHTML=h;
   body.querySelectorAll('[data-wp]').forEach(b=>b.onclick=()=>weeksPick(b.dataset.wp));
@@ -2607,6 +2618,7 @@ document.getElementById('miSave').onclick=openSaveModal;
 // Ajustes: cada interruptor escribe en state.settings y se ve al momento
 function paintSettings(){
   document.getElementById('setStreaks').setAttribute('aria-checked',String(state.settings.showStreaks));
+  document.getElementById('setProjects').setAttribute('aria-checked',String(state.settings.showProjects));
   document.getElementById('setEvents').setAttribute('aria-checked',String(state.settings.showEvents));
   paintCalendars();
 }
@@ -2616,6 +2628,7 @@ document.getElementById('miSettings').onclick=openSettings;
 document.getElementById('settingsClose').onclick=closeSettings;
 document.getElementById('settingsModal').addEventListener('click',e=>{ if(e.target.id==='settingsModal') closeSettings(); });
 document.getElementById('setStreaks').onclick=()=>{ state.settings.showStreaks=!state.settings.showStreaks; save(); render(); paintSettings(); };
+document.getElementById('setProjects').onclick=()=>{ state.settings.showProjects=!state.settings.showProjects; save(); render(); paintSettings(); };
 document.getElementById('setEvents').onclick=()=>{ state.settings.showEvents=!state.settings.showEvents; save(); render(); paintSettings(); };
 document.getElementById('saveClose').onclick=closeSaveModal;
 document.getElementById('saveModal').addEventListener('click',e=>{ if(e.target.id==='saveModal') closeSaveModal(); });
