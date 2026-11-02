@@ -23,7 +23,7 @@ const MIN = 60_000;
 const CAL_MAX = 10;                  // calendarios por cuenta
 const ICS_MAX_BYTES = 2_000_000;
 const ICS_TIMEOUT_MS = 8_000;
-const ICS_HEAD_BYTES = 64_000;       // lo que se lee al dar de alta para validar y sacar el nombre
+const ICS_HEAD_BYTES = 16_000;       // tope de lo que se lee al dar de alta para validar y sacar el nombre
 
 // Intentos por ventana. Los registros cuentan aunque el nombre esté cogido: así
 // tampoco se puede usar el registro para sondear qué nombres existen.
@@ -348,7 +348,7 @@ async function putState(request, env, user) {
 
 // El Worker solo valida, guarda la URL y reenvía el .ics sin tocarlo: parsear
 // aquí hasta 10 calendarios se pasaría de los 10 ms de CPU del plan gratis.
-// Contar bytes al pasar apenas gasta CPU; el cliente parsea y convierte a su zona.
+// El cuerpo pasa sin que lo toque JavaScript; el cliente parsea y convierte a su zona.
 
 async function calendars(request, env, user, path) {
   const m = path.match(/^\/api\/calendars(?:\/([\w-]+)(\/ics)?)?$/);
@@ -388,32 +388,21 @@ async function fetchIcs(url) {
   const r = await fetch(url, {
     redirect: 'follow',
     signal: AbortSignal.timeout(ICS_TIMEOUT_MS),
-    headers: { accept: 'text/calendar, text/plain;q=0.5, */*;q=0.1' },
+    // Sin comprimir: si llega en gzip, el Worker lo descomprime y esa CPU
+    // cuenta. El tamaño extra solo es tiempo de espera, que no tiene límite.
+    headers: { accept: 'text/calendar, text/plain;q=0.5, */*;q=0.1', 'accept-encoding': 'identity' },
   });
   if (!r.ok || !r.body) throw new Error('upstream');
   if (Number(r.headers.get('content-length')) > ICS_MAX_BYTES) throw new Error('too_large');
   return r;
 }
 
-// Corta a ICS_MAX_BYTES aunque el servidor no mande Content-Length.
-const capped = (body) => {
-  let n = 0;
-  return body.pipeThrough(
-    new TransformStream({
-      transform(chunk, ctl) {
-        n += chunk.byteLength;
-        if (n > ICS_MAX_BYTES) ctl.error(new Error('too_large'));
-        else ctl.enqueue(chunk);
-      },
-    })
-  );
-};
-
-// Los primeros KB bastan para saber si es un calendario y cómo se llama.
+// Lo que va antes del primer evento basta para saber si es un calendario y
+// cómo se llama: no hace falta seguir leyendo.
 async function readHead(body) {
   const reader = body.getReader(), dec = new TextDecoder();
   let text = '';
-  while (text.length < ICS_HEAD_BYTES) {
+  while (text.length < ICS_HEAD_BYTES && !text.includes('BEGIN:VEVENT')) {
     const { done, value } = await reader.read();
     if (done) break;
     text += dec.decode(value, { stream: true });
@@ -470,7 +459,11 @@ async function proxyCalendar(env, user, id) {
   } catch (err) {
     return json({ error: err?.message === 'too_large' ? 'too_large' : 'upstream' }, 502);
   }
-  return new Response(capped(r.body), {
+  // Tal cual, sin contar bytes: contarlos en JavaScript costaba CPU en cada
+  // trozo. Google no manda Content-Length, así que el tope de 2 MB solo vale
+  // cuando el servidor lo anuncia; el resto lo acota el corte a los 8 s. Solo
+  // descarga quien conectó el calendario, con su propio límite por hora.
+  return new Response(r.body, {
     headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' },
   });
 }
