@@ -158,14 +158,25 @@ tailwind.config = {
   .warp.far{animation-duration:16s}
   @keyframes warp{from{transform:translateY(0)}to{transform:translateY(300px)}}
   @media (prefers-reduced-motion:reduce){.warp{animation:none}}
-  /* Próximas 13 semanas. En lg+ es un panel a la derecha y el body le deja
-     sitio con padding, así cabecera y vistas se encogen sin tocar su max-w.
+  /* Próximas 13 semanas. En lg+ es un panel a la derecha que entra
+     deslizándose desde el borde, y solo #views le deja sitio con padding: las
+     vistas se recentran sin tocar su max-w y la cabecera no se mueve.
      Por debajo es una pantalla propia que deja ver la barra inferior. Los
      altos de cabecera y barra los mide el JS: cambian con el modo y el ancho. */
   #weeksPanel{display:none;flex-direction:column;background:#0d1526}
   @media (min-width:1024px){
-    body.weeks-open{padding-right:384px}
-    body.weeks-open #weeksPanel{display:flex;position:fixed;z-index:20;top:var(--hdr-h,64px);right:0;bottom:0;width:384px;border-left:1px solid #1f2a3d}
+    body.weeks-open #views{padding-right:384px}
+    /* Siempre colocado, pero fuera de pantalla y sin foco mientras está cerrado */
+    #weeksPanel{display:flex;position:fixed;z-index:20;top:var(--hdr-h,64px);right:0;bottom:0;width:384px;border-left:1px solid #1f2a3d;transform:translateX(100%);visibility:hidden}
+    body.weeks-open #weeksPanel{transform:none;visibility:visible}
+    /* Solo tras el arranque (weeks-anim): al recargar con el panel abierto no se anima.
+       Al cerrar, la visibilidad espera a que termine de salir. */
+    body.weeks-anim #views{transition:padding-right .25s ease}
+    body.weeks-anim #weeksPanel{transition:transform .25s ease,visibility 0s linear .25s}
+    body.weeks-anim.weeks-open #weeksPanel{transition:transform .25s ease,visibility 0s}
+  }
+  @media (min-width:1024px) and (prefers-reduced-motion:reduce){
+    body.weeks-anim #views,body.weeks-anim #weeksPanel,body.weeks-anim.weeks-open #weeksPanel{transition:none}
   }
   @media (max-width:1023px){
     body.weeks-screen{overflow:hidden}
@@ -224,6 +235,10 @@ tailwind.config = {
     </div>
   </div>
 </header>
+
+<!-- Las tres vistas juntas: con el panel de semanas abierto, solo esto se
+     estrecha y la cabecera se queda donde está. -->
+<div id="views">
 
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
@@ -461,6 +476,8 @@ tailwind.config = {
     <div class="flex gap-2.5 items-start"><span class="f-tile f-acc" data-ficon="acc" aria-hidden="true"></span><div class="text-xs leading-snug text-slate-400"><b class="block text-slate-200 font-semibold">Acción</b>Discontinuo. Al salir puede ser tarea.</div></div>
   </section>
 </main>
+
+</div><!-- /views -->
 
 <!-- PROTOCOLO FORSTER: opciones de una línea -->
 <div id="focusModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
@@ -3411,6 +3428,8 @@ addEventListener('storage',e=>{
 /* ---------- boot ---------- */
 dailyTick();
 { const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'?m:'commander'); }
+// El panel de semanas se anima a partir de aquí, no al pintar el estado guardado.
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('weeks-anim')));
 addEventListener('focus',()=>{
   dailyTick(); render();
   // Al volver: reintenta lo pendiente, o comprueba si otro dispositivo escribió.
