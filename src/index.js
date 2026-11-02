@@ -20,6 +20,10 @@ const LEGACY_NAME_MAX = 60;          // los nombres que daba invite.mjs
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 200;
 const MIN = 60_000;
+const CAL_MAX = 10;                  // calendarios por cuenta
+const ICS_MAX_BYTES = 2_000_000;
+const ICS_TIMEOUT_MS = 8_000;
+const ICS_HEAD_BYTES = 64_000;       // lo que se lee al dar de alta para validar y sacar el nombre
 
 // Intentos por ventana. Los registros cuentan aunque el nombre esté cogido: así
 // tampoco se puede usar el registro para sondear qué nombres existen.
@@ -27,6 +31,9 @@ const LIMITS = {
   loginUser: { max: 10, window: 15 * MIN },
   loginIp: { max: 30, window: 15 * MIN },
   signupIp: { max: 10, window: 60 * MIN },
+  // Que nadie use el Worker como descargador de URLs ajenas.
+  calAdd: { max: 20, window: 60 * MIN },
+  calFetch: { max: 120, window: 60 * MIN },
 };
 
 export default {
@@ -150,6 +157,12 @@ async function handleApi(request, env, url) {
     if (request.method === 'GET') return getState(env, user);
     if (request.method === 'PUT') return putState(request, env, user);
     return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  if (path === '/api/calendars' || path.startsWith('/api/calendars/')) {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    return calendars(request, env, user, path);
   }
 
   return json({ error: 'not_found' }, 404);
@@ -329,4 +342,135 @@ async function putState(request, env, user) {
     { error: 'conflict', rev: cur.rev, updatedAt: cur.updatedAt, data: JSON.parse(cur.data) },
     409
   );
+}
+
+/* ---------- calendarios iCal ---------- */
+
+// El Worker solo valida, guarda la URL y reenvía el .ics sin tocarlo: parsear
+// aquí hasta 10 calendarios se pasaría de los 10 ms de CPU del plan gratis.
+// Contar bytes al pasar apenas gasta CPU; el cliente parsea y convierte a su zona.
+
+async function calendars(request, env, user, path) {
+  const m = path.match(/^\/api\/calendars(?:\/([\w-]+)(\/ics)?)?$/);
+  if (!m) return json({ error: 'not_found' }, 404);
+  const [, id, ics] = m;
+
+  if (!id && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      'SELECT id, name FROM calendars WHERE user_id = ? ORDER BY created_at'
+    )
+      .bind(user.id)
+      .all();
+    return json({ calendars: results });
+  }
+  if (!id && request.method === 'POST') return addCalendar(request, env, user);
+  if (id && !ics && request.method === 'DELETE') {
+    const res = await env.DB.prepare('DELETE FROM calendars WHERE id = ? AND user_id = ?').bind(id, user.id).run();
+    return res.meta.changes ? json({ ok: true }) : json({ error: 'not_found' }, 404);
+  }
+  if (id && ics && request.method === 'GET') return proxyCalendar(env, user, id);
+  return json({ error: 'method_not_allowed' }, 405);
+}
+
+// webcal:// es https:// con otro nombre; http:// no se acepta.
+function calUrl(raw) {
+  const s = str(raw).trim().replace(/^webcals?:\/\//i, 'https://');
+  if (!s || s.length > 2000) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchIcs(url) {
+  const r = await fetch(url, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(ICS_TIMEOUT_MS),
+    headers: { accept: 'text/calendar, text/plain;q=0.5, */*;q=0.1' },
+  });
+  if (!r.ok || !r.body) throw new Error('upstream');
+  if (Number(r.headers.get('content-length')) > ICS_MAX_BYTES) throw new Error('too_large');
+  return r;
+}
+
+// Corta a ICS_MAX_BYTES aunque el servidor no mande Content-Length.
+const capped = (body) => {
+  let n = 0;
+  return body.pipeThrough(
+    new TransformStream({
+      transform(chunk, ctl) {
+        n += chunk.byteLength;
+        if (n > ICS_MAX_BYTES) ctl.error(new Error('too_large'));
+        else ctl.enqueue(chunk);
+      },
+    })
+  );
+};
+
+// Los primeros KB bastan para saber si es un calendario y cómo se llama.
+async function readHead(body) {
+  const reader = body.getReader(), dec = new TextDecoder();
+  let text = '';
+  while (text.length < ICS_HEAD_BYTES) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+  }
+  reader.cancel().catch(() => {});
+  return text;
+}
+
+const icsText = (v) => v.replace(/\\([\\,;nN])/g, (_, c) => (c === 'n' || c === 'N' ? ' ' : c)).trim();
+
+async function addCalendar(request, env, user) {
+  const body = await readBody(request);
+  const url = calUrl(body?.url);
+  if (!url) return json({ error: 'bad_url' }, 400);
+
+  const key = `cal:add:${user.id}`;
+  if (await throttled(env, [[key, LIMITS.calAdd]])) return tooMany();
+  await bump(env, key, LIMITS.calAdd).run();
+
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM calendars WHERE user_id = ?').bind(user.id).first();
+  if (n >= CAL_MAX) return json({ error: 'too_many' }, 409);
+  if (await env.DB.prepare('SELECT 1 FROM calendars WHERE user_id = ? AND url = ?').bind(user.id, url).first()) {
+    return json({ error: 'duplicate' }, 409);
+  }
+
+  let head;
+  try {
+    head = await readHead((await fetchIcs(url)).body);
+  } catch (err) {
+    return json({ error: err?.message === 'too_large' ? 'too_large' : 'upstream' }, 400);
+  }
+  if (!head.replace(/^﻿/, '').trimStart().startsWith('BEGIN:VCALENDAR')) return json({ error: 'not_ical' }, 400);
+
+  const calName = head.match(/^X-WR-CALNAME[^:\r\n]*:(.*)$/m);
+  const name = (calName && icsText(calName[1])) || new URL(url).hostname;
+  const cal = { id: crypto.randomUUID(), name: name.slice(0, 80) };
+  await env.DB.prepare('INSERT INTO calendars (id, user_id, name, url, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(cal.id, user.id, cal.name, url, Date.now())
+    .run();
+  return json({ calendar: cal }, 201);
+}
+
+async function proxyCalendar(env, user, id) {
+  const row = await env.DB.prepare('SELECT url FROM calendars WHERE id = ? AND user_id = ?').bind(id, user.id).first();
+  if (!row) return json({ error: 'not_found' }, 404);
+
+  const key = `cal:fetch:${user.id}`;
+  if (await throttled(env, [[key, LIMITS.calFetch]])) return tooMany();
+  await bump(env, key, LIMITS.calFetch).run();
+
+  let r;
+  try {
+    r = await fetchIcs(row.url);
+  } catch (err) {
+    return json({ error: err?.message === 'too_large' ? 'too_large' : 'upstream' }, 502);
+  }
+  return new Response(capped(r.body), {
+    headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' },
+  });
 }

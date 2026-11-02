@@ -28,6 +28,8 @@ npm run deploy
 ```
 
 No hace falta configurar nada más: **no hay secretos ni servicios externos**.
+La única salida a internet son los calendarios iCal que conecte cada usuario
+(ver [Calendarios iCal](#calendarios-ical)).
 
 Tras el primer despliegue, desactiva GitHub Pages (Settings → Pages) para que
 no quede sirviéndose una versión vieja en paralelo.
@@ -125,6 +127,41 @@ El servidor **solo almacena**: la economía se sigue calculando en el cliente.
 - `spaceship-commander:cloud` guarda `{user, rev}` en cada dispositivo. Sirve
   para distinguir «este dispositivo ya estaba al día» de «es la primera vez que
   entro aquí», y así solo preguntar cuando el conflicto es real.
+
+## Calendarios iCal
+
+Desde **Menú → Ajustes → Calendarios**, quien tenga cuenta puede conectar
+hasta 10 calendarios `.ics`. Sus eventos salen en «Próximas 13 semanas»,
+junto a los proyectos.
+
+Al desplegar esta versión hay que aplicar la migración `0004_calendars.sql`
+**antes** de `npm run deploy`:
+
+```bash
+npm run db:remote
+npm run deploy
+```
+
+- **Las URL se guardan en claro en D1**, en la tabla `calendars`, por cuenta y
+  nunca en la partida. Son un secreto de quien las pega: la «dirección secreta»
+  de Google da lectura del calendario entero. La API nunca las devuelve.
+- **El Worker ahora hace peticiones salientes** a esas URL: una al dar de alta
+  el calendario (para validarlo y sacar el nombre de `X-WR-CALNAME`) y otra cada
+  vez que un dispositivo refresca, como mucho una vez por hora. Corta a los 8 s
+  y a los 2 MB, y solo acepta `https:` (`webcal:` se reescribe).
+- **El Worker no parsea el `.ics`:** lo pasa tal cual y el cliente lo parsea y
+  lo convierte a su zona horaria. Parsear aquí hasta 10 calendarios se pasaría
+  de los 10 ms de CPU del plan gratis. Para comprobarlo, mira el `cpuTime` de
+  `/api/calendars/:id/ics` con `wrangler tail`.
+- Los eventos parseados se guardan en `spaceship-commander:ical`, en cada
+  dispositivo, y se borran al cerrar sesión.
+- Los eventos que se repiten (`RRULE`) se ignoran por ahora. Las zonas con
+  nombre de Windows (Outlook) se leen como hora local.
+
+| Qué               | Límite                      |
+| ----------------- | --------------------------- |
+| Altas             | 20 por cuenta cada hora     |
+| Descargas de .ics | 120 por cuenta cada hora    |
 
 ## Límites conocidos
 
