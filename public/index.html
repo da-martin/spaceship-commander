@@ -2424,16 +2424,19 @@ function renderFocus(){
   pl.className='mono text-[11px] font-bold tracking-[.14em] px-2 py-1 rounded border '+(prep?'border-amber-800 text-amber-300':'border-cyan-800 text-cyan-300');
   document.getElementById('focusPhaseHint').textContent=prep
     ?'Toca una línea para marcarla con un punto: es lo que planeas trabajar. Arrastra desde el asa para reordenar.'
-    :'Toca una línea para anotar progreso, completarla, editarla o eliminarla. Las marcadas con punto van primero en tu atención.';
+    :'Toca una línea para anotar progreso, completarla, editarla o eliminarla. Solo se muestran las marcadas con punto.';
   const workChips=chip(plural(se.progress,'progreso','progresos'),'border-cyan-800 text-cyan-300')+chip(plural(se.done,'completado','completados'),'border-emerald-800 text-emerald-300');
   document.getElementById('focusChips').innerHTML=prep
     ?chip('● '+plural(dots,'marcada','marcadas'),'border-amber-800 text-amber-300')+chip(plural(live.length,'línea','líneas')+' en la lista','border-slate-700 text-slate-300')
     :workChips;
   document.getElementById('focusCount').textContent=plural(live.length,'pendiente','pendientes')+' · '+plural(f.lines.length-live.length,'tachada','tachadas');
 
+  // Al trabajar solo se ve lo marcado (y lo ya tachado de la ronda, que conserva
+  // el punto). Si se entró sin marcar nada, no hay qué ocultar y se ve todo.
+  const focused=!prep&&f.lines.some(l=>l.dotted), shown=focused?f.lines.filter(l=>l.dotted):f.lines, hid=f.lines.length-shown.length;
   const ol=document.getElementById('focusList');
   ol.className='space-y-1.5'+(prep?' f-prep':'');
-  ol.innerHTML=f.lines.map(l=>{
+  ol.innerHTML=shown.map(l=>{
     const it=focusItem(l), struck=!!l.status, title=escapeHtml(focusTitle(l)), kl=FKIND[l.kind].label.toLowerCase();
     const cls='f-row'+(l.dotted&&!struck?' dot':'')+(struck?' struck':(!prep&&!l.dotted?' dim':''));
     const stamp=l.status==='done'?'<span class="mono text-[11px] font-bold tracking-wider px-1.5 py-0.5 rounded border border-emerald-600 text-emerald-300 shrink-0">COMPLETADO</span>'
@@ -2451,7 +2454,8 @@ function renderFocus(){
         ${stamp}
       </button>
     </li>`;
-  }).join('')||'<li class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada pendiente hoy. Añade una acción rápida abajo.</li>';
+  }).join('')+(hid?`<li class="mono text-[11px] text-slate-400 border border-dashed border-slate-700 rounded-lg px-3 py-2.5 text-center">${plural(hid,'línea sin punto oculta','líneas sin punto ocultas')} · se ven al volver a preparar</li>`:'')
+    ||'<li class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada pendiente hoy. Añade una acción rápida abajo.</li>';
 
   document.getElementById('focusCta').innerHTML=prep
     ?`<button type="button" data-phase="work" class="btn-primary w-full h-12 rounded-xl border border-cyan-400 text-[15px] font-semibold">Empezar a trabajar · ${plural(dots,'marcada','marcadas')} →</button>`
@@ -2672,7 +2676,8 @@ function finishFocusExit(keep){
 
   document.getElementById('focusAddForm').addEventListener('submit',e=>{
     e.preventDefault(); const inp=document.getElementById('focusAddInput'), t=inp.value.trim(); if(!t) return;
-    state.focus.lines.push(newLine('acc',uid(),{title:t})); inp.value=''; save(); render(); inp.focus();
+    // al trabajar, lo que se añade entra en la ronda: con punto, y por tanto visible
+    state.focus.lines.push(newLine('acc',uid(),{title:t,dotted:state.focus.phase==='work'})); inp.value=''; save(); render(); inp.focus();
   });
   document.getElementById('focusCta').addEventListener('click',e=>{ const b=e.target.closest('[data-phase]'); if(!b) return; if(b.dataset.phase==='work') requestWork(); else backToPrep(); });
   document.getElementById('btnFocusPrep').onclick=backToPrep;
