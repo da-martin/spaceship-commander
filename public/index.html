@@ -162,12 +162,14 @@ tailwind.config = {
      deslizándose desde el borde, y solo #views le deja sitio con padding: las
      vistas se recentran sin tocar su max-w y la cabecera no se mueve.
      Por debajo es una pantalla propia que deja ver la barra inferior. Los
-     altos de cabecera y barra los mide el JS: cambian con el modo y el ancho. */
-  #weeksPanel{display:none;flex-direction:column;background:#0d1526}
+     altos de cabecera y barra los mide el JS: cambian con el modo y el ancho.
+     Dentro va una tarjeta .panel como Hoy, Hábitos y Tareas. En lg+ empieza a
+     la altura de la primera tarjeta de la vista (--wk-top, lo mide el JS). */
+  #weeksPanel{display:none;flex-direction:column}
   @media (min-width:1024px){
     body.weeks-open #views{padding-right:384px}
     /* Siempre colocado, pero fuera de pantalla y sin foco mientras está cerrado */
-    #weeksPanel{display:flex;position:fixed;z-index:20;top:var(--hdr-h,64px);right:0;bottom:0;width:384px;border-left:1px solid #1f2a3d;transform:translateX(100%);visibility:hidden}
+    #weeksPanel{display:flex;position:fixed;z-index:20;top:var(--hdr-h,64px);right:0;bottom:0;width:384px;padding:var(--wk-top,20px) 16px 16px 4px;transform:translateX(100%);visibility:hidden}
     body.weeks-open #weeksPanel{transform:none;visibility:visible}
     /* Solo tras el arranque (weeks-anim): al recargar con el panel abierto no se anima.
        Al cerrar, la visibilidad espera a que termine de salir. */
@@ -180,9 +182,21 @@ tailwind.config = {
   }
   @media (max-width:1023px){
     body.weeks-screen{overflow:hidden}
-    body.weeks-screen #weeksPanel{display:flex;position:fixed;z-index:35;inset:0;bottom:var(--nav-h,0px);padding-top:env(safe-area-inset-top)}
+    body.weeks-screen #weeksPanel{display:flex;position:fixed;z-index:35;inset:0;bottom:var(--nav-h,0px);padding:calc(env(safe-area-inset-top) + 20px) 16px 16px;background:#0a0f1a}
   }
-  .wk-month{position:sticky;top:0;z-index:1;background:#0d1526;padding:14px 0 6px}
+  .wk-month{position:sticky;top:0;z-index:1;background:#0f1729;padding:12px 4px 4px}
+  /* Líneas del panel de semanas: solo el icono y el nombre; el resto va en
+     el detalle al pulsar. El proyecto va relleno; el evento, a trazos. */
+  .wk-line{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:6px 8px;border-radius:8px;text-align:left}
+  .wk-line:hover{background:rgba(30,41,59,.6)}
+  .wk-line:focus{outline:none}.wk-line:focus-visible{outline:2px solid #22d3ee;outline-offset:-2px}
+  .wk-ico{flex:none;width:18px;height:18px;display:grid;place-items:center;border-radius:5px;border:1.5px solid #475569;font-size:10px;line-height:1}
+  .wk-ico.proj{background:#111a2e;color:#cbd5e1}
+  .wk-ico.ev{border-style:dashed;color:#94a3b8}
+  .wk-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:#e2e8f0}
+  .wk-line.ev .wk-name{font-weight:400;color:#cbd5e1}
+  .wk-line.over .wk-ico{border-color:#b45309;background:#1c1207;color:#fcd34d}
+  .wk-line.over .wk-name{color:#fcd34d}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
 </head>
@@ -723,17 +737,34 @@ tailwind.config = {
 
 <!-- PRÓXIMAS 13 SEMANAS: panel derecho en lg+, pantalla propia por debajo -->
 <aside id="weeksPanel" aria-labelledby="weeksTitle">
-  <div class="border-b border-[#1f2a3d]"><div class="max-w-xl mx-auto flex items-start gap-2 px-4 pt-4 pb-3">
-    <div class="min-w-0 flex-1">
-      <div class="sys-label">Horizonte</div>
-      <h2 id="weeksTitle" class="text-lg font-bold mt-1 leading-tight">Próximas 13 semanas</h2>
-      <p id="weeksRange" class="mono text-[11px] text-slate-400 mt-1"></p>
+  <!-- en tablet la pantalla es ancha: la tarjeta se queda en ancho de lectura -->
+  <div class="panel flex-1 min-h-0 w-full max-w-xl mx-auto flex flex-col">
+    <div class="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5 pb-2">
+      <div class="min-w-0 flex-1">
+        <div class="sys-label">Horizonte</div>
+        <h2 id="weeksTitle" class="text-lg font-bold mt-1 leading-tight">Próximas 13 semanas</h2>
+        <p id="weeksRange" class="mono text-[11px] text-slate-400 mt-1.5"></p>
+      </div>
+      <button id="weeksClose" type="button" class="order-first lg:order-last shrink-0 w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600 grid place-items-center"><span class="lg:hidden text-2xl leading-none -mt-0.5" aria-hidden="true">‹</span><span class="hidden lg:inline text-sm leading-none" aria-hidden="true">✕</span><span class="sr-only">Cerrar</span></button>
     </div>
-    <button id="weeksClose" type="button" class="order-first lg:order-last shrink-0 w-11 h-11 -ml-2 lg:ml-0 lg:-mr-2 rounded-md grid place-items-center text-slate-300 hover:text-cyan-300"><span class="lg:hidden text-2xl leading-none" aria-hidden="true">‹</span><span class="hidden lg:inline text-base leading-none" aria-hidden="true">✕</span><span class="sr-only">Cerrar</span></button>
-  </div></div>
-  <!-- en tablet la pantalla es ancha: el contenido se queda en ancho de lectura -->
-  <div class="flex-1 min-h-0 overflow-y-auto"><div id="weeksBody" class="max-w-xl mx-auto px-4 pb-6"></div></div>
+    <div class="flex-1 min-h-0 overflow-y-auto"><div id="weeksBody" class="px-4 sm:px-5 pb-4 sm:pb-5"></div></div>
+  </div>
 </aside>
+
+<!-- PRÓXIMAS 13 SEMANAS: el detalle de un proyecto o un evento -->
+<div id="wkModal" class="hidden fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="wkmTitle" class="panel w-full max-w-sm p-5">
+    <div class="flex items-start gap-3">
+      <div class="min-w-0 flex-1">
+        <div id="wkmKind" class="sys-label"></div>
+        <h3 id="wkmTitle" class="text-lg font-bold mt-1 leading-snug break-words"></h3>
+      </div>
+      <button id="wkmClose" type="button" aria-label="Cerrar" class="shrink-0 w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600 grid place-items-center text-sm">✕</button>
+    </div>
+    <dl id="wkmBody" class="mt-4 space-y-3.5"></dl>
+    <div id="wkmActions" class="mt-5"></div>
+  </div>
+</div>
 
 <div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
@@ -1815,45 +1846,69 @@ function weeksData(){
   const last=weeks[12].start, endAll=addDays(last,6);
   return {weeks, overdue:dated.filter(p=>p.due<t), later:dated.filter(p=>p.due>endAll).length};
 }
-function weekRowHtml(p, pick){
-  const c=projTaskCount(p.id), m=projDue(p), pct=c.total?Math.round(c.done/c.total*100):0;
-  const inner=`
-      <span class="mono text-[13px] leading-none shrink-0 text-slate-400" aria-hidden="true">▣</span>
-      <span class="min-w-0 flex-1">
-        <span class="block text-[13px] font-semibold truncate">${escapeHtml(p.name)}</span>
-        <span class="block mono text-[11px] mt-0.5 ${m.cls}">${m.text}</span>
-      </span>
-      <span class="shrink-0 flex items-center gap-1.5">
-        <span class="w-11 h-[3px] rounded-full bg-slate-800 overflow-hidden block"><span class="block h-[3px] rounded-full bg-emerald-500" style="width:${pct}%"></span></span>
-        <span class="mono text-[11px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
-      </span>`;
-  const cls='w-full flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg border border-[#1f2a3d] bg-[#0f1729]';
-  // Solo desde Commander lleva a sus tareas: en Focus y la nave sería sacarte de ahí.
-  return pick
-    ? `<button type="button" data-wp="${p.id}" class="${cls} hover:border-cyan-700" title="Ver sus tareas">${inner}</button>`
-    : `<div class="${cls}">${inner}</div>`;
+// Lo que pinta el panel, en orden: cada línea abre su detalle por índice.
+let wkItems=[];
+// Una línea compacta: icono (▣ proyecto, calendario a trazos evento) y nombre.
+function wkLine(it){
+  const i=wkItems.push(it)-1, ev=it.kind==='ev', name=escapeHtml(ev?it.e.title:it.p.name), over=!ev&&it.p.due<todayStr();
+  const ico=ev
+    ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>'
+    : '▣';
+  return `<button type="button" data-wk="${i}" class="wk-line${ev?' ev':''}${over?' over':''}" aria-label="${ev?'Evento':'Proyecto'}: ${name}">
+    <span class="wk-ico ${ev?'ev':'proj'}" aria-hidden="true">${ico}</span><span class="wk-name">${name}</span></button>`;
 }
+const weekRowHtml=(p)=>wkLine({kind:'proj',p});
 // Proyectos y eventos de la semana, mezclados por día; dentro del día, lo de
 // todo el día (y los vencimientos) antes que lo que tiene hora.
-function weekRows(w,pick){
-  const rows=[...w.items.map(p=>({k:p.due,h:weekRowHtml(p,pick)})),...w.events.map(e=>({k:e.date+(e.time||''),h:eventRowHtml(e)}))];
+function weekRows(w){
+  const rows=[...w.items.map(p=>({k:p.due,it:{kind:'proj',p}})),...w.events.map(e=>({k:e.date+(e.time||''),it:{kind:'ev',e}}))];
   if(!rows.length) return '';
   rows.sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0);
-  return `<div class="space-y-1.5">${rows.map(r=>r.h).join('')}</div>`;
+  return `<div>${rows.map(r=>wkLine(r.it)).join('')}</div>`;
 }
-// Sin caja: el evento acompaña, el proyecto es lo que se trabaja.
-function eventRowHtml(e){
-  const day=dayParse(e.date).toLocaleDateString('es-ES',{weekday:'short',day:'numeric'});
-  return `<div class="flex items-center gap-2.5 px-2.5 py-1.5">
-      <svg class="shrink-0 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
-      <span class="min-w-0 flex-1">
-        <span class="block text-[13px] text-[#cbd5e1] truncate">${escapeHtml(e.title)}</span>
-        <span class="block mono text-[11px] text-slate-400 mt-0.5 truncate">${day}${e.time?` · ${e.time}`:''} · ${escapeHtml(e.cal)}</span>
-      </span>
-    </div>`;
+/* El detalle, en un modal: fecha, avance o calendario, y desde Commander el
+   atajo a las tareas del proyecto. */
+const wkLongDate=(s)=>{ const d=dayParse(s); return d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',...(d.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})}); };
+const wkField=(label,html)=>`<div><dt class="mono text-[11px] uppercase tracking-[.16em] text-slate-400">${label}</dt><dd class="mt-1 text-sm text-slate-200">${html}</dd></div>`;
+let wkReturn=null;
+function openWkModal(it){
+  const ev=it.kind==='ev', t=todayStr();
+  let body='', act='';
+  if(ev){
+    const e=it.e;
+    body=wkField('Cuándo',`${wkLongDate(e.date)} · ${e.time||'todo el día'}`)+wkField('Calendario',escapeHtml(e.cal));
+  } else {
+    const p=it.p, c=projTaskCount(p.id), pct=c.total?Math.round(c.done/c.total*100):0, over=p.due<t, eta=etaDays(p.due);
+    const chip=p.due===t?'<span class="px-1.5 py-px rounded border border-slate-500 text-slate-200">HOY</span>'
+      :`<span class="px-1.5 py-px rounded border ${over?'border-amber-700 text-amber-300':'border-slate-600 text-slate-300'}">${over?'ATRASADO · hace '+(-eta)+(-eta===1?' día':' días'):'ETA '+eta+(eta===1?' día':' días')}</span>`;
+    body=wkField('Fecha límite',`<span class="${over?'text-amber-300':''}">${wkLongDate(p.due)}</span> <span class="mono text-[11px] ml-1">${chip}</span>`)
+      +wkField('Avance',c.total
+        ?`<div class="flex items-center gap-2.5"><span class="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><span class="block h-full rounded-full bg-emerald-500" style="width:${pct}%"></span></span><span class="mono text-[11px] text-slate-300">${c.done} de ${c.total} ${c.total===1?'tarea':'tareas'}</span></div>`
+        :'<span class="text-slate-400">Sin tareas vinculadas</span>');
+    // Solo desde Commander: en Focus y la nave sería sacarte de ahí.
+    if(uiMode==='commander') act=`<button type="button" id="wkmGo" class="w-full btn-primary h-11 rounded-lg text-sm font-medium">Ver sus tareas</button>`;
+  }
+  document.getElementById('wkmKind').textContent=ev?'Evento':'Proyecto';
+  document.getElementById('wkmTitle').textContent=ev?it.e.title:it.p.name;
+  document.getElementById('wkmBody').innerHTML=body;
+  const a=document.getElementById('wkmActions'); a.innerHTML=act; a.classList.toggle('hidden',!act);
+  if(act) document.getElementById('wkmGo').onclick=()=>weeksPick(it.p.id);
+  wkReturn=document.activeElement;
+  document.getElementById('wkModal').classList.remove('hidden');
+  document.getElementById('wkmClose').focus();
 }
+function closeWkModal(){
+  const m=document.getElementById('wkModal'); if(m.classList.contains('hidden')) return;
+  m.classList.add('hidden');
+  if(wkReturn&&wkReturn.isConnected) wkReturn.focus(); wkReturn=null;
+}
+// Cabecera de grupo como las de Tareas: nombre en mayúsculas y su recuento.
+const wkHead=(label,n,cls,bd,tail='')=>`<div class="flex items-center gap-2 px-1 pt-3 pb-1.5">
+    <span class="mono text-[11px] tracking-[.16em] uppercase ${cls}">${label}</span>
+    ${n?`<span class="mono text-[11px] px-1.5 py-px rounded border ${bd} ${cls}">${n}</span>`:''}${tail}</div>`;
 function renderWeeks(){
-  const d=weeksData(), pick=uiMode==='commander';
+  const d=weeksData();
+  wkItems=[];
   const now=d.weeks[0].items.length, total=d.weeks.reduce((s,w)=>s+w.items.length,0), nev=d.weeks.reduce((s,w)=>s+w.events.length,0);
   const badge=document.getElementById('weeksBadge');
   badge.textContent=now; badge.classList.toggle('hidden',!now);
@@ -1863,7 +1918,7 @@ function renderWeeks(){
 
   let h='';
   if(d.overdue.length){
-    h+=`<div class="wk-month"><span class="sys-label !text-red-400">Atrasados</span></div><div class="space-y-1.5">${d.overdue.map(p=>weekRowHtml(p,pick)).join('')}</div>`;
+    h+=wkHead('Atrasados',d.overdue.length,'text-amber-300','border-amber-800')+`<div>${d.overdue.map(p=>weekRowHtml(p)).join('')}</div>`;
   }
   let month='';
   for(const w of d.weeks){
@@ -1872,27 +1927,28 @@ function renderWeeks(){
       const name=dayParse(w.start).toLocaleDateString('es-ES',{month:'long',year:'numeric'}).replace(' de ',' ');
       h+=`<div class="wk-month"><span class="sys-label">${name}</span></div>`;
     }
-    h+=`<section class="py-2 border-t border-[#1f2a3d]">
-      <div class="flex items-baseline gap-2 mb-1.5">
-        <span class="mono text-[11px] ${w.current?'text-cyan-300 font-medium':'text-slate-400'}">S${w.n}</span>
-        <span class="text-[13px] ${w.current?'text-slate-100 font-semibold':'text-slate-300'}">${w.rangeLabel}</span>
-        ${w.current?'<span class="ml-auto mono text-[10px] tracking-[.18em] text-cyan-300">ESTA SEMANA</span>':''}
-      </div>
-      ${weekRows(w,pick)||'<div class="mono text-[11px] text-slate-500">sin vencimientos</div>'}
+    const n=w.items.length+w.events.length;
+    h+=`<section>${wkHead(`S${w.n} · ${w.rangeLabel}`,n,w.current?'text-cyan-300':'text-slate-300',w.current?'border-cyan-800':'border-slate-700',
+        w.current?'<span class="ml-auto mono text-[10px] tracking-[.16em] text-cyan-300">ESTA SEMANA</span>':'')}
+      ${weekRows(w)||'<div class="mono text-[11px] text-slate-500 px-1 pb-1">sin vencimientos</div>'}
     </section>`;
   }
-  if(d.later) h+=`<p class="mono text-[11px] text-slate-400 pt-3 border-t border-[#1f2a3d]">Más adelante: ${d.later} ${d.later===1?'proyecto':'proyectos'}</p>`;
-  const note=(t)=>`<p class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">${t}</p>`;
+  if(d.later) h+=`<p class="mono text-[11px] text-slate-400 px-1 pt-4">Más adelante: ${d.later} ${d.later===1?'proyecto':'proyectos'}</p>`;
+  const note=(t)=>`<p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">${t}</p>`;
   if(!showP&&!showE) h+=note('Proyectos y eventos ocultos. Actívalos en Ajustes › Calendarios.');
   else if(showP&&!state.projects.some(p=>p.due)&&!nev) h+=note('Ningún proyecto tiene fecha límite. Pónsela en Commander › Tareas › Proyectos y aparecerá en su semana.');
   const body=document.getElementById('weeksBody');
   body.innerHTML=h;
-  body.querySelectorAll('[data-wp]').forEach(b=>b.onclick=()=>weeksPick(b.dataset.wp));
+  body.querySelectorAll('[data-wk]').forEach(b=>b.onclick=()=>openWkModal(wkItems[+b.dataset.wk]));
 }
 function measureBars(){
-  const s=document.documentElement.style;
-  s.setProperty('--hdr-h',document.querySelector('header').offsetHeight+'px');
+  const s=document.documentElement.style, hdr=document.querySelector('header').offsetHeight;
+  s.setProperty('--hdr-h',hdr+'px');
   s.setProperty('--nav-h',document.getElementById('bottomNav').offsetHeight+'px');
+  // La tarjeta de semanas empieza a la altura de la primera tarjeta de la vista
+  // (Hoy en Commander). Cada vista tiene su propio margen, así que se mide.
+  const v=document.querySelector('#views > main:not(.hidden)'), first=v&&[...v.children].find(c=>c.offsetParent);
+  if(first) s.setProperty('--wk-top',Math.max(0,Math.round(first.getBoundingClientRect().top+scrollY-hdr))+'px');
 }
 function applyWeeks(){
   measureBars();   // también aquí: no esperar al primer aviso del ResizeObserver
@@ -1909,6 +1965,7 @@ function setWeeks(v){
 }
 // Llevar a las tareas del proyecto con el filtro que ya existe.
 function weeksPick(id){
+  closeWkModal();
   pFilter=id; cmdTab='tasks'; weeksScreen=false; applyWeeks(); render();
   const box=document.getElementById('projBox');
   if(box.offsetParent) scrollTo(0,box.getBoundingClientRect().top+scrollY-document.querySelector('header').offsetHeight-12);
@@ -2490,6 +2547,9 @@ document.getElementById('btnNewTask').onclick=()=>openModal('task');
 document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
 document.getElementById('btnWeeks').onclick=()=>setWeeks(!(wideMQ.matches?weeksOpen:weeksScreen));
 document.getElementById('weeksClose').onclick=()=>setWeeks(false);
+document.getElementById('wkmClose').onclick=closeWkModal;
+document.getElementById('wkModal').addEventListener('click',e=>{ if(e.target.id==='wkModal') closeWkModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWkModal(); });
 wideMQ.addEventListener('change',applyWeeks);
 // El panel cuelga bajo la cabecera y la pantalla del teléfono deja ver la
 // barra inferior: los dos altos cambian con el modo y el ancho.
