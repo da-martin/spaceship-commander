@@ -158,6 +158,20 @@ tailwind.config = {
   .warp.far{animation-duration:16s}
   @keyframes warp{from{transform:translateY(0)}to{transform:translateY(300px)}}
   @media (prefers-reduced-motion:reduce){.warp{animation:none}}
+  /* Próximas 13 semanas. En lg+ es un panel a la derecha y el body le deja
+     sitio con padding, así cabecera y vistas se encogen sin tocar su max-w.
+     Por debajo es una pantalla propia que deja ver la barra inferior. Los
+     altos de cabecera y barra los mide el JS: cambian con el modo y el ancho. */
+  #weeksPanel{display:none;flex-direction:column;background:#0d1526}
+  @media (min-width:1024px){
+    body.weeks-open{padding-right:384px}
+    body.weeks-open #weeksPanel{display:flex;position:fixed;z-index:20;top:var(--hdr-h,64px);right:0;bottom:0;width:384px;border-left:1px solid #1f2a3d}
+  }
+  @media (max-width:1023px){
+    body.weeks-screen{overflow:hidden}
+    body.weeks-screen #weeksPanel{display:flex;position:fixed;z-index:35;inset:0;bottom:var(--nav-h,0px);padding-top:env(safe-area-inset-top)}
+  }
+  .wk-month{position:sticky;top:0;z-index:1;background:#0d1526;padding:14px 0 6px}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#24344d;border-radius:8px}
 </style>
 </head>
@@ -176,7 +190,13 @@ tailwind.config = {
     </div>
     <!-- Cuenta y partida viven aquí dentro: así la primera fila es igual en los
          tres modos y le queda sitio al subtítulo. -->
-    <div class="relative shrink-0 order-1 sm:order-last">
+    <!-- El botón de semanas va en el mismo grupo que el menú: suelto en la fila
+         quedaría entre el chip de la nave y el menú, y en el móvil no cabe. -->
+    <div class="relative shrink-0 order-1 sm:order-last flex items-center gap-2">
+      <button id="btnWeeks" aria-expanded="false" aria-controls="weeksPanel" aria-label="Próximas 13 semanas" class="relative w-11 h-11 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+        <span id="weeksBadge" class="hidden absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-700 text-white mono text-[10px] leading-[18px] text-center"></span>
+      </button>
       <button id="btnMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Menú" class="w-11 h-11 rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 grid place-items-center">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -653,6 +673,20 @@ tailwind.config = {
     Spaceship
   </button>
 </nav>
+
+<!-- PRÓXIMAS 13 SEMANAS: panel derecho en lg+, pantalla propia por debajo -->
+<aside id="weeksPanel" aria-labelledby="weeksTitle">
+  <div class="border-b border-[#1f2a3d]"><div class="max-w-xl mx-auto flex items-start gap-2 px-4 pt-4 pb-3">
+    <div class="min-w-0 flex-1">
+      <div class="sys-label">Horizonte</div>
+      <h2 id="weeksTitle" class="text-lg font-bold mt-1 leading-tight">Próximas 13 semanas</h2>
+      <p id="weeksRange" class="mono text-[11px] text-slate-400 mt-1"></p>
+    </div>
+    <button id="weeksClose" type="button" class="order-first lg:order-last shrink-0 w-11 h-11 -ml-2 lg:ml-0 lg:-mr-2 rounded-md grid place-items-center text-slate-300 hover:text-cyan-300"><span class="lg:hidden text-2xl leading-none" aria-hidden="true">‹</span><span class="hidden lg:inline text-base leading-none" aria-hidden="true">✕</span><span class="sr-only">Cerrar</span></button>
+  </div></div>
+  <!-- en tablet la pantalla es ancha: el contenido se queda en ancho de lectura -->
+  <div class="flex-1 min-h-0 overflow-y-auto"><div id="weeksBody" class="max-w-xl mx-auto px-4 pb-6"></div></div>
+</aside>
 
 <div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
@@ -1492,6 +1526,12 @@ const PROJ_OPEN_KEY='spaceship-commander:projOpen';
 let pFilter=null, projEdit=null, projDel=null;
 let projOpen=(()=>{ try{ return localStorage.getItem(PROJ_OPEN_KEY)==='1'; }catch{ return false; } })();
 function setProjOpen(v){ projOpen=v; try{ localStorage.setItem(PROJ_OPEN_KEY,v?'1':'0'); }catch{} }
+// Próximas 13 semanas: el panel de escritorio se recuerda; la pantalla del
+// teléfono no, para que la app nunca arranque en ella.
+const WEEKS_KEY='spaceship-commander:weeks';
+let weeksOpen=(()=>{ try{ return localStorage.getItem(WEEKS_KEY)==='1'; }catch{ return false; } })();
+let weeksScreen=false;
+const wideMQ=matchMedia('(min-width:1024px)');
 let aFilterTasks=new Set(), aFilterHabits=new Set();
 let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set();
 
@@ -1638,6 +1678,102 @@ function renderProjects(){
   if(projEdit){ const i=document.getElementById('projName'); if(i) setTimeout(()=>i.focus(),30); }
 }
 
+/* ---------- próximas 13 semanas ---------- */
+// Semanas ISO: empiezan el lunes y la 1 es la del primer jueves del año.
+const isoWeek=(s)=>{ const d=dayParse(s); d.setDate(d.getDate()+3-(d.getDay()+6)%7); const y=d.getFullYear(), j=new Date(y,0,4); return {n:1+Math.round(((d-j)/864e5-3+(j.getDay()+6)%7)/7), year:y}; };
+const mondayOf=(s)=>addDays(s,-((dayParse(s).getDay()+6)%7));
+function weeksData(){
+  const t=todayStr(), mon=mondayOf(t), dated=state.projects.filter(p=>p.due).sort((a,b)=>a.due<b.due?-1:1);
+  const weeks=[];
+  for(let i=0;i<13;i++){
+    const start=addDays(mon,7*i), end=addDays(start,6), a=dayParse(start), b=dayParse(end);
+    const rangeLabel=a.getMonth()===b.getMonth()
+      ? `${a.getDate()}–${fmtDate(end)}`
+      : `${fmtDate(start)} – ${fmtDate(end)}`;
+    weeks.push({start, n:isoWeek(start).n, rangeLabel, monthKey:start.slice(0,7), current:i===0,
+      // Lo de esta semana anterior a hoy ya es atraso: va arriba, no aquí.
+      items:dated.filter(p=>p.due>=start&&p.due<=end&&p.due>=t)});
+  }
+  const last=weeks[12].start, endAll=addDays(last,6);
+  return {weeks, overdue:dated.filter(p=>p.due<t), later:dated.filter(p=>p.due>endAll).length};
+}
+function weekRowHtml(p, pick){
+  const c=projTaskCount(p.id), m=projDue(p), pct=c.total?Math.round(c.done/c.total*100):0;
+  const inner=`
+      <span class="mono text-[13px] leading-none shrink-0 text-slate-400" aria-hidden="true">▣</span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-[13px] font-semibold truncate">${escapeHtml(p.name)}</span>
+        <span class="block mono text-[11px] mt-0.5 ${m.cls}">${m.text}</span>
+      </span>
+      <span class="shrink-0 flex items-center gap-1.5">
+        <span class="w-11 h-[3px] rounded-full bg-slate-800 overflow-hidden block"><span class="block h-[3px] rounded-full bg-emerald-500" style="width:${pct}%"></span></span>
+        <span class="mono text-[11px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
+      </span>`;
+  const cls='w-full flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg border border-[#1f2a3d] bg-[#0f1729]';
+  // Solo desde Commander lleva a sus tareas: en Focus y la nave sería sacarte de ahí.
+  return pick
+    ? `<button type="button" data-wp="${p.id}" class="${cls} hover:border-cyan-700" title="Ver sus tareas">${inner}</button>`
+    : `<div class="${cls}">${inner}</div>`;
+}
+function renderWeeks(){
+  const d=weeksData(), pick=uiMode==='commander';
+  const now=d.weeks[0].items.length, total=d.weeks.reduce((s,w)=>s+w.items.length,0);
+  const badge=document.getElementById('weeksBadge');
+  badge.textContent=now; badge.classList.toggle('hidden',!now);
+  document.getElementById('btnWeeks').setAttribute('aria-label',`Próximas 13 semanas${now?` · ${now} ${now===1?'vence':'vencen'} esta semana`:''}`);
+  document.getElementById('weeksRange').textContent=`${fmtDate(d.weeks[0].start)} – ${fmtDate(addDays(d.weeks[12].start,6))} · ${total} ${total===1?'proyecto':'proyectos'}`;
+
+  let h='';
+  if(d.overdue.length){
+    h+=`<div class="wk-month"><span class="sys-label !text-red-400">Atrasados</span></div><div class="space-y-1.5">${d.overdue.map(p=>weekRowHtml(p,pick)).join('')}</div>`;
+  }
+  let month='';
+  for(const w of d.weeks){
+    if(w.monthKey!==month){
+      month=w.monthKey;
+      const name=dayParse(w.start).toLocaleDateString('es-ES',{month:'long',year:'numeric'}).replace(' de ',' ');
+      h+=`<div class="wk-month"><span class="sys-label">${name}</span></div>`;
+    }
+    h+=`<section class="py-2 border-t border-[#1f2a3d]">
+      <div class="flex items-baseline gap-2 mb-1.5">
+        <span class="mono text-[11px] ${w.current?'text-cyan-300 font-medium':'text-slate-400'}">S${w.n}</span>
+        <span class="text-[13px] ${w.current?'text-slate-100 font-semibold':'text-slate-300'}">${w.rangeLabel}</span>
+        ${w.current?'<span class="ml-auto mono text-[10px] tracking-[.18em] text-cyan-300">ESTA SEMANA</span>':''}
+      </div>
+      ${w.items.length?`<div class="space-y-1.5">${w.items.map(p=>weekRowHtml(p,pick)).join('')}</div>`:'<div class="mono text-[11px] text-slate-500">sin vencimientos</div>'}
+    </section>`;
+  }
+  if(d.later) h+=`<p class="mono text-[11px] text-slate-400 pt-3 border-t border-[#1f2a3d]">Más adelante: ${d.later} ${d.later===1?'proyecto':'proyectos'}</p>`;
+  if(!state.projects.some(p=>p.due)) h+=`<p class="text-xs text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">Ningún proyecto tiene fecha límite. Pónsela en Commander › Tareas › Proyectos y aparecerá en su semana.</p>`;
+  const body=document.getElementById('weeksBody');
+  body.innerHTML=h;
+  body.querySelectorAll('[data-wp]').forEach(b=>b.onclick=()=>weeksPick(b.dataset.wp));
+}
+function measureBars(){
+  const s=document.documentElement.style;
+  s.setProperty('--hdr-h',document.querySelector('header').offsetHeight+'px');
+  s.setProperty('--nav-h',document.getElementById('bottomNav').offsetHeight+'px');
+}
+function applyWeeks(){
+  measureBars();   // también aquí: no esperar al primer aviso del ResizeObserver
+  const wide=wideMQ.matches, ship=uiMode==='ship', on=!ship&&(wide?weeksOpen:weeksScreen);
+  document.body.classList.toggle('weeks-open',on&&wide);
+  document.body.classList.toggle('weeks-screen',on&&!wide);
+  const b=document.getElementById('btnWeeks');
+  b.classList.toggle('hidden',ship); b.setAttribute('aria-expanded',String(on));
+}
+function setWeeks(v){
+  if(wideMQ.matches){ weeksOpen=v; try{ localStorage.setItem(WEEKS_KEY,v?'1':'0'); }catch{} }
+  else weeksScreen=v;
+  applyWeeks();
+}
+// Llevar a las tareas del proyecto con el filtro que ya existe.
+function weeksPick(id){
+  pFilter=id; cmdTab='tasks'; weeksScreen=false; applyWeeks(); render();
+  const box=document.getElementById('projBox');
+  if(box.offsetParent) scrollTo(0,box.getBoundingClientRect().top+scrollY-document.querySelector('header').offsetHeight-12);
+}
+
 function render(){
   const t=todayStr();
   const hoy=new Date();   // el año va aparte: en el móvil no cabe
@@ -1726,6 +1862,7 @@ function render(){
 
   renderShip();
   if(uiMode==='focus') renderFocus();
+  renderWeeks();
 }
 
 /* ---------- render: nave ---------- */
@@ -2211,6 +2348,12 @@ document.querySelectorAll('.acc-head').forEach(h=>h.onclick=()=>{
 });
 document.getElementById('btnNewTask').onclick=()=>openModal('task');
 document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
+document.getElementById('btnWeeks').onclick=()=>setWeeks(!(wideMQ.matches?weeksOpen:weeksScreen));
+document.getElementById('weeksClose').onclick=()=>setWeeks(false);
+wideMQ.addEventListener('change',applyWeeks);
+// El panel cuelga bajo la cabecera y la pantalla del teléfono deja ver la
+// barra inferior: los dos altos cambian con el modo y el ancho.
+{ const ro=new ResizeObserver(measureBars); ro.observe(document.querySelector('header')); ro.observe(document.getElementById('bottomNav')); }
 document.getElementById('btnNewProj').onclick=()=>{ setProjOpen(true); projEdit='new'; projDel=null; renderProjects(); };
 document.getElementById('fProject').onchange=paintProjHint;
 document.getElementById('btnModalNewProj').onclick=()=>{
@@ -2741,6 +2884,8 @@ function setMode(m){
   modeBtn('btnCommander',m==='commander'); modeBtn('btnFocusMode',focus); modeBtn('btnSpaceship',ship);
   document.querySelectorAll('#bottomNav .bnav').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m)));
   try{ localStorage.setItem(UIKEY,m); }catch{}
+  weeksScreen=false;   // cambiar de modo sale de la pantalla del teléfono; el panel de escritorio se recuerda
+  applyWeeks();
   if(ship) flushShipNews();   // lo que pasó mientras estabas fuera
   render(); paintFocusClock(); scrollTo(0,0);
 }
@@ -2750,7 +2895,7 @@ document.getElementById('btnSpaceship').onclick=()=>setMode('ship');
 // salida del Protocolo Forster, que si no se perderían las acciones rápidas.
 document.querySelectorAll('#bottomNav .bnav').forEach(b=>b.onclick=()=>{
   const m=b.dataset.mode;
-  if(m===uiMode) return;
+  if(m===uiMode){ if(weeksScreen) setWeeks(false); return; }   // el modo en el que ya estás saca de las semanas
   if(m==='focus'){ enterFocus(); return; }
   uiMode==='focus' ? requestFocusExit(m) : setMode(m);
 });
