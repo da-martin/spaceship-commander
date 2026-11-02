@@ -694,6 +694,13 @@ tailwind.config = {
       </div>
       <button id="setEvents" type="button" role="switch" aria-checked="true" aria-labelledby="lblEvents" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
     </div>
+    <div class="flex items-center gap-3 mt-2">
+      <div class="flex-1 min-w-0">
+        <div id="lblBadgeEvents" class="text-sm font-medium">Eventos en el contador</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">El número del botón de calendario suma los eventos de esta semana, además de los proyectos de esta semana y los atrasados</div>
+      </div>
+      <button id="setBadgeEvents" type="button" role="switch" aria-checked="false" aria-labelledby="lblBadgeEvents" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
     <div id="calSignedOut" class="hidden mt-3 text-sm text-slate-300 border border-dashed border-slate-700 rounded-lg px-3 py-2.5">
       Entra en tu cuenta para conectar calendarios.
       <button id="calLogin" type="button" class="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">Entrar</button>
@@ -904,7 +911,7 @@ function normFocus(f){
 }
 // Ajustes: van en la partida para viajar con la cuenta y con los archivos.
 // Solo entran claves conocidas y del tipo de su valor por defecto.
-function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
+function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // Proyectos: lista propia con fecha límite opcional. Los hábitos no llevan
 // proyecto: un proyecto se termina y un hábito no.
@@ -1909,10 +1916,15 @@ const wkHead=(label,n,cls,bd,tail='')=>`<div class="flex items-center gap-2 px-1
 function renderWeeks(){
   const d=weeksData();
   wkItems=[];
-  const now=d.weeks[0].items.length, total=d.weeks.reduce((s,w)=>s+w.items.length,0), nev=d.weeks.reduce((s,w)=>s+w.events.length,0);
+  const total=d.weeks.reduce((s,w)=>s+w.items.length,0), nev=d.weeks.reduce((s,w)=>s+w.events.length,0);
+  // El número del botón: proyectos de esta semana y atrasados, y si se pide en
+  // Ajustes también los eventos de esta semana. Ámbar si hay atraso.
+  const wkP=d.weeks[0].items.length, wkO=d.overdue.length, wkE=state.settings.badgeEvents?d.weeks[0].events.length:0, now=wkP+wkO+wkE;
   const badge=document.getElementById('weeksBadge');
   badge.textContent=now; badge.classList.toggle('hidden',!now);
-  document.getElementById('btnWeeks').setAttribute('aria-label',`Próximas 13 semanas${now?` · ${now} ${now===1?'vence':'vencen'} esta semana`:''}`);
+  badge.classList.toggle('bg-amber-600',!!wkO); badge.classList.toggle('bg-cyan-700',!wkO);
+  const parts=[wkP&&`${wkP} ${wkP===1?'proyecto':'proyectos'} esta semana`,wkO&&`${wkO} ${wkO===1?'atrasado':'atrasados'}`,wkE&&`${wkE} ${wkE===1?'evento':'eventos'}`].filter(Boolean);
+  document.getElementById('btnWeeks').setAttribute('aria-label',`Próximas 13 semanas${parts.length?' · '+parts.join(', '):''}`);
   const showP=state.settings.showProjects, showE=state.settings.showEvents;
   document.getElementById('weeksRange').textContent=`${fmtDate(d.weeks[0].start)} – ${fmtDate(addDays(d.weeks[12].start,6))}${showP?` · ${total} ${total===1?'proyecto':'proyectos'}`:''}${nev?` · ${nev} ${nev===1?'evento':'eventos'}`:''}`;
 
@@ -2680,6 +2692,7 @@ function paintSettings(){
   document.getElementById('setStreaks').setAttribute('aria-checked',String(state.settings.showStreaks));
   document.getElementById('setProjects').setAttribute('aria-checked',String(state.settings.showProjects));
   document.getElementById('setEvents').setAttribute('aria-checked',String(state.settings.showEvents));
+  document.getElementById('setBadgeEvents').setAttribute('aria-checked',String(state.settings.badgeEvents));
   paintCalendars();
 }
 function openSettings(){ calRemoving=null; showCalMsg(''); paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); loadCalEvents(); }
@@ -2690,6 +2703,7 @@ document.getElementById('settingsModal').addEventListener('click',e=>{ if(e.targ
 document.getElementById('setStreaks').onclick=()=>{ state.settings.showStreaks=!state.settings.showStreaks; save(); render(); paintSettings(); };
 document.getElementById('setProjects').onclick=()=>{ state.settings.showProjects=!state.settings.showProjects; save(); render(); paintSettings(); };
 document.getElementById('setEvents').onclick=()=>{ state.settings.showEvents=!state.settings.showEvents; save(); render(); paintSettings(); };
+document.getElementById('setBadgeEvents').onclick=()=>{ state.settings.badgeEvents=!state.settings.badgeEvents; save(); render(); paintSettings(); };
 document.getElementById('saveClose').onclick=closeSaveModal;
 document.getElementById('saveModal').addEventListener('click',e=>{ if(e.target.id==='saveModal') closeSaveModal(); });
 document.getElementById('btnExportFile').onclick=exportFile;
