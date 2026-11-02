@@ -147,10 +147,12 @@ npm run deploy
   de Google da lectura del calendario entero. La API nunca las devuelve.
 - **El Worker ahora hace peticiones salientes** a esas URL: una al dar de alta
   el calendario (para validarlo y sacar el nombre de `X-WR-CALNAME`) y otra cada
-  vez que un dispositivo refresca, como mucho una vez por hora. Corta a los 8 s
-  y a los 2 MB, y solo acepta `https:` (`webcal:` se reescribe).
-- **El Worker no parsea el `.ics`:** lo pasa tal cual y el cliente lo parsea y
-  lo convierte a su zona horaria. Parsear aquí hasta 10 calendarios se pasaría
+  vez que un dispositivo refresca, como mucho una vez por hora. Corta a los 8 s,
+  rechaza más de 2 MB cuando el servidor anuncia el tamaño (Google no lo hace)
+  y solo acepta `https:` (`webcal:` se reescribe).
+- **El Worker no parsea el `.ics`:** lo pide sin comprimir y lo pasa tal cual,
+  sin que lo toque JavaScript; el cliente lo parsea y lo convierte a su zona
+  horaria. Parsear aquí hasta 10 calendarios se pasaría
   de los 10 ms de CPU del plan gratis. Para comprobarlo, mira el `cpuTime` de
   `/api/calendars/:id/ics` con `wrangler tail`.
 - Los eventos parseados se guardan en `spaceship-commander:ical`, en cada
