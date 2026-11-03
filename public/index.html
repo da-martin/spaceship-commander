@@ -229,6 +229,7 @@ tailwind.config = {
       <div id="hdrMenu" data-act="menu" role="menu" class="gear-menu hidden right-0 top-12">
         <button id="miAccount" role="menuitem" class="flex-col !items-start gap-0.5"><span id="miAccountName">Entrar</span><span id="miAccountSub" class="mono text-[11px] text-slate-400"></span></button>
         <button id="miSave" role="menuitem">Guardar / cargar partida</button>
+        <button id="miLog" role="menuitem">Bitácora de a bordo<span id="miLogCount" class="hidden ml-auto mono text-[11px] min-w-[20px] px-1.5 py-px rounded-full text-center bg-cyan-900 text-cyan-100"></span></button>
         <button id="miSettings" role="menuitem">Ajustes</button>
       </div>
     </div>
@@ -238,7 +239,7 @@ tailwind.config = {
     <div id="navToggle" role="group" aria-label="Modo" class="hidden sm:flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" aria-pressed="true" class="px-3 py-2 text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
       <button id="btnFocusMode" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
-      <button id="btnSpaceship" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship</button>
+      <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
     </div>
     <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
@@ -539,6 +540,37 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- INFORME DE MISIÓN: el final de una misión no puede ser un aviso que se va solo -->
+<div id="reportModal" class="hidden fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
+  <div id="rpBox" role="dialog" aria-modal="true" aria-labelledby="rpTitle" aria-describedby="rpLines" class="panel corner w-full max-w-md p-6 sm:p-8 text-center flex flex-col items-center gap-4">
+    <span id="rpIcon" aria-hidden="true" class="w-16 h-16 rounded-full grid place-items-center border-2"></span>
+    <div>
+      <div class="sys-label">Informe de misión</div>
+      <h3 id="rpTitle" class="text-2xl font-bold mt-1.5 text-slate-50"></h3>
+      <p id="rpWhen" class="mono text-sm mt-1.5"></p>
+    </div>
+    <div id="rpChips" class="flex flex-wrap justify-center gap-1.5"></div>
+    <div id="rpLines" class="text-[15px] leading-relaxed text-slate-200 space-y-1.5"></div>
+    <p id="rpMore" class="mono text-[11px] text-slate-400"></p>
+    <button id="rpOk" class="w-full h-12 rounded-xl text-white text-[15px] font-semibold border">Aceptar</button>
+  </div>
+</div>
+
+<!-- BITÁCORA DE A BORDO: lo que pasó en la nave, guardado hasta que lo leas -->
+<div id="logModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="logTitle" class="panel w-full max-w-md p-5 mx-auto my-8">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Nave // Bitácora</div>
+        <h3 id="logTitle" class="text-lg font-bold mt-1">Bitácora de a bordo</h3>
+        <p class="mono text-[11px] text-slate-400 mt-1 leading-relaxed">Misiones, sueldos, desgaste y transmisiones. Se guarda un mes.</p>
+      </div>
+      <button id="logClose" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <div id="logBody" class="mt-2"></div>
+  </div>
+</div>
+
 <!-- PROTOCOLO FORSTER: salir -->
 <div id="focusExitModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
   <div role="dialog" aria-modal="true" aria-labelledby="fxTitle" class="panel w-full max-w-lg mx-auto mt-16 sm:mt-24 mb-8 p-4 sm:p-5 space-y-4">
@@ -736,7 +768,8 @@ tailwind.config = {
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
     Focus
   </button>
-  <button type="button" data-mode="ship" aria-pressed="false" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+  <button type="button" data-mode="ship" aria-pressed="false" class="bnav relative flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+    <span data-logdot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full" aria-hidden="true"></span>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c2.4 2.7 3.7 6.1 3.7 9.5v4.5l2.3 2.3v1.2H6v-1.2L8.3 16.5V12c0-3.4 1.3-6.8 3.7-9.5z"/><circle cx="12" cy="10" r="1.6"/></svg>
     Spaceship
   </button>
@@ -828,6 +861,8 @@ const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
 const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
 const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
+// bitácora de a bordo: lo leído se borra pasados LOG_DAYS días, y nunca hay más de LOG_MAX entradas
+const LOG_MAX = 60, LOG_DAYS = 30;
 const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
 
 /* ---------- rango del comandante: méritos que no se gastan ---------- */
@@ -897,8 +932,23 @@ function normShip(s){
       .map(m=>({id:String(m.id||uid()),name:m.name,role:m.role,lv:clampInt(m.lv,1,3,1),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,idle:!!m.idle})),
     crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
       ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,3,1)}))}
-      :{week:null,cands:[]}
+      :{week:null,cands:[]},
+    log:normLog(s?.log)
   };
+}
+// La bitácora va en la partida —y en la nube— para que lo que pasó mientras
+// no mirabas sobreviva a recargar. `seen`: ya se avisó al entrar en la nave;
+// `read`: ya se abrió en la bitácora (o se aceptó, si es un informe).
+const LOG_KINDS=['mission','crew','wear','board'], LOG_TONES=['win','warn','bad','info'];
+function normLog(a){
+  const num=(v)=>Number.isFinite(+v)?+v:0;
+  return (Array.isArray(a)?a:[]).filter(e=>e&&typeof e.title==='string'&&LOG_KINDS.includes(e.kind)).map(e=>({
+    id:String(e.id||uid()), at:num(e.at), day:typeof e.day==='string'?e.day:todayStr(), kind:e.kind,
+    big:!!e.big, tone:LOG_TONES.includes(e.tone)?e.tone:'info', title:e.title,
+    lines:(Array.isArray(e.lines)?e.lines:[]).filter(x=>typeof x==='string'),
+    rew:e.rew&&typeof e.rew==='object'?{mc:num(e.rew.mc),xp:num(e.rew.xp),mats:e.rew.mats&&typeof e.rew.mats==='object'?e.rew.mats:{}}:null,
+    got:num(e.got), lost:num(e.lost), seen:!!e.seen, read:!!e.read
+  })).slice(-LOG_MAX);
 }
 function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)},settings:normSettings(null)}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
@@ -952,11 +1002,25 @@ let state = load();
 // no se sube nada, porque el estado local todavía no es una decisión.
 const cloud = {user:null, rev:0, timer:null, pending:false, busy:false, hold:false, status:'local'};
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(); }
-// Noticias de la nave. Fuera de Spaceship se guardan y salen al entrar, en vez
-// de perderse: solo se muestran una vez, así que callarlas sin más las tira.
-let shipNews=[];
-function shipToast(msg){ if(!msg) return; if(uiMode==='ship') toast(msg); else shipNews.push(msg); }
-function flushShipNews(){ const n=shipNews.splice(0).slice(-3); if(n.length) toast(n.join(' · ')); }
+// Noticias de la nave: todo va a la bitácora. Dentro de Spaceship lo pequeño
+// sale además como aviso y el final de una misión abre su informe; fuera, se
+// queda sin ver y se enciende el punto del botón Spaceship. Quien llama guarda.
+function logShip(e){
+  if(!e) return;
+  const L=state.ship.log, t=todayStr(), last=L[L.length-1];
+  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],rew:null,got:0,lost:0,seen:false,read:false,...e};
+  // el tablón cambia cada pocos minutos: lo que no se ha leído hoy se suma en una sola entrada
+  if(e.kind==='board'&&last?.kind==='board'&&!last.read&&last.day===t){
+    L.pop(); e={...last,at:e.at,got:last.got+e.got,lost:last.lost+e.lost,seen:false};
+    e.title=boardText(e);
+  }
+  if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e)); }
+  L.push(e);
+  const cut=Date.now()-LOG_DAYS*864e5;
+  state.ship.log=L.filter(x=>x.at>=cut||!x.read).slice(-LOG_MAX);
+  if(uiMode==='ship'&&e.big) openReport(); else paintLog();
+}
+const logText=(e)=>[e.title,...e.lines].join(' · ');
 // Dos niveles, porque un ascenso de rango no puede verse igual que «Proyecto
 // eliminado». El nivel 'win' se queda más tiempo y se pinta en ámbar; si justo
 // detrás llega un aviso normal —el «+10 ¢» de la misma acción—, se le suma en
@@ -1119,7 +1183,11 @@ function onComplete(x,g){
   const c=sh.contract;
   if(c){
     c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){ const p=finishContract(1); state.cmd.stats.missions++; shipToast([`✔ Misión ${c.topic} completada: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · ')); addXP(XP_CONTRACT); }
+    if(c.progress>=c.quota){
+      const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
+      logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} completada`,rew:p,lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
+      logBoardNews();
+    }
   }
   g.xp=addXP(('type' in x)?XP_HABIT:XP_TASK);
 }
@@ -1179,47 +1247,74 @@ function tickBoard(){
   b.sigAt=now;
 }
 // aviso de lo que llegó o caducó desde el último aviso (en misión se acumula hasta volver)
-function boardNews(){
-  const n=state.ship.board.news, parts=[];
-  if(n.got) parts.push(`${n.got} ${n.got===1?'transmisión nueva':'transmisiones nuevas'}`);
-  if(n.lost) parts.push(`${n.lost} ${n.lost===1?'caducada':'caducadas'}`);
+function takeBoardNews(){
+  const n=state.ship.board.news, r={got:n.got,lost:n.lost};
   n.got=n.lost=0;
-  return parts.length?'Tablón: '+parts.join(' · '):null;
+  return (r.got||r.lost)?r:null;
 }
+function boardText(r){
+  const parts=[];
+  if(r.got) parts.push(`${r.got} ${r.got===1?'transmisión nueva':'transmisiones nuevas'}`);
+  if(r.lost) parts.push(`${r.lost} ${r.lost===1?'caducada':'caducadas'}`);
+  return 'Tablón: '+parts.join(' · ');
+}
+function boardNews(){ const r=takeBoardNews(); return r?boardText(r):null; }
+function logBoardNews(){ const r=takeBoardNews(); if(r) logShip({kind:'board',...r,title:boardText(r)}); }
 function failUrgent(until){ const b=state.ship.board; if(!b.repUntil||b.repUntil<until) b.repUntil=until; state.cmd.stats.urgentFails++; }
 
 // días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
-function decayDay(day){
+// `miss` cuenta las causas para el aviso de desgaste
+function decayDay(day,miss){
   const start=dayParse(day).getTime(), end=start+864e5, dow=dayParse(day).getDay();
   for(const h of state.habits){
     if(h.type==='free'||(h.createdAt||0)>=start) continue;
     if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
-    if((h.log?.[day]||0)<1) wear(h,WEAR_HABIT);
+    if((h.log?.[day]||0)<1){ wear(h,WEAR_HABIT); miss.habits++; }
   }
   for(const x of state.tasks){
     if(!x.dueDate||x.dueDate>=day||(x.createdAt||0)>=end) continue;
     if(x.done&&(!x.doneOn||x.doneOn<=day)) continue;
-    wear(x,WEAR_TASK);
+    wear(x,WEAR_TASK); miss.tasks++;
   }
+}
+// Solo lo que bajó en neto, ya contada la Enfermería: si se compensa, no hay noticia.
+function logWear(before,miss){
+  const hit=Object.keys(MODS).filter(k=>mod(k).cond<before[k]);
+  if(!hit.length) return;
+  const why=[miss.habits&&plural(miss.habits,'hábito sin cumplir','hábitos sin cumplir'),miss.tasks&&plural(miss.tasks,'tarea atrasada','tareas atrasadas')].filter(Boolean);
+  logShip({kind:'wear',tone:'warn',title:`Desgaste en ${plural(hit.length,'módulo','módulos')}`,
+    lines:[hit.map(k=>`${MODS[k].name} ${before[k]} → ${mod(k).cond} %`).join(', '),...(why.length?['Por '+why.join(' y ')]:[])]});
 }
 function dailyTick(){
   const sh=state.ship, t=todayStr(), y=addDays(t,-1);
   if(!sh.lastTick||sh.lastTick>y) sh.lastTick=y;
   let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
-  for(;day<t;day=addDays(day,1)){ decayDay(day); selfHeal(); }   // la Enfermería recupera algo cada día
+  const before={}, miss={habits:0,tasks:0};
+  for(const k of Object.keys(MODS)) before[k]=mod(k).cond;
+  for(;day<t;day=addDays(day,1)){ decayDay(day,miss); selfHeal(); }   // la Enfermería recupera algo cada día
   sh.lastTick=y;
-  let msg=null;
+  logWear(before,miss);
   const c=sh.contract, gone=c&&c.endsOn<t;
   if(gone&&c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
   tickBoard();
-  if(gone&&c.urgent){ sh.contract=null; msg=[`Misión urgente ${c.topic} fallida · sin cobro · reputación dañada · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
-  else if(gone){ const p=finishContract(c.progress/c.quota); msg=[`Misión ${c.topic} expirada · cobro parcial: +${rewardText(p)} · de vuelta en el Sistema Madre`,returnHome()].filter(Boolean).join(' · '); }
+  const home=()=>['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
+  if(gone&&c.urgent){
+    sh.contract=null;
+    logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,
+      lines:[`Plazo agotado con ${c.progress}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home()]});
+  }
+  else if(gone){
+    const p=finishContract(c.progress/c.quota);
+    logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,
+      lines:[`Plazo agotado con ${c.progress}/${c.quota}: cobras la parte hecha.`,...home()]});
+  }
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
-  const pay=crewPayroll(t); if(pay) msg=msg?msg+' · '+pay:pay;
+  const pay=crewPayroll(t);
+  if(pay) logShip({kind:'crew',tone:pay.left?'warn':'info',title:pay.paid?`Sueldos de la tripulación: −${pay.paid} ¢`:'Tripulación',lines:pay.notes});
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
-  if(atHome()){ const n=boardNews(); if(n) msg=msg?msg+' · '+n:n; }
+  if(atHome()) logBoardNews();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
-  save(); shipToast(msg);
+  save();
 }
 
 /* tripulación */
@@ -1276,18 +1371,15 @@ function crewPayroll(t){
     }
   }
   sh.crew=sh.crew.filter(m=>!m.gone);
-  if(paid) notes.unshift(`Sueldos: −${paid} ¢`);
-  return notes.join(' · ')||null;
+  return (paid||notes.length)?{paid,notes,left:notes.length>0}:null;
 }
 // al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato
+// (las noticias del tablón que esperaban a la vuelta las da quien llama)
 function returnHome(){
-  const sh=state.ship, off=sh.crew.filter(m=>m.idle), out=[];
-  if(off.length){
-    sh.crew=sh.crew.filter(m=>!m.idle);
-    out.push(`${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`);
-  }
-  const n=boardNews(); if(n) out.push(n);
-  return out.join(' · ')||null;
+  const sh=state.ship, off=sh.crew.filter(m=>m.idle);
+  if(!off.length) return null;
+  sh.crew=sh.crew.filter(m=>!m.idle);
+  return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
 }
 function toggleCancel(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
@@ -1326,7 +1418,7 @@ function abandonContract(){
   const c=state.ship.contract; if(!c) return;
   tickBoard();
   if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
-  state.ship.contract=null; const r=returnHome(); save(); render();
+  state.ship.contract=null; const r=[returnHome(),boardNews()].filter(Boolean).join(' · '); save(); render();
   toast((c.urgent?'Misión urgente abandonada · reputación dañada':'Misión abandonada')+' · de vuelta en el Sistema Madre'+(r?' · '+r:''));
 }
 // barrido de señal: paga lo que le falta a la barra y la transmisión llega ya
@@ -1989,6 +2081,7 @@ function render(){
   document.getElementById('stardate').textContent = hoy.toLocaleDateString('es-ES',{day:'2-digit',month:'short'});
   document.getElementById('stardateYear').textContent = ' '+hoy.getFullYear();
   document.getElementById('hdrRank').textContent = RANKS[rankIdx()][0].toUpperCase();
+  paintLog();
   document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
   // --- 1) Orden del día: hábitos que tocan y tareas con fecha de hoy ---
@@ -2713,6 +2806,101 @@ document.getElementById('importFile').onchange=async(e)=>{ const f=e.target.file
 document.getElementById('btnReview').onclick=()=>reviewSave(document.getElementById('importCode').value);
 document.getElementById('btnUndoLoad').onclick=undoLoad;
 
+/* ---------- bitácora de a bordo e informes de misión ---------- */
+const LOG_TONE={
+  win: {label:'text-amber-300', edge:'border-amber-600', panel:'#92400e', ring:'bg-amber-950/60 border-amber-500 text-amber-300', btn:'bg-[#b45309] hover:bg-[#c2410c] border-amber-500',
+        icon:'<polyline points="20 6 9 17 4 12"/>'},
+  warn:{label:'text-cyan-300',  edge:'border-cyan-600',  panel:'#155e75', ring:'bg-cyan-950/60 border-cyan-500 text-cyan-300',    btn:'bg-cyan-700 hover:bg-cyan-600 border-cyan-500',
+        icon:'<circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>'},
+  bad: {label:'text-red-300',   edge:'border-red-600',   panel:'#7f1d1d', ring:'bg-red-950/60 border-red-500 text-red-300',        btn:'bg-slate-800 hover:bg-slate-700 border-slate-600',
+        icon:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'},
+  info:{label:'text-slate-300', edge:'border-slate-600'}
+};
+const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN'};
+const logDay=(d)=>d===todayStr()?'Hoy':d===addDays(todayStr(),-1)?'Ayer':fDate(d);
+const rewChips=(r)=>!r?'':[chip(`+${r.mc} ¢`,RES.mc.chip),...Object.entries(r.mats||{}).filter(([k])=>RES[k]).map(([k,n])=>chip(`+${n} ${RES[k].sym} ${RES[k].name}`,RES[k].chip)),
+  ...(r.xp?[chip(`+${r.xp} méritos`,'border-slate-600 text-slate-300')]:[])].join('');
+// Un punto en el botón Spaceship mientras haya algo que no se ha visto; ámbar si es un informe.
+function paintLog(){
+  const L=state.ship.log, unseen=L.filter(e=>!e.seen), big=unseen.some(e=>e.big), unread=L.filter(e=>!e.read).length;
+  document.querySelectorAll('[data-logdot]').forEach(d=>{ d.classList.toggle('hidden',!unseen.length||uiMode==='ship'); d.style.background=big?'#fbbf24':'#22d3ee'; });
+  const n=document.getElementById('miLogCount'); n.textContent=unread; n.classList.toggle('hidden',!unread);
+}
+// Al entrar en la nave: primero los informes, uno a uno; lo pequeño se resume en un aviso.
+function shipArrive(){
+  const L=state.ship.log, fresh=L.filter(e=>!e.seen&&!e.big);
+  if(!L.some(e=>!e.seen)) return;
+  fresh.forEach(e=>e.seen=true); save();
+  if(L.some(e=>e.big&&!e.read)) openReport(); else announceLog(fresh);
+}
+function announceLog(fresh){
+  if(fresh.length===1) toast(logText(fresh[0]));
+  else if(fresh.length) toast(`${fresh.length} novedades en la bitácora · menú › Bitácora`);
+  paintLog();
+}
+let rpOpen=null;
+function openReport(){
+  const pend=state.ship.log.filter(e=>e.big&&!e.read), e=pend[0];
+  if(!e) return;
+  const T=LOG_TONE[e.tone]||LOG_TONE.win;
+  rpOpen=e.id;
+  document.getElementById('rpBox').style.borderColor=T.panel;
+  const ic=document.getElementById('rpIcon');
+  ic.className='w-16 h-16 rounded-full grid place-items-center border-2 '+T.ring;
+  ic.innerHTML=`<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${T.icon}</svg>`;
+  document.getElementById('rpTitle').textContent=e.title;
+  const w=document.getElementById('rpWhen'); w.className='mono text-sm mt-1.5 '+T.label; w.textContent=`${logDay(e.day)} · ${fClock(e.at)}`;
+  const ch=document.getElementById('rpChips'); ch.innerHTML=rewChips(e.rew); ch.classList.toggle('hidden',!e.rew);
+  document.getElementById('rpLines').innerHTML=e.lines.map(l=>`<p>${escapeHtml(l)}</p>`).join('');
+  const more=document.getElementById('rpMore'); more.textContent=pend.length>1?`Quedan ${pend.length-1} ${pend.length===2?'informe':'informes'} más`:''; more.classList.toggle('hidden',pend.length<2);
+  const ok=document.getElementById('rpOk'); ok.className='w-full h-12 rounded-xl text-white text-[15px] font-semibold border '+T.btn;
+  document.getElementById('toast').classList.add('hidden');   // el informe sustituye al aviso pequeño
+  document.getElementById('reportModal').classList.remove('hidden');
+  ok.focus(); paintLog();
+}
+function acceptReport(){
+  const e=state.ship.log.find(x=>x.id===rpOpen); rpOpen=null;
+  if(e) e.seen=e.read=true;
+  save();
+  if(state.ship.log.some(x=>x.big&&!x.read)){ openReport(); return; }
+  document.getElementById('reportModal').classList.add('hidden');
+  announceLog(state.ship.log.filter(x=>!x.big&&!x.read));
+}
+document.getElementById('rpOk').onclick=acceptReport;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&rpOpen) acceptReport(); });
+
+// La bitácora se pinta con lo no leído resaltado y, al abrirla, todo queda leído.
+function openLog(){
+  const L=state.ship.log, body=document.getElementById('logBody');
+  if(!L.length) body.innerHTML='<p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-3">Todavía no hay nada. Aquí quedarán los finales de misión, los sueldos, el desgaste de los módulos y las transmisiones del tablón que lleguen mientras no estés en la nave.</p>';
+  else {
+    let h='', day=null;
+    for(const e of [...L].reverse()){
+      if(e.day!==day){ day=e.day; h+=`<div class="sys-label mt-4 mb-2">${logDay(day)}</div>`; }
+      const T=LOG_TONE[e.tone]||LOG_TONE.info;
+      h+=`<div class="rounded-lg border ${e.read?'border-slate-800':T.edge} bg-slate-900/60 px-3 py-2.5 mb-1.5">
+        <div class="flex items-baseline gap-2">
+          <span class="mono text-[11px] tracking-wider ${T.label}">${LOG_KIND_TXT[e.kind]}</span>
+          ${e.read?'':'<span class="mono text-[11px] text-slate-100">· nuevo</span>'}
+          <span class="mono text-[11px] text-slate-400 ml-auto shrink-0">${fClock(e.at)}</span>
+        </div>
+        <p class="text-sm text-slate-100 mt-0.5">${escapeHtml(e.title)}</p>
+        ${e.lines.length?`<p class="mono text-[11px] text-slate-400 mt-1 leading-relaxed">${e.lines.map(escapeHtml).join('<br>')}</p>`:''}
+        ${e.rew?`<div class="flex flex-wrap gap-1.5 mt-2">${rewChips(e.rew)}</div>`:''}
+      </div>`;
+    }
+    body.innerHTML=h;
+  }
+  document.getElementById('logModal').classList.remove('hidden');
+  if(L.some(e=>!e.read||!e.seen)){ L.forEach(e=>{ e.seen=e.read=true; }); save(); }
+  paintLog();
+}
+const closeLog=()=>document.getElementById('logModal').classList.add('hidden');
+document.getElementById('miLog').onclick=openLog;
+document.getElementById('logClose').onclick=closeLog;
+document.getElementById('logModal').addEventListener('click',e=>{ if(e.target.id==='logModal') closeLog(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLog(); });
+
 /* ---------- Protocolo Forster (modo focus, en memoria de Mark Forster) ---------- */
 const FICON={
   habit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
@@ -3100,14 +3288,14 @@ function setMode(m){
   document.getElementById('navToggle').classList.toggle('nav-off',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
   const modeBtn=(id,on)=>{ const b=document.getElementById(id);
-    b.className='px-3 py-2 text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
+    b.className='relative px-3 py-2 text-sm rounded-md '+(on?'bg-cyan-700 text-white font-medium':'text-slate-300 hover:text-white');
     b.setAttribute('aria-pressed',String(on)); };
   modeBtn('btnCommander',m==='commander'); modeBtn('btnFocusMode',focus); modeBtn('btnSpaceship',ship);
   document.querySelectorAll('#bottomNav .bnav').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m)));
   try{ localStorage.setItem(UIKEY,m); }catch{}
   weeksScreen=false;   // cambiar de modo sale de la pantalla del teléfono; el panel de escritorio se recuerda
   applyWeeks();
-  if(ship) flushShipNews();   // lo que pasó mientras estabas fuera
+  if(ship) shipArrive();   // lo que pasó mientras estabas fuera
   render(); paintFocusClock(); scrollTo(0,0);
 }
 document.getElementById('btnCommander').onclick=()=>setMode('commander');
@@ -3528,8 +3716,8 @@ setInterval(()=>{
   const b=state.ship.board, before=b.offers.map(o=>o.id).join();
   tickBoard();
   if(b.offers.map(o=>o.id).join()!==before){
-    const n=atHome()?boardNews():null;
-    save(); renderShip(); shipToast(n);
+    if(atHome()) logBoardNews();
+    save(); renderShip();
   } else if(uiMode==='ship'&&atHome()) paintSignal();
 },60000);
 </script>
