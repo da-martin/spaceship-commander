@@ -861,6 +861,7 @@ const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
 const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
 const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
+const MISSION_PUSH = 1.1;   // la cuota pide un 10% más que tu ritmo de los últimos días
 // bitácora de a bordo: lo leído se borra pasados LOG_DAYS días, y nunca hay más de LOG_MAX entradas
 const LOG_MAX = 60, LOG_DAYS = 30;
 const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
@@ -1210,12 +1211,30 @@ function finishContract(frac){
   state.ship.contract=null;
   return p;
 }
-function avgDaily(){ const t=todayStr(); let s=0; for(let i=1;i<=14;i++) s+=state.ship.activity[addDays(t,-i)]||0; return Math.max(1.5,s/14); }
+// Ritmo diario de los últimos 14 días (sin hoy). Se lee del historial real de
+// tareas y hábitos, y del contador de la nave para lo que ya no está (tareas
+// borradas). Se divide solo entre los días que hay historial: dividir siempre
+// entre 14 hundía la media de quien llevaba poco tiempo y las cuotas salían bajas.
+function avgDaily(){
+  const t=todayStr(), act=state.ship.activity, hist={};
+  let first=t;
+  const seen=(d)=>{ if(d&&d<first) first=d; };
+  for(const d of Object.keys(act)) if(act[d]>0) seen(d);
+  for(const x of state.tasks) if(x.done&&x.doneOn){ hist[x.doneOn]=(hist[x.doneOn]||0)+1; seen(x.doneOn); }
+  for(const h of state.habits){
+    if(h.createdAt) seen(todayStr(new Date(h.createdAt)));
+    for(const [d,n] of Object.entries(h.log||{})) if(n>0){ hist[d]=(hist[d]||0)+1; seen(d); }
+  }
+  const span=Math.min(14,Math.max(3,Math.round((dayParse(t)-dayParse(first))/864e5)));
+  let s=0;
+  for(let i=1;i<=14;i++){ const d=addDays(t,-i); s+=Math.max(act[d]||0,hist[d]||0); }
+  return Math.max(1.5,s/span);
+}
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación)
 function genOffer(day){
   const topic=pick(Object.keys(TOPICS)), days=1+Math.floor(Math.random()*maxDays());
   const urgent=!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
-  const quota=Math.max(2,Math.round(days*avgDaily()));
+  const quota=Math.max(2,Math.round(days*avgDaily()*MISSION_PUSH));
   const mc=Math.round(quota*12*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3);
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
