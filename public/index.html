@@ -375,9 +375,10 @@ tailwind.config = {
       <span id="shipLevel" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
       <button type="button" id="shipStatus" class="ml-auto mono text-[11px] px-2 py-1 rounded-md border"></button>
     </div>
-    <div class="flex flex-col sm:flex-row gap-4 items-start">
+    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-stretch">
       <!-- La ilustración no lleva ni una etiqueta encima: es una pieza suelta
-           que se puede sustituir por una imagen sin tocar el panel. -->
+           que se puede sustituir por una imagen sin tocar el panel. En sm+ se
+           estira hasta la altura de la lista y el dibujo la llena (slice). -->
       <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] overflow-hidden"></div>
       <div class="w-full min-w-0 flex-1">
         <div class="flex items-center gap-2 mb-2">
@@ -2246,13 +2247,15 @@ function shipBackdrop(home){
     </defs>
     <circle cx="64" cy="58" r="1.6" fill="#7dd3fc" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="#7dd3fc" opacity=".45"/>
     <circle cx="212" cy="228" r="1.5" fill="#7dd3fc" opacity=".5"/><circle cx="262" cy="160" r="1.1" fill="#7dd3fc" opacity=".4"/>
+    <g style="transform:translateX(var(--planet-x,0px))">
     <circle cx="-20" cy="330" r="134" fill="url(#atmoG)"/>
     <circle ${P} fill="url(#planetG)"/>
     <g clip-path="url(#planetC)">
       <g fill="#2f8f7a" opacity=".5"><path d="M6 234 q14 -9 30 -3 q10 6 3 14 q-12 7 -23 2 q-14 -3 -10 -13Z"/><path d="M48 260 q16 -7 31 2 q6 9 -6 13 q-15 4 -25 -5Z"/><path d="M6 286 q11 -5 18 2 q-4 8 -18 4Z"/></g>
       <path d="M-10 252 q40 -14 80 -2 M10 300 q36 -10 82 -4" fill="none" stroke="#e0f2fe" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>
     </g>
-    <circle ${P} fill="none" stroke="#7dd3fc" stroke-opacity=".45" stroke-width="1.2"/>`;
+    <circle ${P} fill="none" stroke="#7dd3fc" stroke-opacity=".45" stroke-width="1.2"/>
+    </g>`;
   }
   // Cada capa va dibujada dos veces (y, y-300) para que el bucle no tenga corte.
   // La cercana lleva trazos y va rápida; la lejana, puntos que van despacio.
@@ -2272,7 +2275,7 @@ function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" class="block w-full h-auto" role="img" aria-label="Nave de nivel ${tot} de 40, ${home?'en el Sistema Madre':'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de 40, ${home?'en el Sistema Madre':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -2491,7 +2494,7 @@ function paintSignal(){
   if(ok) document.getElementById('btnSweep').onclick=sweep;
 }
 
-let lastShipArt='';
+let lastShipArt='', shipArtRO=null;
 function renderShip(){
   const sh=state.ship, c=sh.contract, w=state.wallet;
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
@@ -2517,6 +2520,13 @@ function renderShip(){
   // Solo se repinta si cambia: rehacerla en cada render reiniciaría las estrellas.
   const art=shipArt();
   if(art!==lastShipArt){ document.getElementById('shipArt').innerHTML=art; lastShipArt=art; }
+  if(!shipArtRO){
+    // En sm+ el recuadro es más alto que ancho y el dibujo (slice) recorta los
+    // lados: el planeta se corre lo recortado para seguir asomando igual.
+    shipArtRO=new ResizeObserver(([e])=>{ const {width:w,height:h}=e.contentRect;
+      e.target.style.setProperty('--planet-x',(h>w&&w>0?(150-150*w/h).toFixed(1):0)+'px'); });
+    shipArtRO.observe(document.getElementById('shipArt'));
+  }
   const sc=document.getElementById('shipSystems'); sc.innerHTML=shipSystems();
   paintSysSort();
   sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
