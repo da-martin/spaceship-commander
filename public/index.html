@@ -541,6 +541,22 @@ tailwind.config = {
 </div>
 
 <!-- INFORME DE MISIÓN: el final de una misión no puede ser un aviso que se va solo -->
+<!-- REPASO DE AYER: lo hecho y sin marcar, antes de que el día se procese -->
+<div id="reviewModal" class="hidden fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="rvTitle" aria-describedby="rvWhen" class="panel corner w-full max-w-md p-5 sm:p-7 flex flex-col gap-4">
+    <div>
+      <div class="sys-label">Repaso de ayer</div>
+      <h3 id="rvTitle" class="text-xl font-bold mt-1.5 text-slate-50">¿Se te olvidó marcar algo?</h3>
+      <p id="rvWhen" class="text-sm text-slate-400 mt-1.5 leading-relaxed"></p>
+    </div>
+    <div id="rvList" class="flex flex-col gap-4"></div>
+    <div class="flex flex-col-reverse sm:flex-row gap-2">
+      <button id="rvNone" class="sm:flex-1 h-11 rounded-xl text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-500">No, nada más</button>
+      <button id="rvOk" class="sm:flex-1 h-11 rounded-xl text-sm font-semibold"></button>
+    </div>
+  </div>
+</div>
+
 <div id="reportModal" class="hidden fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
   <div id="rpBox" role="dialog" aria-modal="true" aria-labelledby="rpTitle" aria-describedby="rpLines" class="panel corner w-full max-w-md p-6 sm:p-8 text-center flex flex-col items-center gap-4">
     <span id="rpIcon" aria-hidden="true" class="w-16 h-16 rounded-full grid place-items-center border-2"></span>
@@ -1109,10 +1125,10 @@ const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.f
 // La recompensa se anuncia donde ocurrió, también fuera de la nave: era lo que
 // más se jugaba y lo único que no se veía desde donde se juega.
 const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
-function grantTask(x){
+function grantTask(x,day=todayStr()){
   const g={mc:Math.round((x.priority?15:10)*(1+perk('quarter'))),res:pickAreaRes(x)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  x.grant=g; x.doneOn=todayStr(); onComplete(x,g); return g;
+  x.grant=g; x.doneOn=day; onComplete(x,g,day); return g;
 }
 function revokeTask(x){
   delete x.doneOn;
@@ -1123,7 +1139,7 @@ function revokeTask(x){
 function checkHabit(h,k){
   const g={mc:(h.priority?8:5)+perk('instructor'),res:pickAreaRes(h)};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  h.g=h.g||{}; h.g[k]=g; onComplete(h,g); return g;
+  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); return g;
 }
 function uncheckHabit(h,k){
   if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
@@ -1133,7 +1149,7 @@ function tapFree(h,k){
   const g={mc:2,res:null};
   addW('mc',g.mc);
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación)
-  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); h.g=h.g||{}; h.g[k]=g; onComplete(h,g); }
+  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   return g;
 }
@@ -1181,15 +1197,16 @@ function selfHeal(){
   mod(k).cond=Math.min(100,mod(k).cond+n);
 }
 
-function onComplete(x,g){
-  const sh=state.ship, t=todayStr();
-  sh.activity[t]=(sh.activity[t]||0)+1;
+// `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer)
+function onComplete(x,g,day=todayStr()){
+  const sh=state.ship;
+  sh.activity[day]=(sh.activity[day]||0)+1; g.day=day;
   const h=healFor(x); if(h) g.heal=h;
   // El material extra solo lo da Prospección: los módulos de área ya no suben
   // la ganancia del material que ellos mismos cuestan.
   if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=1; }
   const c=sh.contract;
-  if(c){
+  if(c&&(c.acceptedOn||'')<=day&&c.endsOn>=day){   // solo lo hecho dentro del plazo de la misión
     c.progress++; g.c=c.id;
     if(c.progress>=c.quota){
       const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
@@ -1201,7 +1218,7 @@ function onComplete(x,g){
 }
 function onUndo(g){
   if(!g) return;
-  const sh=state.ship, t=todayStr();
+  const sh=state.ship, t=g.day||todayStr();
   sh.activity[t]=Math.max(0,(sh.activity[t]||0)-1);
   if(g.bonus&&g.res) subW(g.res,g.bonus);
   if(g.xp) subXP(g.xp);
@@ -1321,6 +1338,10 @@ function logWear(before,miss){
     lines:[hit.map(k=>`${MODS[k].name} ${before[k]} → ${mod(k).cond} %`).join(', '),...(why.length?['Por '+why.join(' y ')]:[])]});
 }
 function dailyTick(){
+  // El día de ayer no se procesa hasta repasarlo: lo que se marque como hecho
+  // ya no desgasta y cuenta para la misión que vencía ayer.
+  if(needsReview()){ openReview(); return; }
+  if(rv.open) closeReview();   // otro dispositivo ya lo repasó (llega con la nube)
   const sh=state.ship, t=todayStr(), y=addDays(t,-1);
   if(!sh.lastTick||sh.lastTick>y) sh.lastTick=y;
   let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
@@ -2841,6 +2862,87 @@ document.getElementById('btnPickFile').onclick=()=>document.getElementById('impo
 document.getElementById('importFile').onchange=async(e)=>{ const f=e.target.files[0]; e.target.value=''; if(f) reviewSave(await f.text()); };
 document.getElementById('btnReview').onclick=()=>reviewSave(document.getElementById('importCode').value);
 document.getElementById('btnUndoLoad').onclick=undoLoad;
+
+/* ---------- repaso de ayer ---------- */
+// La primera vez de cada día (el tick de hoy sin hacer) se pregunta por lo de
+// ayer que sigue sin marcar. `sel` guarda lo elegido por id: hábito o tarea →
+// true, hábito libre → cuántas veces.
+const rv={open:false,done:null,sel:{}};
+function yesterdayPending(){
+  const t=todayStr(), y=addDays(t,-1), start=dayParse(t).getTime(), dow=dayParse(y).getDay();
+  const ord=(a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
+  const habits=[], free=[];
+  for(const h of state.habits){
+    if((h.createdAt||0)>=start) continue;   // creado hoy: ayer no existía
+    const n=h.log?.[y]||0;
+    if(h.type==='free'){ if(!n) free.push(h); continue; }
+    if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
+    if(n<1) habits.push(h);
+  }
+  const tasks=state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<=y&&(x.createdAt||0)<start)
+    .sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
+  return {y,habits:habits.sort(ord),free:free.sort(ord),tasks,n:habits.length+free.length+tasks.length};
+}
+function needsReview(){
+  const sh=state.ship, t=todayStr();
+  return !!sh.lastTick&&sh.lastTick<addDays(t,-1)&&rv.done!==t&&yesterdayPending().n>0;
+}
+const rvCount=()=>Object.values(rv.sel).reduce((a,v)=>a+(v===true?1:v>0?v:0),0);
+function paintReviewOk(){
+  const n=rvCount(), ok=document.getElementById('rvOk');
+  ok.disabled=!n; ok.textContent=n?`Marcar ${n}`:'Marcar';
+  ok.className='sm:flex-1 h-11 rounded-xl text-sm font-semibold '+(n?'bg-cyan-600 hover:bg-cyan-500 text-white':'bg-slate-800 text-slate-500 cursor-not-allowed');
+}
+function openReview(){
+  const p=yesterdayPending(), ids=new Set([...p.habits,...p.free,...p.tasks].map(x=>x.id));
+  for(const k of Object.keys(rv.sel)) if(!ids.has(k)) delete rv.sel[k];   // lo que ya no está (otro dispositivo, borrado)
+  document.getElementById('rvWhen').textContent=`${fDate(p.y)}. Marca lo que hiciste y no llegaste a apuntar: cuenta como hecho ayer.`;
+  const star=(x)=>x.priority?'<span class="text-amber-300">★ </span>':'';
+  const sec=(label,rows)=>rows?`<div><div class="sys-label mb-2">${label}</div><div class="flex flex-col gap-1.5">${rows}</div></div>`:'';
+  const check=(x,meta)=>`<label class="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 cursor-pointer hover:border-slate-500">
+      <input type="checkbox" data-rv="${x.id}" ${rv.sel[x.id]?'checked':''} class="w-[18px] h-[18px] accent-cyan-600 shrink-0">
+      <span class="flex-1 min-w-0"><span class="block text-sm break-words">${star(x)}${escapeHtml(x.title)}</span>${meta?`<span class="block mono text-[11px] text-slate-400 mt-0.5">${meta}</span>`:''}</span></label>`;
+  const step=(h)=>{ const n=rv.sel[h.id]||0;
+    return `<div class="flex items-center gap-3 rounded-lg border ${n?'border-cyan-700':'border-slate-700'} bg-slate-900/60 px-3 py-2">
+      <span class="flex-1 min-w-0 text-sm break-words">${star(h)}${escapeHtml(h.title)}</span>
+      <button type="button" data-rvf="${h.id}" data-d="-1" aria-label="Una vez menos: ${escapeHtml(h.title)}" class="w-8 h-8 rounded-lg border border-slate-700 text-slate-300 ${n?'hover:border-slate-500':'opacity-40 cursor-not-allowed'}" ${n?'':'disabled'}>−</button>
+      <span class="mono text-sm w-5 text-center ${n?'text-cyan-200':'text-slate-500'}" aria-live="polite">${n}</span>
+      <button type="button" data-rvf="${h.id}" data-d="1" aria-label="Una vez más: ${escapeHtml(h.title)}" class="w-8 h-8 rounded-lg border border-slate-700 text-slate-300 hover:border-slate-500">+</button>
+    </div>`; };
+  const t=todayStr(), late=(x)=>x.dueDate===p.y?'vencía ayer':`vencía el ${fmtDate(x.dueDate)} · hace ${Math.round((dayParse(t)-dayParse(x.dueDate))/864e5)} días`;
+  const list=document.getElementById('rvList');
+  list.innerHTML=sec('Hábitos',p.habits.map(h=>check(h,h.type==='weekly'?'Semanal':'')).join(''))
+    +sec('Hábitos libres',p.free.map(step).join(''))
+    +sec('Tareas atrasadas',p.tasks.map(x=>check(x,late(x))).join(''));
+  list.querySelectorAll('[data-rv]').forEach(cb=>cb.onchange=()=>{ if(cb.checked) rv.sel[cb.dataset.rv]=true; else delete rv.sel[cb.dataset.rv]; paintReviewOk(); });
+  list.querySelectorAll('[data-rvf]').forEach(bt=>bt.onclick=()=>{
+    const id=bt.dataset.rvf, n=Math.max(0,Math.min(99,(rv.sel[id]||0)+ +bt.dataset.d));
+    if(n) rv.sel[id]=n; else delete rv.sel[id];
+    openReview();
+    document.querySelector(`[data-rvf="${id}"][data-d="${bt.dataset.d}"]`)?.focus();
+  });
+  paintReviewOk();
+  const m=document.getElementById('reviewModal'), was=rv.open;
+  rv.open=true; m.classList.remove('hidden');
+  if(!was){ m.scrollTop=0; document.getElementById('rvNone').focus({preventScroll:true}); }   // se lee desde arriba
+}
+function closeReview(){ rv.open=false; rv.sel={}; document.getElementById('reviewModal').classList.add('hidden'); }
+// Marca lo elegido con fecha de ayer y, ya con eso, procesa el día.
+function answerReview(apply){
+  if(!rv.open) return;
+  const p=yesterdayPending(), y=p.y; let n=0, mc=0;
+  if(apply){
+    for(const h of p.habits) if(rv.sel[h.id]===true){ h.log=h.log||{}; h.log[y]=1; mc+=checkHabit(h,y).mc; n++; }
+    for(const h of p.free) for(let i=0;i<(rv.sel[h.id]||0);i++){ mc+=tapFree(h,y).mc; n++; }
+    for(const x of p.tasks) if(rv.sel[x.id]===true){ x.done=true; mc+=grantTask(x,y).mc; n++; }
+  }
+  rv.done=todayStr(); closeReview();
+  dailyTick(); render();
+  if(n) toast(`Ayer: ${n} ${n===1?'marcado':'marcados'} · +${mc} ¢`);
+}
+document.getElementById('rvOk').onclick=()=>answerReview(true);
+document.getElementById('rvNone').onclick=()=>answerReview(false);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&rv.open) answerReview(false); });
 
 /* ---------- bitácora de a bordo e informes de misión ---------- */
 const LOG_TONE={
