@@ -4,25 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Spaceship Commander</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter','system-ui','sans-serif'],
-        mono: ['"JetBrains Mono"','monospace'],
-      },
-      colors: {
-        hull: '#0a0f1a',
-        panel: '#111827',
-        panel2: '#0d1526',
-      }
-    }
-  }
-}
-</script>
+<meta name="theme-color" content="#0a0f1a" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Commander" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="stylesheet" href="/tailwind.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -3872,6 +3862,9 @@ setInterval(()=>{
     save(); renderShip();
   } else if(uiMode==='ship'&&atHome()) paintSignal();
 },60000);
+</script>
+<script>
+if('serviceWorker' in navigator){ addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{})); }
 </script>
 </body>
 </html>
