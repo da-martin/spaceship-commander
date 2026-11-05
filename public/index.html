@@ -2872,6 +2872,13 @@ document.getElementById('btnUndoLoad').onclick=undoLoad;
 // ayer que sigue sin marcar. `sel` guarda lo elegido por id: hábito o tarea →
 // true, hábito libre → cuántas veces.
 const rv={open:false,done:null,sel:{}};
+// Lo marcado y aún sin confirmar se guarda para que una recarga no lo borre.
+const RVKEY='spaceship-commander:review';
+function saveRvSel(){ try{ localStorage.setItem(RVKEY,JSON.stringify({day:todayStr(),sel:rv.sel})); }catch{} }
+function loadRvSel(){
+  try{ const v=JSON.parse(localStorage.getItem(RVKEY)); if(v?.day===todayStr()&&v.sel&&typeof v.sel==='object') rv.sel={...v.sel}; }catch{}
+}
+function clearRvSel(){ try{ localStorage.removeItem(RVKEY); }catch{} }
 function yesterdayPending(){
   const t=todayStr(), y=addDays(t,-1), start=dayParse(t).getTime(), dow=dayParse(y).getDay();
   const ord=(a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
@@ -2899,6 +2906,7 @@ function paintReviewOk(){
 }
 function openReview(){
   const p=yesterdayPending(), ids=new Set([...p.habits,...p.free,...p.tasks].map(x=>x.id));
+  if(!rv.open&&!Object.keys(rv.sel).length) loadRvSel();   // tras recargar o reabrir la app
   for(const k of Object.keys(rv.sel)) if(!ids.has(k)) delete rv.sel[k];   // lo que ya no está (otro dispositivo, borrado)
   document.getElementById('rvWhen').textContent=`${fDate(p.y)}. Marca lo que hiciste y no llegaste a apuntar: cuenta como hecho ayer.`;
   const star=(x)=>x.priority?'<span class="text-amber-300">★ </span>':'';
@@ -2918,11 +2926,11 @@ function openReview(){
   list.innerHTML=sec('Hábitos',p.habits.map(h=>check(h,h.type==='weekly'?'Semanal':'')).join(''))
     +sec('Hábitos libres',p.free.map(step).join(''))
     +sec('Tareas atrasadas',p.tasks.map(x=>check(x,late(x))).join(''));
-  list.querySelectorAll('[data-rv]').forEach(cb=>cb.onchange=()=>{ if(cb.checked) rv.sel[cb.dataset.rv]=true; else delete rv.sel[cb.dataset.rv]; paintReviewOk(); });
+  list.querySelectorAll('[data-rv]').forEach(cb=>cb.onchange=()=>{ if(cb.checked) rv.sel[cb.dataset.rv]=true; else delete rv.sel[cb.dataset.rv]; saveRvSel(); paintReviewOk(); });
   list.querySelectorAll('[data-rvf]').forEach(bt=>bt.onclick=()=>{
     const id=bt.dataset.rvf, n=Math.max(0,Math.min(99,(rv.sel[id]||0)+ +bt.dataset.d));
     if(n) rv.sel[id]=n; else delete rv.sel[id];
-    openReview();
+    saveRvSel(); openReview();
     document.querySelector(`[data-rvf="${id}"][data-d="${bt.dataset.d}"]`)?.focus();
   });
   paintReviewOk();
@@ -2930,7 +2938,7 @@ function openReview(){
   rv.open=true; m.classList.remove('hidden');
   if(!was){ m.scrollTop=0; document.getElementById('rvNone').focus({preventScroll:true}); }   // se lee desde arriba
 }
-function closeReview(){ rv.open=false; rv.sel={}; document.getElementById('reviewModal').classList.add('hidden'); }
+function closeReview(){ rv.open=false; rv.sel={}; clearRvSel(); document.getElementById('reviewModal').classList.add('hidden'); }
 // Marca lo elegido con fecha de ayer y, ya con eso, procesa el día.
 function answerReview(apply){
   if(!rv.open) return;
