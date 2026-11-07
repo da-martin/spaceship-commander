@@ -3,7 +3,7 @@
  * - Navegación: red primero, con la copia en caché como respaldo sin conexión.
  * - Resto (iconos, fuentes de Google): stale-while-revalidate.
  * Sube CACHE si cambias la lista de PRECACHE. */
-const CACHE = 'commander-v2';
+const CACHE = 'commander-v3';
 const PRECACHE = ['/', '/tailwind.css', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

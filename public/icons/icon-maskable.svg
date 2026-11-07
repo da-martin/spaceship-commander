@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0a0f1a"/><g transform="translate(256 256) scale(.78) translate(-256 -256)">
-  
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#22d3ee" stroke-opacity=".25" stroke-width="6"/>
-  <path d="M256 120 L322 330 L256 296 L190 330 Z" fill="#0e7490" stroke="#22d3ee" stroke-width="10" stroke-linejoin="round"/>
-  <path d="M256 170 L282 262 L256 250 L230 262 Z" fill="#67e8f9"/>
-  <path d="M236 318 L256 372 L276 318 Z" fill="#22d3ee" fill-opacity=".7"/>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- A sangre: el sistema recorta la forma. La estrella cabe de sobra en la zona segura (círculo del 80 %). -->
+  <rect width="512" height="512" fill="#113546"/>
+  <path transform="translate(256 256) scale(13.04) translate(-12 -12)" d="M12 2 L15 9 L22 12 L15 15 L12 22 L9 15 L2 12 L9 9 Z" fill="none" stroke="#67e8f9" stroke-width="1.6"/>
+</svg>
