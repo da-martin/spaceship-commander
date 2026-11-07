@@ -48,12 +48,25 @@ Marcar Progreso tiene que dar solo un poquito:
 | Méritos | 2 | **1** |
 | ¢ | 1 + Pilotaje | **solo Pilotaje** (0 sin piloto a bordo) |
 
-- Siempre 0,1, sea cual sea la dificultad de la línea. También cuenta en las acciones rápidas del Focus que no son tareas ni hábitos.
+- Siempre 0,1, sea cual sea la dificultad de la línea, también en las acciones rápidas.
 - Los 0,1 suman al progreso de la misión activa (si se hacen dentro de su plazo) y a `ship.activity` del día, así que también cuentan en el ritmo de 14 días.
 - No da material, no repara y no desgasta.
 - Desaparece `PROGRESS_MC`. Pilotaje (+1/2/3 ¢ por Progreso) pasa a ser lo único que da ¢ al marcar Progreso. Su descripción no cambia.
 - `XP_PROGRESS` baja de 2 a 1.
 - Si no hay piloto, el aviso del Progreso no menciona ¢. El contador de ¢ de la sesión y de la ronda solo suma el bono de Pilotaje.
+
+## Acciones rápidas del modo Focus
+
+Las acciones rápidas (las que se escriben directamente en la lista del Focus) pasan a ser **el equivalente a una tarea Fácil**:
+
+- **Completarla** da lo mismo que una tarea fácil: 0,5 puntos de esfuerzo a la misión y al ritmo diario, 2,5 → 3 ¢ (+ Intendencia) y 2,5 → 3 méritos. Hoy no dan nada: solo sale «Acción hecha».
+- No tienen área, así que no dan material. La reparación va, como en cualquier tarea sin área, al módulo general más dañado (× 0,5).
+- No tienen fecha, así que nunca desgastan.
+- La recompensa se guarda en la línea (`l.grant`), igual que en las tareas, para poder restarla si hiciera falta.
+- **Progreso**: igual que cualquier otra línea, 0,1 puntos y 1 mérito.
+- **Al salir del Focus**, las que se eligen conservar se convierten en una tarea normal sin fecha con dificultad **Fácil**. Desde ahí se editan como cualquier tarea: dificultad, fecha, áreas, proyecto, etc.
+- Mientras siguen siendo acciones rápidas no tienen selector de dificultad: siempre son Fáciles. Editarlas en el Focus sigue siendo solo cambiar el nombre.
+- La línea del Focus no lleva etiqueta «Fácil»: ya se distingue por su icono de acción rápida. Cuando pasa a tarea sí la lleva, como cualquier tarea fácil.
 
 ## Desgaste y reparación
 
@@ -86,7 +99,7 @@ Ambos se multiplican por los puntos del elemento:
 
 - **Formulario de crear/editar** tarea y hábito: un selector de tres botones Fácil · Normal · Difícil con los puntos debajo (0,5 · 1 · 2). Normal viene marcado por defecto. Está también en los hábitos libres.
 - **Listas** (Hoy, Tareas, Hábitos, Protocolo Forster): una etiqueta discreta solo para Fácil y Difícil; Normal no lleva nada.
-- Lo que se crea sin formulario nace Normal: los hábitos de ejemplo de la bienvenida y las acciones del Protocolo Forster que se guardan como tareas.
+- Lo que se crea sin formulario nace Normal (los hábitos de ejemplo de la bienvenida), salvo las acciones rápidas del Focus que se guardan como tareas, que nacen Fáciles.
 - Textos que cambian:
   - Tablón: «Completa N hábitos o tareas en X días» → «Reúne N puntos de esfuerzo en X días».
   - Misión en curso: «Cada hábito o tarea completada suma 1» → «Cada hábito o tarea suma sus puntos de esfuerzo (fácil 0,5 · normal 1 · difícil 2)».
