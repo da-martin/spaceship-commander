@@ -107,7 +107,7 @@ Ambos se multiplican por los puntos del elemento:
 - Lo que se crea sin formulario nace Normal (los hábitos de ejemplo de la bienvenida), salvo las acciones rápidas del Focus que se guardan como tareas, que nacen Fáciles.
 - Textos que cambian:
   - Tablón: «Completa N hábitos o tareas en X días» → «Reúne N puntos de esfuerzo en X días».
-  - Misión en curso: «Cada hábito o tarea completada suma 1» → «Cada hábito o tarea suma sus puntos de esfuerzo (fácil 0,5 · normal 1 · difícil 2)».
+  - Misión en curso: «Cada hábito o tarea completada suma 1» → «Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2» (sin mencionar el progreso del Focus, para ahorrar espacio).
   - Ayuda del tablón (`index.html`, línea ~420): «suma progreso» → «suma sus puntos de esfuerzo».
   - Hoja de servicios: «Méritos: tarea +10 · hábito +5 · …» → «Méritos: +5 por punto de esfuerzo · progreso +1 · …».
   - El chip de la cabecera y el estado de la nave muestran el progreso con decimales: «4,6/8».
