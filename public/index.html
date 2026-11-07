@@ -27,6 +27,9 @@
   .btn-primary{background:#0e7490;color:#fff}.btn-primary:hover{background:#0891b2}
   .day-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
   .area-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
+  .diff-pill.on[data-diff="easy"]{background:#064e3b;color:#fff;border-color:#34d399}
+  .diff-pill.on[data-diff="normal"]{background:#0e7490;color:#fff;border-color:#22d3ee}
+  .diff-pill.on[data-diff="hard"]{background:#7f1d1d;color:#fff;border-color:#f87171}
   .gear-menu{position:absolute;z-index:30;min-width:180px;background:#0f172a;border:1px solid #2a3a55;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);overflow:hidden}
   .gear-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 12px;font-size:13px;color:#e5e7eb}
   .gear-menu button:hover{background:#1e293b}
@@ -417,7 +420,7 @@
           <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
         <div data-pane="missions" role="tabpanel" class="hidden">
-          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma progreso.</p>
+          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma sus puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2.</p>
           <div id="signalBox" class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 mb-3"></div>
           <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
         </div>
@@ -605,6 +608,14 @@
       <div>
         <label class="mono text-[11px] text-slate-400">TÍTULO</label>
         <input id="fTitle" type="text" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600" placeholder="Ej. Revisar informe…">
+      </div>
+      <div>
+        <span id="fDiffLabel" class="mono text-[11px] text-slate-400">DIFICULTAD · PUNTOS DE ESFUERZO</span>
+        <div id="diffPicker" class="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-labelledby="fDiffLabel">
+          <button type="button" data-diff="easy" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Fácil<span class="mono text-[11px] opacity-80">0,5</span></button>
+          <button type="button" data-diff="normal" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Normal<span class="mono text-[11px] opacity-80">1</span></button>
+          <button type="button" data-diff="hard" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Difícil<span class="mono text-[11px] opacity-80">2</span></button>
+        </div>
       </div>
       <div id="rowTaskDate">
         <label class="mono text-[11px] text-slate-400">FECHA DE VENCIMIENTO (OPCIONAL)</label>
@@ -877,10 +888,21 @@ const DIFFS = {
 };
 // bitácora de a bordo: lo leído se borra pasados LOG_DAYS días, y nunca hay más de LOG_MAX entradas
 const LOG_MAX = 60, LOG_DAYS = 30;
-const PROGRESS_MC = 1;   // ¢ por cada Progreso en el Protocolo Forster
+// Dificultad de tareas y hábitos: vale puntos de esfuerzo, la unidad de todo lo
+// que se gana al completar y de las cuotas de misión. 1 punto = lo que daba un
+// hábito normal. Las acciones rápidas del Focus cuentan como tareas fáciles.
+const EFFORT = {easy:0.5, normal:1, hard:2};
+const EFFORT_NAME = {easy:'Fácil', normal:'Normal', hard:'Difícil'};
+const EF_MC = 5, EF_XP = 5, FREE_MC = 2;   // ¢ y méritos por punto; ¢ por toque de hábito libre (× puntos)
+const EF_PROGRESS = 0.1;                   // puntos de cada Progreso en el Protocolo Forster
+const effOf = (x) => x?.kind==='acc' ? EFFORT.easy : (EFFORT[x?.diff]||1);
+const efRound = (v) => Math.round(v*10)/10;   // sumas de 0,1 sin restos de coma flotante
+const fmtEf = (v) => (+v||0).toLocaleString('es-ES',{maximumFractionDigits:1});
+// Lo fácil redondea ¢ y méritos hacia abajo (2,5 → 2); lo demás, a la más cercana.
+const payRound = (v,ef) => ef<1 ? Math.floor(v+1e-9) : Math.round(v);
 
 /* ---------- rango del comandante: méritos que no se gastan ---------- */
-const XP_TASK = 10, XP_HABIT = 5, XP_PROGRESS = 2, XP_ROUND = 5, XP_CONTRACT = 25;
+const XP_PROGRESS = 1, XP_ROUND = 5, XP_CONTRACT = 25;   // tareas y hábitos: EF_XP por punto de esfuerzo
 const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teniente',500],['Capitán de corbeta',900],['Capitán de fragata',1500],
   ['Capitán de navío',2400],['Comodoro',3700],['Contraalmirante',5500],['Vicealmirante',8000],['Almirante',11500]];
 
@@ -891,7 +913,7 @@ const CREW_LV = [{name:'Aprendiz',wage:45,rank:0},{name:'Oficial',wage:90,rank:2
 const pctTxt = (v) => Math.round(v*100)+'%';
 const ROLES = {
   quarter:   {code:'INT', name:'Intendencia',   eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ en tareas completadas`},
-  instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3],      desc:(v)=>`+${v} ¢ por hábito diario o semanal cumplido`},
+  instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3],      desc:(v)=>`+${v} ¢ por punto de esfuerzo en hábitos diarios o semanales`},
   engineer:  {code:'ING', name:'Ingeniería',    eff:[.25,.4,.55], desc:(v)=>`−${pctTxt(v)} de desgaste en los módulos`},
   medic:     {code:'MNT', name:'Mantenimiento', eff:[1,2,3],      desc:(v)=>`+${v}% de reparación extra al completar`},
   navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar misiones`},
@@ -969,7 +991,7 @@ function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
-    .map(l=>({id:l.id,kind:l.kind,ref:l.ref,...(l.kind==='acc'?{title:l.title}:{}),dotted:!!l.dotted,status:['progress','done'].includes(l.status)?l.status:null,re:clampInt(l.re,0,999,0),added:Number.isFinite(+l.added)?+l.added:Date.now()}));
+    .map(l=>({id:l.id,kind:l.kind,ref:l.ref,...(l.kind==='acc'?{title:l.title}:{}),...(l.kind==='acc'&&l.grant&&typeof l.grant==='object'?{grant:l.grant}:{}),dotted:!!l.dotted,status:['progress','done'].includes(l.status)?l.status:null,re:clampInt(l.re,0,999,0),added:Number.isFinite(+l.added)?+l.added:Date.now()}));
   const counts=(o)=>({progress:clampInt(o?.progress,0,1e6,0),done:clampInt(o?.done,0,1e6,0),mc:clampInt(o?.mc,0,1e9,0)});
   return {lines,phase:f?.phase==='work'?'work':'prep',day:typeof f?.day==='string'?f.day:null,workStart:Number.isFinite(+f?.workStart)&&f?.workStart!==null?+f.workStart:null,
     session:counts(f?.session),round:counts(f?.round)};
@@ -992,7 +1014,7 @@ function normProjects(a){
 function normState(s){
   const items=(a)=>Array.isArray(a)?a.filter(x=>x&&typeof x==='object'&&typeof x.title==='string'):[];
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
-  [...st.tasks,...st.habits].forEach(x=>{ if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
+  [...st.tasks,...st.habits].forEach(x=>{ if(!EFFORT[x.diff]) x.diff='normal'; if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
   st.projects=normProjects(s?.projects);
   // una tarea va en un proyecto como mucho; si el proyecto ya no existe, se queda sin él
   const pids=new Set(st.projects.map(p=>p.id));
@@ -1004,9 +1026,11 @@ function normState(s){
 }
 // contadores de la hoja de servicios que no se pueden deducir del historial (empiezan en 0 en partidas antiguas)
 function normStats(x){ const d={missions:0,rounds:0,hires:0,urgentFails:0}; if(x) for(const k of Object.keys(d)) d[k]=clampInt(x[k],0,1e6,0); return d; }
+// Usa los valores de antes de las dificultades (tarea 10, hábito 5): solo corre
+// una vez, en partidas que aún no tenían méritos.
 function retroXP(st){
-  let xp=st.tasks.filter(x=>x.done).length*XP_TASK;
-  for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*XP_HABIT;
+  let xp=st.tasks.filter(x=>x.done).length*10;
+  for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*5;
   return xp;
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
@@ -1057,6 +1081,9 @@ function areaBadges(areas,max=2){
   const shown=areas.slice(0,max).map(a=>`<span class="mono text-[11px] text-slate-400 inline-flex items-center gap-1"><span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${AREA_DOT[a]}" aria-hidden="true"></span>${a}</span>`).join('');
   return shown+(areas.length>max?`<span class="mono text-[11px] text-slate-400">+${areas.length-max}</span>`:'');
 }
+// Solo lo que se sale de lo normal lleva etiqueta: hoy casi todo es normal.
+const DIFF_TXT={easy:'text-emerald-300',hard:'text-red-300'};
+const diffBadge=(x)=>DIFF_TXT[x?.diff]?`<span class="${DIFF_TXT[x.diff]}">${EFFORT_NAME[x.diff]}</span>`:'';
 const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 
 /* ---------- rango y ventajas de la tripulación ---------- */
@@ -1116,8 +1143,11 @@ const pickAreaRes=(x)=> (!x.areas||!x.areas.length)?null:AREA_RES[x.areas[Math.f
 // La recompensa se anuncia donde ocurrió, también fuera de la nave: era lo que
 // más se jugaba y lo único que no se veía desde donde se juega.
 const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym} ${RES[g.res].name}`:''}`;
+// Todo se calcula con los puntos de esfuerzo y se guarda en g.ef: al desmarcar
+// se resta lo que se dio, aunque después haya cambiado la dificultad.
+// También sirve para las acciones rápidas del Focus (tarea fácil, sin área).
 function grantTask(x,day=todayStr()){
-  const g={mc:Math.round((x.priority?15:10)*(1+perk('quarter'))),res:pickAreaRes(x)};
+  const ef=effOf(x), g={mc:payRound(EF_MC*ef*(1+perk('quarter')),ef),res:pickAreaRes(x),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
   x.grant=g; x.doneOn=day; onComplete(x,g,day); return g;
 }
@@ -1128,25 +1158,28 @@ function revokeTask(x){
   onUndo(x.grant); delete x.grant;
 }
 function checkHabit(h,k){
-  const g={mc:(h.priority?8:5)+perk('instructor'),res:pickAreaRes(h)};
+  const ef=effOf(h), g={mc:payRound((EF_MC+perk('instructor'))*ef,ef),res:pickAreaRes(h),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
   h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); return g;
 }
 function uncheckHabit(h,k){
   if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
+// El primer toque del día fija lo que vale cada toque ese día (g.tap), para que
+// −1 reste lo mismo aunque la dificultad cambie a media jornada.
+function freeTap(h,k){ const p=h.g?.[k]; if(p?.tap!==undefined) return p.tap; if(p) return FREE_MC; const ef=effOf(h); return payRound(FREE_MC*ef,ef); }
 function tapFree(h,k){
   const first=(h.log?.[k]||0)===0;
-  const g={mc:2,res:null};
+  const g={mc:freeTap(h,k),res:null};
   addW('mc',g.mc);
-  // solo el primer registro del día cuenta como actividad (material, contrato, reparación)
-  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
+  // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
+  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   return g;
 }
 function untapFree(h,k){
   h.log=h.log||{}; h.log[k]=Math.max(0,(h.log[k]||0)-1);
-  subW('mc',2);
+  subW('mc',freeTap(h,k));
   if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
 
@@ -1173,10 +1206,10 @@ function wear(x,n){
   if(!k){ const g=builtGeneral(); if(!g.length) return; k=g[state.ship.rot++%g.length]; }
   mod(k).cond=Math.max(0,mod(k).cond-n);
 }
-function healFor(x){
+function healFor(x,ef=1){
   let k=areaModFor(x);
   if(!k){ const g=builtGeneral(); if(!g.length) return null; k=g.reduce((a,b)=>mod(b).cond<mod(a).cond?b:a); }
-  const before=mod(k).cond; mod(k).cond=Math.min(100,before+HEAL+perk('medic'));
+  const before=mod(k).cond; mod(k).cond=Math.min(100,before+Math.round((HEAL+perk('medic'))*ef));
   return mod(k).cond>before?{k,n:mod(k).cond-before}:null;
 }
 
@@ -1188,33 +1221,38 @@ function selfHeal(){
   mod(k).cond=Math.min(100,mod(k).cond+n);
 }
 
+// Suma puntos de esfuerzo al día y a la misión en curso (solo lo hecho dentro
+// de su plazo). Devuelve el id de la misión si contó, para poder restarlo.
+function addEffort(ef,day=todayStr()){
+  const sh=state.ship, c=sh.contract;
+  sh.activity[day]=efRound((sh.activity[day]||0)+ef);
+  if(!c||(c.acceptedOn||'')>day||c.endsOn<day) return null;
+  c.progress=efRound(c.progress+ef);
+  if(c.progress>=c.quota){
+    const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
+    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
+    logBoardNews();
+  }
+  return c.id;
+}
 // `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer)
 function onComplete(x,g,day=todayStr()){
-  const sh=state.ship;
-  sh.activity[day]=(sh.activity[day]||0)+1; g.day=day;
-  const h=healFor(x); if(h) g.heal=h;
+  const ef=g.ef??1; g.day=day;
+  const h=healFor(x,ef); if(h) g.heal=h;
   // El material extra solo lo da Prospección: los módulos de área ya no suben
   // la ganancia del material que ellos mismos cuestan.
   if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=1; }
-  const c=sh.contract;
-  if(c&&(c.acceptedOn||'')<=day&&c.endsOn>=day){   // solo lo hecho dentro del plazo de la misión
-    c.progress++; g.c=c.id;
-    if(c.progress>=c.quota){
-      const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
-      logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
-      logBoardNews();
-    }
-  }
-  g.xp=addXP(('type' in x)?XP_HABIT:XP_TASK);
+  const c=addEffort(ef,day); if(c) g.c=c;
+  g.xp=addXP(payRound(EF_XP*ef,ef));
 }
 function onUndo(g){
   if(!g) return;
-  const sh=state.ship, t=g.day||todayStr();
-  sh.activity[t]=Math.max(0,(sh.activity[t]||0)-1);
+  const sh=state.ship, t=g.day||todayStr(), ef=g.ef??1;
+  sh.activity[t]=Math.max(0,efRound((sh.activity[t]||0)-ef));
   if(g.bonus&&g.res) subW(g.res,g.bonus);
   if(g.xp) subXP(g.xp);
   if(g.heal) mod(g.heal.k).cond=Math.max(0,mod(g.heal.k).cond-g.heal.n);
-  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,sh.contract.progress-1);
+  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,efRound(sh.contract.progress-ef));
 }
 
 const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');
@@ -1226,7 +1264,7 @@ function finishContract(frac){
   state.ship.contract=null;
   return p;
 }
-// Ritmo diario de los últimos 14 días (sin hoy). Se lee del historial real de
+// Ritmo diario de los últimos 14 días (sin hoy), en puntos de esfuerzo. Se lee del historial real de
 // tareas y hábitos, y del contador de la nave para lo que ya no está (tareas
 // borradas). Se divide solo entre los días que hay historial: dividir siempre
 // entre 14 hundía la media de quien llevaba poco tiempo y las cuotas salían bajas.
@@ -1235,10 +1273,11 @@ function avgDaily(){
   let first=t;
   const seen=(d)=>{ if(d&&d<first) first=d; };
   for(const d of Object.keys(act)) if(act[d]>0) seen(d);
-  for(const x of state.tasks) if(x.done&&x.doneOn){ hist[x.doneOn]=(hist[x.doneOn]||0)+1; seen(x.doneOn); }
+  // los puntos que dio cada cosa ese día; si no se guardaron, los de su dificultad actual
+  for(const x of state.tasks) if(x.done&&x.doneOn){ hist[x.doneOn]=(hist[x.doneOn]||0)+(x.grant?.ef??effOf(x)); seen(x.doneOn); }
   for(const h of state.habits){
     if(h.createdAt) seen(todayStr(new Date(h.createdAt)));
-    for(const [d,n] of Object.entries(h.log||{})) if(n>0){ hist[d]=(hist[d]||0)+1; seen(d); }
+    for(const [d,n] of Object.entries(h.log||{})) if(n>0){ hist[d]=(hist[d]||0)+(h.g?.[d]?.ef??effOf(h)); seen(d); }
   }
   const span=Math.min(14,Math.max(3,Math.round((dayParse(t)-dayParse(first))/864e5)));
   let s=0;
@@ -1312,12 +1351,12 @@ function decayDay(day,miss){
   for(const h of state.habits){
     if(h.type==='free'||(h.createdAt||0)>=start) continue;
     if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
-    if((h.log?.[day]||0)<1){ wear(h,WEAR_HABIT); miss.habits++; }
+    if((h.log?.[day]||0)<1){ wear(h,WEAR_HABIT*effOf(h)); miss.habits++; }
   }
   for(const x of state.tasks){
     if(!x.dueDate||x.dueDate>=day||(x.createdAt||0)>=end) continue;
     if(x.done&&(!x.doneOn||x.doneOn<=day)) continue;
-    wear(x,WEAR_TASK); miss.tasks++;
+    wear(x,WEAR_TASK*effOf(x)); miss.tasks++;
   }
 }
 // Solo lo que bajó en neto, ya contada la Enfermería: si se compensa, no hay noticia.
@@ -1348,12 +1387,12 @@ function dailyTick(){
   if(gone&&c.urgent){
     sh.contract=null;
     logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,
-      lines:[`Plazo agotado con ${c.progress}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home()]});
+      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home()]});
   }
   else if(gone){
     const p=finishContract(c.progress/c.quota);
     logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,
-      lines:[`Plazo agotado con ${c.progress}/${c.quota}: cobras la parte hecha.`,...home()]});
+      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: cobras la parte hecha.`,...home()]});
   }
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
   const pay=crewPayroll(t);
@@ -1594,6 +1633,7 @@ function habitRowEl(h,size,t){
   const kind=free?'Libre':h.type==='daily'?'Diario':'Semanal'+((h.days||[]).length?' · '+h.days.map(x=>DOW_NAMES[x]).join(' '):'');
   const meta=[
     `<span class="text-slate-400">${kind}</span>`,
+    diffBadge(h),
     free?`<span class="text-slate-400">hoy ${c} ${c===1?'vez':'veces'}</span>`:'',
     (!free&&s>=2&&state.settings.showStreaks)?`<span class="text-emerald-300">🔥 racha ${s}</span>`:'',
     sched?'':'<span class="text-slate-400">stand-by hoy</span>',
@@ -1634,7 +1674,7 @@ function welcomeEl(){
   el.querySelector('#wcNew').onclick=()=>openModal('habit');
   el.querySelectorAll('[data-seed]').forEach(b=>b.onclick=()=>{
     const s=SEED_HABITS[+b.dataset.seed];
-    state.habits.push({id:uid(),title:s.title,type:s.type,days:null,priority:false,areas:[],log:{},createdAt:Date.now()});
+    state.habits.push({id:uid(),title:s.title,type:s.type,days:null,priority:false,diff:'normal',areas:[],log:{},createdAt:Date.now()});
     save(); render(); toast('Hábito creado: '+s.title);
   });
   return el;
@@ -1726,6 +1766,7 @@ function taskRowEl(x,t,size){
   const date=x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha';
   const meta=[
     `<span class="${over?'text-amber-300':x.dueDate===t?'text-slate-200':'text-slate-400'}">${date}</span>`,
+    diffBadge(x),
     (eta!==null&&x.dueDate!==t)?`<span class="px-1.5 py-px rounded border ${over?'border-amber-700 text-amber-300':'border-slate-600 text-slate-300'}">${over?('hace '+(-eta)+(-eta===1?' día':' días')):('ETA '+eta+(eta===1?' día':' días'))}</span>`:'',
     projBadge(x.projectId), areaBadges(x.areas)
   ].filter(Boolean).join('');
@@ -1763,7 +1804,7 @@ const ICAL_EMPTY={at:0,user:null,calendars:[]};
 let ical=(()=>{ try{ return JSON.parse(localStorage.getItem(ICALKEY))||ICAL_EMPTY; }catch{ return ICAL_EMPTY; } })();
 const saveIcal=()=>{ try{ localStorage.setItem(ICALKEY,JSON.stringify(ical)); }catch{} };
 let aFilterTasks=new Set(), aFilterHabits=new Set();
-let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set();
+let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set(), pickedDiff='normal';
 
 /* ---------- habit helpers ---------- */
 const countToday = (h) => h.log?.[todayStr()]||0;
@@ -2342,7 +2383,7 @@ function renderRank(){
       <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[11px] text-slate-400">${k}</div></div>`).join('')}</div>
-    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: tarea +${XP_TASK} · hábito +${XP_HABIT} · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
+    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: +${EF_XP} por punto de esfuerzo (fácil +${payRound(EF_XP*EFFORT.easy,EFFORT.easy)} · normal +${EF_XP} · difícil +${EF_XP*EFFORT.hard}) · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
 }
 function renderCrew(){
@@ -2433,9 +2474,9 @@ function renderMission(c){
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
       <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
-      <span class="mono text-sm text-cyan-200">${c.progress}/${c.quota}</span>
+      <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
-    <div class="mono text-[11px] text-slate-400 mt-1.5">Cada hábito o tarea completada suma 1 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · progreso del Focus ${fmtEf(EF_PROGRESS)} · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
@@ -2494,7 +2535,7 @@ function renderShip(){
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
   const chipEl=document.getElementById('shipChip');
   chipEl.style.display=uiMode==='ship'?'':'none';
-  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${c.progress}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
+  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
@@ -2505,7 +2546,7 @@ function renderShip(){
   // estado: en el Sistema Madre o en misión
   const ss=document.getElementById('shipStatus');
   ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(c?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
-  ss.textContent=c?`▶ En misión · ${c.progress}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ En el Sistema Madre';
+  ss.textContent=c?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ En el Sistema Madre';
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
@@ -2552,7 +2593,7 @@ function renderShip(){
         <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">Completa ${o.quota} hábitos o tareas en ${o.days===1?'1 día':o.days+' días'}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}</div>
       <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">
@@ -2623,7 +2664,7 @@ function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','
 
 /* ---------- modal ---------- */
 function openModal(mode,id=null){
-  modalMode=mode; editingId=id; pickedDays=new Set(); pickedAreas=new Set();
+  modalMode=mode; editingId=id; pickedDays=new Set(); pickedAreas=new Set(); pickedDiff='normal';
   const isEdit=!!id;
   document.getElementById('modal').classList.remove('hidden');
   document.getElementById('modalKicker').textContent=(isEdit?'EDITAR // ':'NUEVO // ')+(mode==='task'?'TASK':'HABIT');
@@ -2632,11 +2673,12 @@ function openModal(mode,id=null){
   document.getElementById('rowTaskProject').classList.toggle('hidden',mode!=='task');
   document.getElementById('rowHabitType').classList.toggle('hidden',mode!=='habit');
   const t=document.getElementById('fTitle'), d=document.getElementById('fDate'), p=document.getElementById('fPriority'), ty=document.getElementById('fType');
-  t.value='';d.value='';p.checked=false;ty.value='daily';syncDayPicker();syncAreaPicker();
+  t.value='';d.value='';p.checked=false;ty.value='daily';syncDayPicker();syncAreaPicker();syncDiffPicker();
   document.getElementById('fProjNew').classList.add('hidden');
   document.getElementById('fProjName').value=''; document.getElementById('fProjDue').value='';
   fillProjectSelect('');
   if(isEdit){
+    const it=(mode==='task'?state.tasks:state.habits).find(y=>y.id===id); pickedDiff=EFFORT[it?.diff]?it.diff:'normal'; syncDiffPicker();
     if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker(); fillProjectSelect(x.projectId||'');}
     else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
   }
@@ -2659,6 +2701,9 @@ function syncDayPicker(){
   document.getElementById('dayPicker').classList.toggle('hidden',!show);
   document.querySelectorAll('.day-pill').forEach(b=>b.classList.toggle('on',pickedDays.has(Number(b.dataset.day))));
 }
+function syncDiffPicker(){
+  document.querySelectorAll('#diffPicker .diff-pill').forEach(b=>{ const on=b.dataset.diff===pickedDiff; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+}
 function syncAreaPicker(){
   document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.classList.toggle('on',pickedAreas.has(b.dataset.area)));
 }
@@ -2674,13 +2719,13 @@ document.getElementById('modalSave').onclick=()=>{
   if(modalMode==='task'){
     const due=document.getElementById('fDate').value||null, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     const pid=document.getElementById('fProject').value||null;
-    if(editingId){const x=state.tasks.find(y=>y.id===editingId); Object.assign(x,{title,dueDate:due,priority:pri,areas,projectId:pid});}
-    else state.tasks.push({id:uid(),title,dueDate:due,priority:pri,done:false,areas,projectId:pid,createdAt:Date.now()});
+    if(editingId){const x=state.tasks.find(y=>y.id===editingId); Object.assign(x,{title,dueDate:due,priority:pri,diff:pickedDiff,areas,projectId:pid});}
+    else state.tasks.push({id:uid(),title,dueDate:due,priority:pri,diff:pickedDiff,done:false,areas,projectId:pid,createdAt:Date.now()});
   } else {
     const type=document.getElementById('fType').value, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     if(type==='weekly'&&pickedDays.size===0){toast('Elige al menos un día');return;}
-    if(editingId){const h=state.habits.find(y=>y.id===editingId); Object.assign(h,{title,priority:pri,type,days:type==='weekly'?[...pickedDays].sort():null,areas});}
-    else state.habits.push({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,areas,log:{},createdAt:Date.now()});
+    if(editingId){const h=state.habits.find(y=>y.id===editingId); Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas});}
+    else state.habits.push({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()});
   }
   save();closeModal();render();toast('Guardado ✓');
 };
@@ -2696,6 +2741,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAllMenus();clo
 document.addEventListener('click',closeAllMenus);
 document.getElementById('fType').onchange=syncDayPicker;
 document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.day);pickedDays.has(d)?pickedDays.delete(d):pickedDays.add(d);syncDayPicker();});
+document.querySelectorAll('#diffPicker .diff-pill').forEach(b=>b.onclick=()=>{pickedDiff=b.dataset.diff;syncDiffPicker();});
 document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.onclick=()=>{const a=b.dataset.area;pickedAreas.has(a)?pickedAreas.delete(a):pickedAreas.add(a);syncAreaPicker();});
 
 /* ---------- wiring ---------- */
@@ -3110,7 +3156,7 @@ function focusMeta(l){
   return {text:`Añadida a las ${fClock(l.added)} · sin vincular`,cls:'text-slate-400'};
 }
 const focusMetaHTML=(l)=>{ const k=FKIND[l.kind], m=focusMeta(l), it=focusItem(l);
-  return `<span class="font-bold tracking-wider ${k.cls}">${k.label}</span><span class="${m.cls}">${escapeHtml(m.text)}</span>`
+  return `<span class="font-bold tracking-wider ${k.cls}">${k.label}</span><span class="${m.cls}">${escapeHtml(m.text)}</span>${diffBadge(it)}`
     +(l.re?`<span class="text-cyan-300">${l.re+1}.ª vuelta</span>`:'')
     +(l.kind==='task'&&it?projBadge(it.projectId):'')+(it?areaBadges(it.areas):''); };
 
@@ -3230,8 +3276,10 @@ function moveFocusLine(id,tid,after){
 function focusProgress(l){
   const f=state.focus, dotted=l.dotted; l.status='progress';
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
-  const pm=PROGRESS_MC+perk('pilot');
-  addW('mc',pm); addXP(XP_PROGRESS); focusCount('progress',1); focusCount('mc',pm); closeFocusModal(); save(); render();
+  // Recompensa pequeña: 0,1 puntos de esfuerzo, 1 mérito y ¢ solo con Pilotaje
+  const pm=perk('pilot');
+  if(pm){ addW('mc',pm); focusCount('mc',pm); }
+  addXP(XP_PROGRESS); addEffort(EF_PROGRESS); focusCount('progress',1); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
   if(round) openRoundModal(round,'Progreso anotado');
   else toast('Progreso anotado · vuelve al final de la lista');
@@ -3240,10 +3288,11 @@ function focusComplete(l){
   const it=focusItem(l), k=todayStr(), dotted=l.dotted; let g=null;
   if(l.kind==='task'){ it.done=true; g=grantTask(it); }
   else if(l.kind==='habit'){ if(it.type==='free') g=tapFree(it,k); else { it.log=it.log||{}; it.log[k]=1; g=checkHabit(it,k); } }
+  else if(!l.grant) g=grantTask(l);   // acción rápida: cuenta como una tarea fácil
   for(const x of state.focus.lines) if(x.ref===l.ref&&!x.status) x.status='done';
   focusCount('done',1); if(g) focusCount('mc',g.mc);
   closeFocusModal(); save(); render();
-  const round=focusRoundDone(dotted), gain=g?gainText(g):'Acción hecha';
+  const round=focusRoundDone(dotted), gain=g?gainText(g):'Hecho';
   if(round) openRoundModal(round,gain); else toast(gain);
 }
 function focusDelete(l){
@@ -3266,7 +3315,7 @@ function paintFocusModal(){
   let html;
   if(fmStep==='menu'){
     const reward='';   // la recompensa existe, pero no se anuncia fuera de la nave
-    const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. No da recursos: no está vinculada.';
+    const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. Cuenta como una tarea fácil.';
     html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
       <div class="grid grid-cols-2 gap-2.5">
         <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span></button>
@@ -3316,7 +3365,7 @@ function paintFocusExit(){
   document.getElementById('fxList').innerHTML=focusCandidates().map(l=>`<li><label class="flex items-center gap-3 min-h-[52px] px-3 py-2 rounded-lg border border-[#1f2a3d] bg-[#0d1526] cursor-pointer">
       <input type="checkbox" data-ref="${l.ref}" ${fxPicks.has(l.ref)?'checked':''} class="w-[18px] h-[18px] accent-cyan-600 shrink-0">
       <span class="f-tile f-acc" aria-hidden="true">${FICON.acc}</span>
-      <span class="min-w-0 flex-1"><span class="block text-sm text-slate-100 break-words">${escapeHtml(l.title)}</span><span class="mono text-[11px] text-slate-400">añadida a las ${fClock(l.added)} · pasará a TAREA sin fecha</span></span>
+      <span class="min-w-0 flex-1"><span class="block text-sm text-slate-100 break-words">${escapeHtml(l.title)}</span><span class="mono text-[11px] text-slate-400">añadida a las ${fClock(l.added)} · pasará a TAREA fácil sin fecha</span></span>
     </label></li>`).join('');
   paintFocusExitBtn();
 }
@@ -3326,7 +3375,7 @@ function finishFocusExit(keep){
   f.lines=f.lines.filter(l=>!l.status);
   for(const ref of keep){
     const l=f.lines.find(x=>x.ref===ref); if(!l) continue;
-    const id=uid(); state.tasks.push({id,title:l.title,dueDate:null,priority:false,done:false,areas:[],projectId:null,createdAt:Date.now()}); conv[ref]=id;
+    const id=uid(); state.tasks.push({id,title:l.title,dueDate:null,priority:false,diff:'easy',done:false,areas:[],projectId:null,createdAt:Date.now()}); conv[ref]=id;
   }
   // las acciones guardadas se quedan en su sitio de la lista larga, ya como tareas
   f.lines=f.lines.filter(l=>l.kind!=='acc'||conv[l.ref]).map(({title,...l})=>l.kind==='acc'?{...l,kind:'task',ref:conv[l.ref]}:(title!==undefined?{...l,title}:l));

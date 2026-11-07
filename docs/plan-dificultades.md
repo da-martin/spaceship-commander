@@ -39,7 +39,7 @@ Por punto de esfuerzo. Redondeo:
 Ejemplos: tarea o hábito fácil 2 ¢ y 2 méritos; hábito difícil 10 ¢ y 10 méritos; un toque de un hábito libre fácil da 1 ¢.
 
 - **★ Prioridad**: deja de dar ¢ extra. Solo sirve para ordenar y filtrar.
-- **Hábitos libres**: también tienen dificultad. Se mantiene la regla actual: solo el primer toque del día cuenta para misión, méritos, material y reparación. Cada toque paga 2 ¢ × puntos.
+- **Hábitos libres**: también tienen dificultad. Se mantiene la regla actual: solo el primer toque del día cuenta para misión, méritos, material y reparación. Cada toque paga 2 ¢ × puntos. El primer toque del día fija lo que vale cada toque ese día, para que «−1» reste lo mismo aunque la dificultad cambie a media jornada.
 - **Material del área**: siempre +1, sea cual sea la dificultad. La Prospección sigue igual.
 - **Protocolo Forster (modo Focus)**: «Completado» da lo mismo que completar el elemento desde su lista. El «Progreso» se queda en una recompensa pequeña (ver abajo).
 
