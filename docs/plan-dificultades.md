@@ -36,7 +36,24 @@ Ejemplos: tarea fácil 2,5 → 3 ¢; hábito difícil 10 ¢ y 10 méritos; un to
 - **★ Prioridad**: deja de dar ¢ extra. Solo sirve para ordenar y filtrar.
 - **Hábitos libres**: también tienen dificultad. Se mantiene la regla actual: solo el primer toque del día cuenta para misión, méritos, material y reparación. Cada toque paga 2 ¢ × puntos.
 - **Material del área**: siempre +1, sea cual sea la dificultad. La Prospección sigue igual.
-- **Protocolo Forster**: el «Progreso» (+1 ¢, +2 méritos) no depende de la dificultad. «Completado» da lo mismo que completar el elemento desde su lista.
+- **Protocolo Forster (modo Focus)**: «Completado» da lo mismo que completar el elemento desde su lista. El «Progreso» se queda en una recompensa pequeña (ver abajo).
+
+## Progreso en el modo Focus
+
+Marcar Progreso tiene que dar solo un poquito:
+
+| | Antes | Ahora |
+|---|---|---|
+| Puntos de esfuerzo | — (no contaba para la misión) | **0,1** |
+| Méritos | 2 | **1** |
+| ¢ | 1 + Pilotaje | **solo Pilotaje** (0 sin piloto a bordo) |
+
+- Siempre 0,1, sea cual sea la dificultad de la línea. También cuenta en las acciones rápidas del Focus que no son tareas ni hábitos.
+- Los 0,1 suman al progreso de la misión activa (si se hacen dentro de su plazo) y a `ship.activity` del día, así que también cuentan en el ritmo de 14 días.
+- No da material, no repara y no desgasta.
+- Desaparece `PROGRESS_MC`. Pilotaje (+1/2/3 ¢ por Progreso) pasa a ser lo único que da ¢ al marcar Progreso. Su descripción no cambia.
+- `XP_PROGRESS` baja de 2 a 1.
+- Si no hay piloto, el aviso del Progreso no menciona ¢. El contador de ¢ de la sesión y de la ronda solo suma el bono de Pilotaje.
 
 ## Desgaste y reparación
 
@@ -50,9 +67,9 @@ Ambos se multiplican por los puntos del elemento:
 ## Misiones
 
 - La cuota se mide en **puntos de esfuerzo**, no en número de tareas y hábitos. Completar algo suma sus puntos al progreso; desmarcarlo los resta.
-- El progreso puede tener medios: «4,5/8». La cuota sigue siendo un número entero (mínimo 2).
+- El progreso puede tener decimales: «4,5/8» o «4,6/8» con los Progresos del Focus. Se guarda redondeado a una décima para evitar errores de coma flotante (0,1 + 0,2 ≠ 0,3), y se muestra con coma. La cuota sigue siendo un número entero (mínimo 2).
 - El ritmo diario de 14 días (`avgDaily`) suma puntos en vez de contar elementos:
-  - `ship.activity[día]` acumula puntos (puede tener ,5).
+  - `ship.activity[día]` acumula puntos con decimales (redondeados a una décima), incluidos los Progresos del Focus.
   - El historial usa los `g.ef` guardados de cada día. Si no hay, usa la dificultad actual del elemento, o 1 en lo antiguo.
   - El mínimo de 1,5 al día se queda.
 - La paga sigue siendo cuota × 12 ¢ × multiplicador de la dificultad de la misión: ahora es por punto de esfuerzo en vez de por elemento.
@@ -74,8 +91,8 @@ Ambos se multiplican por los puntos del elemento:
   - Tablón: «Completa N hábitos o tareas en X días» → «Reúne N puntos de esfuerzo en X días».
   - Misión en curso: «Cada hábito o tarea completada suma 1» → «Cada hábito o tarea suma sus puntos de esfuerzo (fácil 0,5 · normal 1 · difícil 2)».
   - Ayuda del tablón (`index.html`, línea ~420): «suma progreso» → «suma sus puntos de esfuerzo».
-  - Hoja de servicios: «Méritos: tarea +10 · hábito +5 · …» → «Méritos: +5 por punto de esfuerzo · …».
-  - El chip de la cabecera y el estado de la nave muestran el progreso con medios: «4,5/8».
+  - Hoja de servicios: «Méritos: tarea +10 · hábito +5 · …» → «Méritos: +5 por punto de esfuerzo · progreso +1 · …».
+  - El chip de la cabecera y el estado de la nave muestran el progreso con decimales: «4,6/8».
 
 ## Sin cambios
 
