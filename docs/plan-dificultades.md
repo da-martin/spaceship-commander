@@ -20,7 +20,12 @@ Cada tarea y cada hábito lleva una dificultad que vale **puntos de esfuerzo**. 
 
 ## Recompensas al completar
 
-Por punto de esfuerzo, redondeando a la unidad más cercana:
+Por punto de esfuerzo. Redondeo:
+
+- **Fácil** (tareas, hábitos y acciones rápidas del Focus): ¢ y méritos se redondean **hacia abajo**. 2,5 → 2 ¢ y 2 méritos.
+- Normal y difícil dan números enteros y no necesitan redondeo; con bonos de tripulación se redondea a la unidad más cercana, como ahora.
+- El redondeo se aplica a la cantidad final, con Intendencia o Instrucción ya sumadas (p. ej. tarea fácil con Intendencia +25 %: 2,5 × 1,25 = 3,1 → 3 ¢; hábito fácil con Instrucción +1 ¢/punto: 2,5 + 0,5 = 3 ¢).
+- En méritos se redondea hacia abajo la base (2) y después el Observatorio aplica su bono como siempre.
 
 | | Antes | Ahora (× puntos) |
 |---|---|---|
@@ -31,7 +36,7 @@ Por punto de esfuerzo, redondeando a la unidad más cercana:
 | Material del área | +1 | +1 (no depende de la dificultad) |
 | Reparación del módulo | 2 % | 2 % |
 
-Ejemplos: tarea fácil 2,5 → 3 ¢; hábito difícil 10 ¢ y 10 méritos; un toque de un hábito libre fácil da 1 ¢.
+Ejemplos: tarea o hábito fácil 2 ¢ y 2 méritos; hábito difícil 10 ¢ y 10 méritos; un toque de un hábito libre fácil da 1 ¢.
 
 - **★ Prioridad**: deja de dar ¢ extra. Solo sirve para ordenar y filtrar.
 - **Hábitos libres**: también tienen dificultad. Se mantiene la regla actual: solo el primer toque del día cuenta para misión, méritos, material y reparación. Cada toque paga 2 ¢ × puntos.
@@ -59,7 +64,7 @@ Marcar Progreso tiene que dar solo un poquito:
 
 Las acciones rápidas (las que se escriben directamente en la lista del Focus) pasan a ser **el equivalente a una tarea Fácil**:
 
-- **Completarla** da lo mismo que una tarea fácil: 0,5 puntos de esfuerzo a la misión y al ritmo diario, 2,5 → 3 ¢ (+ Intendencia) y 2,5 → 3 méritos. Hoy no dan nada: solo sale «Acción hecha».
+- **Completarla** da lo mismo que una tarea fácil: 0,5 puntos de esfuerzo a la misión y al ritmo diario, 2 ¢ (+ Intendencia) y 2 méritos. Hoy no dan nada: solo sale «Acción hecha».
 - No tienen área, así que no dan material. La reparación va, como en cualquier tarea sin área, al módulo general más dañado (× 0,5).
 - No tienen fecha, así que nunca desgastan.
 - La recompensa se guarda en la línea (`l.grant`), igual que en las tareas, para poder restarla si hiciera falta.
