@@ -177,7 +177,21 @@
     body.weeks-screen{overflow:hidden}
     body.weeks-screen #weeksPanel{display:flex;position:fixed;z-index:35;inset:0;bottom:var(--nav-h,0px);padding:calc(env(safe-area-inset-top) + 20px) 16px 16px;background:#0a0f1a}
   }
-  .wk-month{position:sticky;top:0;z-index:1;background:#0f1729;padding:12px 4px 4px}
+  .wk-month{position:sticky;top:0;z-index:1;background:#0f1729;padding:16px 4px 8px}
+  /* Cada semana es un bloque: a la izquierda un riel con el número de semana
+     en grande y sus días debajo (el mes ya lo dice la cabecera de mes); a la
+     derecha sus líneas. Una raya fina separa una semana de la siguiente. */
+  .wk-week{display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:6px;align-items:start;padding:10px 0;border-top:1px solid #1f2a3d}
+  .wk-week.empty{padding:8px 0}
+  .wk-week.now{background:rgba(34,211,238,.06)}
+  .wk-rail{padding:6px 0 0 4px;font-family:"JetBrains Mono",monospace}
+  .wk-num{font-size:20px;font-weight:700;line-height:1;color:#f1f5f9}
+  .wk-week.empty .wk-num{color:#64748b}
+  .wk-week.now .wk-num{color:#67e8f9}
+  .wk-days{font-size:10px;line-height:1.35;margin-top:4px;color:#94a3b8}
+  .wk-rail.over{padding-top:9px;font-size:10px;letter-spacing:.12em;line-height:1.35;color:#fcd34d}
+  .wk-tag{padding:6px 8px 2px;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;color:#67e8f9}
+  .wk-free{padding:8px;font-size:13px;color:#94a3b8}
   /* Líneas del panel de semanas: solo el icono y el nombre; el resto va en
      el detalle al pulsar. El proyecto va relleno; el evento, a trazos. */
   .wk-line{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:6px 8px;border-radius:8px;text-align:left}
@@ -2025,7 +2039,7 @@ function weeksData(){
     const rangeLabel=a.getMonth()===b.getMonth()
       ? `${a.getDate()}–${fmtDate(end)}`
       : `${fmtDate(start)} – ${fmtDate(end)}`;
-    weeks.push({start, n:isoWeek(start).n, rangeLabel, monthKey:start.slice(0,7), current:i===0,
+    weeks.push({start, n:isoWeek(start).n, rangeLabel, days:`${a.getDate()}–${b.getDate()}`, monthKey:start.slice(0,7), current:i===0,
       // Lo de esta semana anterior a hoy ya es atraso: va arriba, no aquí.
       items:dated.filter(p=>p.due>=start&&p.due<=end&&p.due>=t),
       events:evs.filter(e=>e.date>=start&&e.date<=end)});
@@ -2089,10 +2103,6 @@ function closeWkModal(){
   m.classList.add('hidden');
   if(wkReturn&&wkReturn.isConnected) wkReturn.focus(); wkReturn=null;
 }
-// Cabecera de grupo como las de Tareas: nombre en mayúsculas y su recuento.
-const wkHead=(label,n,cls,bd,tail='')=>`<div class="flex items-center gap-2 px-1 pt-3 pb-1.5">
-    <span class="mono text-[11px] tracking-[.16em] uppercase ${cls}">${label}</span>
-    ${n?`<span class="mono text-[11px] px-1.5 py-px rounded border ${bd} ${cls}">${n}</span>`:''}${tail}</div>`;
 function renderWeeks(){
   const d=weeksData();
   wkItems=[];
@@ -2110,7 +2120,8 @@ function renderWeeks(){
 
   let h='';
   if(d.overdue.length){
-    h+=wkHead('Atrasados',d.overdue.length,'text-amber-300','border-amber-800')+`<div>${d.overdue.map(p=>weekRowHtml(p)).join('')}</div>`;
+    h+=`<div role="group" class="wk-week" style="border-top:0" aria-label="Atrasados: ${d.overdue.length}"><div class="wk-rail over" aria-hidden="true">ATRASO</div>
+      <div class="min-w-0">${d.overdue.map(p=>weekRowHtml(p)).join('')}</div></div>`;
   }
   let month='';
   for(const w of d.weeks){
@@ -2119,11 +2130,11 @@ function renderWeeks(){
       const name=dayParse(w.start).toLocaleDateString('es-ES',{month:'long',year:'numeric'}).replace(' de ',' ');
       h+=`<div class="wk-month"><span class="sys-label">${name}</span></div>`;
     }
-    const n=w.items.length+w.events.length;
-    h+=`<section>${wkHead(`S${w.n} · ${w.rangeLabel}`,n,w.current?'text-cyan-300':'text-slate-300',w.current?'border-cyan-800':'border-slate-700',
-        w.current?'<span class="ml-auto mono text-[10px] tracking-[.16em] text-cyan-300">ESTA SEMANA</span>':'')}
-      ${weekRows(w)||'<div class="mono text-[11px] text-slate-500 px-1 pb-1">sin vencimientos</div>'}
-    </section>`;
+    const rows=weekRows(w);
+    h+=`<div role="group" class="wk-week${rows?'':' empty'}${w.current?' now':''}" aria-label="Semana ${w.n}, ${w.rangeLabel}${w.current?', esta semana':''}">
+      <div class="wk-rail" aria-hidden="true"><div class="wk-num">${w.n}</div><div class="wk-days">${w.days}</div></div>
+      <div class="min-w-0">${w.current?'<div class="wk-tag" aria-hidden="true">ESTA SEMANA</div>':''}${rows||'<div class="wk-free">Libre</div>'}</div>
+    </div>`;
   }
   if(d.later) h+=`<p class="mono text-[11px] text-slate-400 px-1 pt-4">Más adelante: ${d.later} ${d.later===1?'proyecto':'proyectos'}</p>`;
   const note=(t)=>`<p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center mt-4">${t}</p>`;
