@@ -574,6 +574,7 @@
       <p id="rpWhen" class="mono text-sm mt-1.5"></p>
     </div>
     <div id="rpChips" class="flex flex-wrap justify-center gap-1.5"></div>
+    <p id="rpStory" class="hidden text-[15px] leading-relaxed text-slate-300 text-left w-full"></p>
     <div id="rpLines" class="text-[15px] leading-relaxed text-slate-200 space-y-1.5"></div>
     <p id="rpMore" class="mono text-[11px] text-slate-400"></p>
     <button id="rpOk" class="w-full h-12 rounded-xl text-white text-[15px] font-semibold border">Aceptar</button>
@@ -840,6 +841,7 @@
 
 <div id="toast" role="status" aria-live="polite" class="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-center max-w-[calc(100vw-32px)]"></div>
 
+<script src="/missions.js"></script>
 <script>
 
 /* ---------- utils + storage ---------- */
@@ -947,16 +949,15 @@ const CREW_LAST = [
   'Quintero','Rossi','Salgado','Toledo','Uribe','Valdés','Weber','Xiong','Yamada','Zamora','Almeida','Bergström','Chen','Duarte','Esposito','Fischer',
   'García','Hoshino','Iglesias','Jovanović','Kim','Lozano','Mbeki','Navarro','Olsen','Park','Rahman','Sato','Torres','Varga','Wójcik','Zubiri'
 ];
-const TOPICS = {
-  'Exploración':   ['Cartografiar una nebulosa sin nombre','Sondear un sistema binario','Seguir una señal en el borde del sector'],
-  'Minería':       ['Extraer hielo de un cinturón de asteroides','Escoltar una draga minera','Perforar un núcleo metálico'],
-  'Transporte':    ['Llevar suministros médicos a una colonia','Mover carga sellada entre estaciones','Entregar semillas a un mundo agrícola'],
-  'Chárter':       ['Llevar a un científico excéntrico','Viaje de turistas a los anillos','Trasladar una delegación diplomática'],
-  'Patrulla':      ['Vigilar una ruta comercial','Barrer un campo de minas antiguo','Ronda por el perímetro de la estación'],
-  'Escolta':       ['Proteger a un magnate en tránsito','Cubrir un convoy de refugiados','Acompañar a una heredera a una gala'],
-  'Rescate':       ['Remolcar un carguero averiado','Buscar una cápsula de escape','Evacuar una base minera'],
-  'Reconocimiento':['Observar una flota desconocida','Fotografiar una anomalía','Registrar tráfico en un punto de salto']
-};
+// El catálogo de misiones vive en missions.js (MISSIONS).
+const MISSION_BY_ID = Object.fromEntries(MISSIONS.map(m=>[m.id,m]));
+const RECENT_MAX = 40;   // las últimas misiones que salieron en el tablón no vuelven a salir
+// El relato de un final ('win' | 'partial' | 'fail'). Las misiones de antes del
+// catálogo no traen `mid`: se buscan por su frase.
+function missionStory(c,kind){
+  const m=MISSION_BY_ID[c?.mid]||MISSIONS.find(x=>x.flavor===c?.flavor);
+  return m?.[kind]||null;
+}
 
 const clampInt=(v,lo,hi,dflt)=> Number.isFinite(+v)?Math.max(lo,Math.min(hi,Math.floor(+v))):dflt;
 function normShip(s){
@@ -984,7 +985,8 @@ function normShip(s){
     crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
       ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,3,1)}))}
       :{week:null,cands:[]},
-    log:normLog(s?.log)
+    log:normLog(s?.log),
+    recentMissions:(Array.isArray(s?.recentMissions)?s.recentMissions:[]).filter(id=>typeof id==='string'&&MISSION_BY_ID[id]).slice(-RECENT_MAX)
   };
 }
 // La bitácora va en la partida —y en la nube— para que lo que pasó mientras
@@ -997,6 +999,7 @@ function normLog(a){
     id:String(e.id||uid()), at:num(e.at), day:typeof e.day==='string'?e.day:todayStr(), kind:e.kind,
     big:!!e.big, tone:LOG_TONES.includes(e.tone)?e.tone:'info', title:e.title,
     lines:(Array.isArray(e.lines)?e.lines:[]).filter(x=>typeof x==='string'),
+    story:typeof e.story==='string'&&e.story?e.story.slice(0,600):null,
     rew:e.rew&&typeof e.rew==='object'?{mc:num(e.rew.mc),xp:num(e.rew.xp),mats:e.rew.mats&&typeof e.rew.mats==='object'?e.rew.mats:{}}:null,
     got:num(e.got), lost:num(e.lost), seen:!!e.seen, read:!!e.read
   })).slice(-LOG_MAX);
@@ -1061,7 +1064,7 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(
 function logShip(e){
   if(!e) return;
   const L=state.ship.log, t=todayStr(), last=L[L.length-1];
-  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],rew:null,got:0,lost:0,seen:false,read:false,...e};
+  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],story:null,rew:null,got:0,lost:0,seen:false,read:false,...e};
   // el tablón cambia cada pocos minutos: lo que no se ha leído hoy se suma en una sola entrada
   if(e.kind==='board'&&last?.kind==='board'&&!last.read&&last.day===t){
     L.pop(); e={...last,at:e.at,got:last.got+e.got,lost:last.lost+e.lost,seen:false};
@@ -1244,7 +1247,7 @@ function addEffort(ef,day=todayStr()){
   c.progress=efRound(c.progress+ef);
   if(c.progress>=c.quota){
     const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
-    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
+    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
     logBoardNews();
   }
   return c.id;
@@ -1303,23 +1306,30 @@ function pickDiff(keys=Object.keys(DIFFS)){
   for(const k of keys){ r-=DIFFS[k].w; if(r<0) return k; }
   return keys[keys.length-1];
 }
+// La misión se sortea entre las que no han salido hace poco ni están en el tablón o en curso.
+function pickMission(){
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]);
+  const free=MISSIONS.filter(m=>!busy.has(m.id));
+  const m=pick(free.length?free:MISSIONS);
+  sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
+  return m;
+}
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 function genOffer(day,safe=false){
-  const topic=pick(Object.keys(TOPICS)), days=1+Math.floor(Math.random()*maxDays());
+  const m=pickMission(), topic=m.topic, days=1+Math.floor(Math.random()*maxDays());
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
   const quota=Math.max(2,Math.round(days*avgDaily()*D.push));
   const mc=Math.round(quota*12*D.pay*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
-  return {id:uid(),topic,flavor:pick(TOPICS[topic]),days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
+  return {id:uid(),mid:m.id,topic,flavor:m.flavor,days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
 }
 // si en el tablón no queda ninguna fácil o normal sin urgencia, la que llega lo es
 function freshOffer(existing,day=todayStr()){
   const safe=!existing.some(o=>o.diff!=='hard'&&!o.urgent);
-  for(let i=0;i<10;i++){ const o=genOffer(day,safe); if(!existing.some(x=>x.flavor===o.flavor)) return o; }
-  return genOffer(day,safe);
+  return genOffer(day,safe);   // pickMission ya evita las del tablón y las recientes
 }
 const offerAge=(o)=>Math.max(0,Math.round((dayParse(todayStr())-dayParse(o.postedOn))/864e5));
 const agedMc=(o)=>Math.round(o.reward.mc*(1+AGE_BONUS*offerAge(o)));   // la paga sube cada día que sigue en el tablón
@@ -1400,12 +1410,12 @@ function dailyTick(){
   const home=()=>['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
   if(gone&&c.urgent){
     sh.contract=null;
-    logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,
+    logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,story:missionStory(c,'fail'),
       lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home()]});
   }
   else if(gone){
     const p=finishContract(c.progress/c.quota);
-    logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,
+    logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,story:missionStory(c,c.progress>0?'partial':'fail'),
       lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: cobras la parte hecha.`,...home()]});
   }
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
@@ -3058,6 +3068,7 @@ function openReport(){
   document.getElementById('rpTitle').textContent=e.title;
   const w=document.getElementById('rpWhen'); w.className='mono text-sm mt-1.5 '+T.label; w.textContent=`${logDay(e.day)} · ${fClock(e.at)}`;
   const ch=document.getElementById('rpChips'); ch.innerHTML=rewChips(e.rew); ch.classList.toggle('hidden',!e.rew);
+  const st=document.getElementById('rpStory'); st.textContent=e.story||''; st.classList.toggle('hidden',!e.story);
   document.getElementById('rpLines').innerHTML=e.lines.map(l=>`<p>${escapeHtml(l)}</p>`).join('');
   const more=document.getElementById('rpMore'); more.textContent=pend.length>1?`Quedan ${pend.length-1} ${pend.length===2?'informe':'informes'} más`:''; more.classList.toggle('hidden',pend.length<2);
   const ok=document.getElementById('rpOk'); ok.className='w-full h-12 rounded-xl text-white text-[15px] font-semibold border '+T.btn;
@@ -3092,6 +3103,7 @@ function openLog(){
           <span class="mono text-[11px] text-slate-400 ml-auto shrink-0">${fClock(e.at)}</span>
         </div>
         <p class="text-sm text-slate-100 mt-0.5">${escapeHtml(e.title)}</p>
+        ${e.story?`<p class="text-[13px] text-slate-300 mt-1.5 leading-relaxed">${escapeHtml(e.story)}</p>`:''}
         ${e.lines.length?`<p class="mono text-[11px] text-slate-400 mt-1 leading-relaxed">${e.lines.map(escapeHtml).join('<br>')}</p>`:''}
         ${e.rew?`<div class="flex flex-wrap gap-1.5 mt-2">${rewChips(e.rew)}</div>`:''}
       </div>`;
