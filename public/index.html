@@ -968,11 +968,14 @@ function normShip(s){
   const cm=1+0.1*modules.cargo.lv*modules.cargo.cond/100, t=todayStr(), exp=new Date(); exp.setDate(exp.getDate()+OFFER_TTL[0]-1);
   // las de antes de las dificultades se generaron como las normales de ahora (+10%)
   const unCargo=(o,on)=>{ o=o.postedOn?o:{...o,reward:{...o.reward,mc:Math.round((+o.reward?.mc||0)/cm)},postedOn:on}; return DIFFS[o.diff]?o:{...o,diff:'normal'}; };
+  // contratos de antes del plazo en horas: vencían a medianoche del último día (aquí aún no existe dayParse)
+  const at=(s,plus=0)=>{ const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d+plus).getTime(); };
+  const timed=(c)=>Number.isFinite(+c.endsAt)&&+c.endsAt>0?c:{...c,endsAt:at(c.endsOn,1),acceptedAt:at(c.acceptedOn||c.endsOn)};
   return {
     modules,
-    contract:(c&&c.id&&c.endsOn&&c.quota>0)?unCargo(c,c.acceptedOn||t):null,
+    contract:(c&&c.id&&c.endsOn&&c.quota>0)?timed(unCargo(c,c.acceptedOn||t)):null,
     board:{
-      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}),
+      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(o=>o.days<2?{...o,days:2}:o),   // mínimo 2 días
       signal:Math.min(1,Math.max(0,+b?.signal||0)), sigAt:Number.isFinite(+b?.sigAt)&&+b.sigAt>0?+b.sigAt:null,
       repUntil:typeof b?.repUntil==='string'?b.repUntil:null,
       news:{got:clampInt(b?.news?.got,0,999,0),lost:clampInt(b?.news?.lost,0,999,0)}
@@ -1207,12 +1210,12 @@ const pick=(a)=>a[Math.floor(Math.random()*a.length)];
 const mod=(k)=>state.ship.modules[k];
 const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado
 const boardCap=()=>BOARD_BASE+Math.floor(eff('bridge'));
-const maxDays=()=>Math.min(7,2+Math.floor(eff('engines')));
+const maxDays=()=>Math.min(7,3+Math.floor(eff('engines')));   // las misiones duran de 2 a este máximo
 const cargoMult=()=>1+0.1*eff('cargo');
 const repDamaged=(day=todayStr())=>!!state.ship.board.repUntil&&day<=state.ship.board.repUntil;
 const baseSignal=()=>SIGNAL_DAY+SIGNAL_LV*eff('comms');                      // misiones al día
 const signalRate=(day)=>baseSignal()*(repDamaged(day)?0.5:1);              // con mala reputación, a la mitad
-const daysLeft=(c)=>Math.round((dayParse(c.endsOn)-dayParse(todayStr()))/864e5)+1;
+const msLeft=(c)=>c.endsAt-Date.now();   // el plazo corre en horas reales desde que se acepta
 
 // módulo afectado por un item: el de su área si está construido, si no uno general
 function areaModFor(x){ for(const a of x.areas||[]){ const k=AREA_MOD[a]; if(k&&mod(k).lv>0) return k; } return null; }
@@ -1243,7 +1246,8 @@ function selfHeal(){
 function addEffort(ef,day=todayStr()){
   const sh=state.ship, c=sh.contract;
   sh.activity[day]=efRound((sh.activity[day]||0)+ef);
-  if(!c||(c.acceptedOn||'')>day||c.endsOn<day) return null;
+  // lo de hoy cuenta hasta la hora del plazo; lo de días pasados (repaso de ayer) si ese día empezó antes del plazo
+  if(!c||(c.acceptedOn||'')>day||(day===todayStr()?Date.now()>=c.endsAt:dayParse(day).getTime()>=c.endsAt)) return null;
   c.progress=efRound(c.progress+ef);
   if(c.progress>=c.quota){
     const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
@@ -1317,7 +1321,7 @@ function pickMission(){
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 function genOffer(day,safe=false){
-  const m=pickMission(), topic=m.topic, days=1+Math.floor(Math.random()*maxDays());
+  const m=pickMission(), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
   const quota=Math.max(2,Math.round(days*avgDaily()*D.push));
@@ -1391,6 +1395,25 @@ function logWear(before,miss){
   logShip({kind:'wear',tone:'warn',title:`Desgaste en ${plural(hit.length,'módulo','módulos')}`,
     lines:[hit.map(k=>`${MODS[k].name} ${before[k]} → ${mod(k).cond} %`).join(', '),...(why.length?['Por '+why.join(' y ')]:[])]});
 }
+// La misión vence a la hora exacta del plazo: se comprueba en cada tick y cada minuto.
+// Devuelve true si terminó. Sin repaso de ayer pendiente: lo marcado allí aún puede contar.
+function checkContractEnd(){
+  const sh=state.ship, c=sh.contract;
+  if(!c||Date.now()<c.endsAt) return false;
+  if(c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
+  tickBoard();
+  const home=['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
+  if(c.urgent){
+    sh.contract=null;
+    logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,story:missionStory(c,'fail'),
+      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home]});
+  } else {
+    const p=finishContract(c.progress/c.quota);
+    logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,story:missionStory(c,c.progress>0?'partial':'fail'),
+      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: cobras la parte hecha.`,...home]});
+  }
+  return true;
+}
 function dailyTick(){
   // El día de ayer no se procesa hasta repasarlo: lo que se marque como hecho
   // ya no desgasta y cuenta para la misión que vencía ayer.
@@ -1404,20 +1427,7 @@ function dailyTick(){
   for(;day<t;day=addDays(day,1)){ decayDay(day,miss); selfHeal(); }   // la Enfermería recupera algo cada día
   sh.lastTick=y;
   logWear(before,miss);
-  const c=sh.contract, gone=c&&c.endsOn<t;
-  if(gone&&c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
-  tickBoard();
-  const home=()=>['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
-  if(gone&&c.urgent){
-    sh.contract=null;
-    logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,story:missionStory(c,'fail'),
-      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home()]});
-  }
-  else if(gone){
-    const p=finishContract(c.progress/c.quota);
-    logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,story:missionStory(c,c.progress>0?'partial':'fail'),
-      lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: cobras la parte hecha.`,...home()]});
-  }
+  if(!checkContractEnd()) tickBoard();   // si vence, ya avanza la señal tras dañar la reputación
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
   const pay=crewPayroll(t);
   if(pay) logShip({kind:'crew',tone:pay.left?'warn':'info',title:pay.paid?`Sueldos de la tripulación: −${pay.paid} ¢`:'Tripulación',lines:pay.notes});
@@ -1519,8 +1529,8 @@ function acceptOffer(id){
   const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
   if(offerSailing!==id){ offerSailing=id; offerDiscarding=null; render(); return; }
   offerSailing=null;
-  const t=todayStr();
-  sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:t,endsOn:addDays(t,o.days-1),progress:0};
+  const now=new Date(), end=new Date(now); end.setDate(end.getDate()+o.days);   // cada día de plazo son 24 h desde ahora
+  sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),progress:0};
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
   save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
 }
@@ -2480,9 +2490,24 @@ function showHomeTab(t,scroll=true){
   render();
   if(scroll) document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
-const missionLeftTxt=(c)=>{ const l=daysLeft(c); return l===1?'último día':`quedan ${l} días`; };
+function missionLeftTxt(c){
+  const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5);
+  return h>48?`quedan ${Math.round(h/24)} días`:ms>=36e5?`quedan ${h} h`:`quedan ${Math.max(1,Math.ceil(ms/6e4))} min`;
+}
+const missionEndTxt=(c)=>{ const d=new Date(c.endsAt); return `hasta ${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const shortLeft=(c)=>{ const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5); return h>48?`${Math.round(h/24)}d`:ms>=36e5?`${h}h`:'<1h'; };
+const leftTone=(c)=>msLeft(c)<864e5?'text-amber-300':'text-slate-400';
+// repinta cada minuto el tiempo que queda, sin volver a pintar toda la pantalla
+function paintMissionLeft(){
+  const c=state.ship.contract; if(!c) return;
+  for(const el of document.querySelectorAll('[data-mission-left]')){
+    const k=el.dataset.missionLeft;
+    el.textContent=k==='chip'?shortLeft(c):k==='status'?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:`${missionLeftTxt(c)} · ${missionEndTxt(c)}`;
+    if(k==='panel') el.className=`mono text-[11px] ${leftTone(c)}`;
+  }
+}
 function renderMission(c){
-  const w=state.wallet, pct=Math.min(100,Math.round(c.progress/c.quota*100)), left=daysLeft(c);
+  const w=state.wallet, pct=Math.min(100,Math.round(c.progress/c.quota*100));
   const dmg=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
   const el=document.getElementById('homeMission');
   el.innerHTML=`
@@ -2490,7 +2515,7 @@ function renderMission(c){
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
       <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${diffChip(c.diff)}${c.urgent?URGENT_CHIP:''}
-      <span class="mono text-[11px] ${left<=1?'text-amber-300':'text-slate-400'}">${missionLeftTxt(c)} · hasta ${fDate(c.endsOn)}</span>
+      <span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
@@ -2556,7 +2581,7 @@ function renderShip(){
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
   const chipEl=document.getElementById('shipChip');
   chipEl.style.display=uiMode==='ship'?'':'none';
-  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · ${daysLeft(c)}d</span>`:''}`;
+  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · <span data-mission-left="chip">${shortLeft(c)}</span></span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
@@ -2568,6 +2593,7 @@ function renderShip(){
   const ss=document.getElementById('shipStatus');
   ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(c?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
   ss.textContent=c?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ En el Sistema Madre';
+  if(c) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
@@ -3935,6 +3961,9 @@ addEventListener('focus',()=>{
 initCloud();
 // cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
 setInterval(()=>{
+  // la misión vence a su hora (salvo con el repaso de ayer pendiente: lo marcado allí aún cuenta)
+  if(state.ship.contract&&!needsReview()&&checkContractEnd()){ if(atHome()) logBoardNews(); save(); render(); return; }
+  paintMissionLeft();
   const b=state.ship.board, before=b.offers.map(o=>o.id).join();
   tickBoard();
   if(b.offers.map(o=>o.id).join()!==before){
