@@ -103,11 +103,15 @@
   .row-mark.habit{border-radius:999px;border-color:#065f46;background:#0b211c;color:#6ee7b7}
   .row-mark.task{border-radius:6px;border-color:#0e7490;background:#0c1f33;color:#7dd3fc}
   .row-mark.on{background:#065f46;border-color:#065f46;color:#ecfdf5}
+  /* Hábito negativo: el mismo círculo, en rojo mientras hay caídas hoy. */
+  .row-mark.neg{border-color:#991b1b;background:#1c0d10;color:#fca5a5}
   .row-mark.off{border-style:dashed;border-color:#64748b;background:transparent;color:#94a3b8}
   .row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;padding:7px 0;margin:-7px 0;border-radius:8px}
   .row-body:hover .row-title{color:#f1f5f9}
   .row-gear{flex:none;box-sizing:content-box;display:grid;place-items:center;width:20px;height:20px;padding:12px;margin:-12px -2px;border-radius:12px;color:#94a3b8}
   .row-gear:hover{color:#67e8f9}
+  /* Marca de «tiene notas»: va dentro de la línea del título, no suma altura. */
+  .note-ic{display:inline-block;vertical-align:-1px;margin-left:5px;color:#94a3b8}
   .row-hit:focus,.row-body:focus,.row-gear:focus{outline:none}
   .row:has(.row-hit:focus-visible),.row:has(.row-body:focus-visible),.row:has(.row-gear:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
   .done-chev{transition:transform .15s}
@@ -313,6 +317,7 @@
         <button data-hfilter="daily" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Diarios</button>
         <button data-hfilter="weekly" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Semanales</button>
         <button data-hfilter="free" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Libres</button>
+        <button data-hfilter="neg" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Negativos</button>
       </div>
       <div id="habitAreaRow" class="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
         <span class="mono text-[11px] text-slate-400 mr-1">ÁREAS:</span>
@@ -625,6 +630,10 @@
         <input id="fTitle" type="text" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600" placeholder="Ej. Revisar informe…">
       </div>
       <div>
+        <label for="fNotes" class="mono text-[11px] text-slate-400">NOTAS (OPCIONAL)</label>
+        <textarea id="fNotes" rows="2" maxlength="4000" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm leading-relaxed outline-none focus:border-cyan-600 resize-none max-h-[45vh]" placeholder="Más información, enlaces, pasos…"></textarea>
+      </div>
+      <div>
         <span id="fDiffLabel" class="mono text-[11px] text-slate-400">DIFICULTAD · PUNTOS DE ESFUERZO</span>
         <div id="diffPicker" class="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-labelledby="fDiffLabel">
           <button type="button" data-diff="easy" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Fácil<span class="mono text-[11px] opacity-80">0,5</span></button>
@@ -656,6 +665,7 @@
           <option value="daily">Diario — cada jornada</option>
           <option value="free">Libre — sin frecuencia, múltiples veces/día</option>
           <option value="weekly">Semanal — elige días</option>
+          <option value="neg">Negativo — cada vez que caes, daña la nave</option>
         </select>
         <div id="dayPicker" class="hidden mt-2 grid grid-cols-7 gap-1">
           <button data-day="1" class="day-pill mono text-[11px] px-1 py-1.5 rounded-md bg-slate-800 border border-slate-700">Lun</button>
@@ -890,6 +900,11 @@ const MODS = {
 const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
 const MOD_MC = [60,125,250,500,1000], MOD_MAT = [1,2,4,6,9];
 const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2;
+// Cada caída de un hábito negativo (× puntos de esfuerzo). Menos que fallar un
+// hábito diario: se puede caer varias veces el mismo día.
+const WEAR_NEG = 3;
+const NOTES_MAX = 4000;   // notas de tareas y hábitos (texto plano)
+const HABIT_TYPES = ['daily','weekly','free','neg'];
 // ventajas de los módulos de área, por nivel efectivo
 const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
@@ -1034,6 +1049,8 @@ function normProjects(a){
 function normState(s){
   const items=(a)=>Array.isArray(a)?a.filter(x=>x&&typeof x==='object'&&typeof x.title==='string'):[];
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
+  [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.notes==='string'&&x.notes.trim()) x.notes=x.notes.slice(0,NOTES_MAX); else delete x.notes; });
+  st.habits.forEach(h=>{ if(!HABIT_TYPES.includes(h.type)) h.type='daily'; });
   [...st.tasks,...st.habits].forEach(x=>{ if(!EFFORT[x.diff]) x.diff='normal'; if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
   st.projects=normProjects(s?.projects);
   // una tarea va en un proyecto como mucho; si el proyecto ya no existe, se queda sin él
@@ -1050,7 +1067,7 @@ function normStats(x){ const d={missions:0,rounds:0,hires:0,urgentFails:0}; if(x
 // una vez, en partidas que aún no tenían méritos.
 function retroXP(st){
   let xp=st.tasks.filter(x=>x.done).length*10;
-  for(const h of st.habits) xp+=Object.values(h.log||{}).filter(n=>n>=1).length*5;
+  for(const h of st.habits) if(h.type!=='neg') xp+=Object.values(h.log||{}).filter(n=>n>=1).length*5;
   return xp;
 }
 function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) return freshState(); return normState(JSON.parse(raw)); }catch{ return freshState(); } }
@@ -1197,6 +1214,29 @@ function tapFree(h,k){
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   return g;
 }
+// Hábito negativo: cada toque daña un módulo y no da nada. Se guarda qué
+// módulo y cuánto dañó cada toque (h.g[k].hits) para que −1 lo devuelva exacto.
+function tapNeg(h,k){
+  const hit=wear(h,WEAR_NEG*effOf(h));
+  h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
+  h.g=h.g||{}; const g=h.g[k]=h.g[k]||{hits:[]}; (g.hits=g.hits||[]).push(hit);
+  return hit;
+}
+function untapNeg(h,k){
+  h.log=h.log||{}; if(!(h.log[k]>0)) return;
+  h.log[k]--;
+  const hit=h.g?.[k]?.hits?.pop();
+  if(hit&&mod(hit.k)) mod(hit.k).cond=Math.min(100,mod(hit.k).cond+hit.n);
+  if(h.log[k]===0){ delete h.log[k]; if(h.g) delete h.g[k]; }
+}
+const negText=(hit)=>hit?`−${hit.n} % ${MODS[hit.k].name}`:'Caída anotada';
+// Días seguidos sin caer, contando hoy si aún no ha caído.
+function cleanDays(h){
+  const t=todayStr(); let last=null;
+  for(const [d,n] of Object.entries(h.log||{})) if(n>0&&d<=t&&(!last||d>last)) last=d;
+  const from=last||todayStr(new Date(h.createdAt||Date.now()));
+  return Math.max(0,Math.round((dayParse(t)-dayParse(from))/864e5)+(last?0:1));   // sin caídas, el día de alta también cuenta
+}
 function untapFree(h,k){
   h.log=h.log||{}; h.log[k]=Math.max(0,(h.log[k]||0)-1);
   subW('mc',freeTap(h,k));
@@ -1224,7 +1264,8 @@ function wear(x,n){
   n=Math.round(n*(1-perk('engineer')));
   let k=areaModFor(x);
   if(!k){ const g=builtGeneral(); if(!g.length) return; k=g[state.ship.rot++%g.length]; }
-  mod(k).cond=Math.max(0,mod(k).cond-n);
+  const before=mod(k).cond; mod(k).cond=Math.max(0,before-n);
+  return before>mod(k).cond?{k,n:before-mod(k).cond}:null;
 }
 function healFor(x,ef=1){
   let k=areaModFor(x);
@@ -1297,6 +1338,7 @@ function avgDaily(){
   // los puntos que dio cada cosa ese día; si no se guardaron, los de su dificultad actual
   for(const x of state.tasks) if(x.done&&x.doneOn){ hist[x.doneOn]=(hist[x.doneOn]||0)+(x.grant?.ef??effOf(x)); seen(x.doneOn); }
   for(const h of state.habits){
+    if(h.type==='neg') continue;
     if(h.createdAt) seen(todayStr(new Date(h.createdAt)));
     for(const [d,n] of Object.entries(h.log||{})) if(n>0){ hist[d]=(hist[d]||0)+(h.g?.[d]?.ef??effOf(h)); seen(d); }
   }
@@ -1377,7 +1419,7 @@ function failUrgent(until){ const b=state.ship.board; if(!b.repUntil||b.repUntil
 function decayDay(day,miss){
   const start=dayParse(day).getTime(), end=start+864e5, dow=dayParse(day).getDay();
   for(const h of state.habits){
-    if(h.type==='free'||(h.createdAt||0)>=start) continue;
+    if(h.type==='free'||h.type==='neg'||(h.createdAt||0)>=start) continue;
     if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
     if((h.log?.[day]||0)<1){ wear(h,WEAR_HABIT*effOf(h)); miss.habits++; }
   }
@@ -1634,11 +1676,11 @@ function wireGear(el,acts){
 function rowHTML(o){
   const lg=o.size==='lg';
   const cls=['row',lg?'row--lg':'',o.done?'done':'',o.over?'over':'',o.dim?'dim':''].filter(Boolean).join(' ');
-  const mark=['row-mark',o.kind,o.on?'on':'',o.off?'off':''].filter(Boolean).join(' ');
+  const mark=['row-mark',o.kind,o.tone||'',o.on?'on':'',o.off?'off':''].filter(Boolean).join(' ');
   return `<div class="${cls}">
     <button type="button" data-act="done" class="row-hit" aria-pressed="${!!o.on}" aria-label="${o.markLabel}"><span class="${mark}" aria-hidden="true">${o.markText||''}</span></button>
     <button type="button" data-act="body" class="row-body" aria-label="Opciones de ${o.title}">
-      <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}</span>
+      <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}${o.notes?NOTE_ICON:''}</span>
       ${o.meta?`<span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${o.meta}</span>`:''}
     </button>
     ${o.extras||''}
@@ -1662,6 +1704,7 @@ function rowEl(o,acts){
 // la talla: en las dos se marca el día desde el mismo control, que es
 // justamente lo que faltaba en la de gestión.
 function habitRowEl(h,size,t){
+  if(h.type==='neg') return negRowEl(h,size,t);
   const c=countToday(h), d=isDoneToday(h), free=h.type==='free', sched=isScheduledToday(h), s=streak(h);
   const title=escapeHtml(h.title);
   const kind=free?'Libre':h.type==='daily'?'Diario':'Semanal'+((h.days||[]).length?' · '+h.days.map(x=>DOW_NAMES[x]).join(' '):'');
@@ -1674,7 +1717,7 @@ function habitRowEl(h,size,t){
     areaBadges(h.areas)
   ].filter(Boolean).join('');
   const el=rowEl({
-    kind:'habit', size, title, pri:h.priority,
+    kind:'habit', size, title, pri:h.priority, notes:!!h.notes,
     done:d&&!free, on:!free&&d, off:!d&&((free&&c===0)||!sched), dim:!sched&&!d,
     markText:free?String(c):(d?'✓':''),
     markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
@@ -1688,6 +1731,33 @@ function habitRowEl(h,size,t){
   });
   const minus=el.querySelector('[data-act="minus"]');
   if(minus) minus.onclick=()=>{ untapFree(h,t); save(); render(); };
+  return el;
+}
+// Hábito negativo: se pulsa cada vez que se cae. El círculo dice cuántas van
+// hoy y se pone rojo; en vez de racha, los días seguidos sin caer.
+function negRowEl(h,size,t){
+  const c=countToday(h), title=escapeHtml(h.title), clean=cleanDays(h);
+  const meta=[
+    '<span class="text-red-300">Negativo</span>',
+    diffBadge(h),
+    c?`<span class="text-red-300">hoy ${c} ${c===1?'caída':'caídas'}</span>`:'',
+    (!c&&clean>=1&&state.settings.showStreaks)?`<span class="text-emerald-300">${clean} ${clean===1?'día limpio':'días limpios'}</span>`:'',
+    areaBadges(h.areas)
+  ].filter(Boolean).join('');
+  const el=rowEl({
+    kind:'habit', tone:c?'neg':'', size, title, pri:h.priority, notes:!!h.notes,
+    off:!c, markText:c?String(c):'−',
+    markLabel:'Anotar una caída: '+title,
+    meta,
+    extras:c>0?`<button type="button" data-act="minus" class="shrink-0 mono text-sm text-slate-300 border border-slate-700 rounded-lg h-11 min-w-[44px] px-3 hover:border-cyan-600" title="Quitar una caída" aria-label="Quitar una caída de ${title}">−1</button>`:''
+  },{
+    done:()=>toggleHabitToday(h),
+    edit:()=>openModal('habit',h.id),
+    pri:()=>{h.priority=!h.priority;save();render();},
+    del:()=>deleteHabit(h.id)
+  });
+  const minus=el.querySelector('[data-act="minus"]');
+  if(minus) minus.onclick=()=>{ untapNeg(h,t); save(); render(); };
   return el;
 }
 /* ---------- el primer día ----------
@@ -1805,7 +1875,7 @@ function taskRowEl(x,t,size){
     projBadge(x.projectId), areaBadges(x.areas)
   ].filter(Boolean).join('');
   return rowEl({
-    kind:'task', size, title, pri:x.priority, done:x.done, over, on:x.done,
+    kind:'task', size, title, pri:x.priority, notes:!!x.notes, done:x.done, over, on:x.done,
     markText:x.done?'✓':'',
     markLabel:(x.done?'Desmarcar ':'Completar ')+title,
     meta
@@ -1842,7 +1912,7 @@ let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set(),
 
 /* ---------- habit helpers ---------- */
 const countToday = (h) => h.log?.[todayStr()]||0;
-function isScheduledToday(h){ if(h.type==='free') return true; if(h.type==='daily') return true; return (h.days||[]).includes(DOW()); }
+function isScheduledToday(h){ if(h.type==='free'||h.type==='neg') return true; if(h.type==='daily') return true; return (h.days||[]).includes(DOW()); }
 function isDoneToday(h){ return countToday(h)>=1; }
 function streak(h){
   let s=0; const d=new Date();
@@ -1856,6 +1926,7 @@ function streak(h){
 }
 function toggleHabitToday(h){
   const k=todayStr(); h.log=h.log||{};
+  if(h.type==='neg'){ const hit=tapNeg(h,k); save(); render(); toast(negText(hit)); return; }
   if(h.type==='free'){ const g=tapFree(h,k); save(); render(); toast(gainText(g)); return; }
   if((h.log[k]||0)>=1){ uncheckHabit(h,k); h.log[k]=0; }
   else { h.log[k]=1; const g=checkHabit(h,k); save(); render(); toast(gainText(g)); return; }
@@ -2208,7 +2279,7 @@ function render(){
   // arriba, pero no cuentan en el progreso: al cerrarlas dejan de ser de hoy y
   // el total encogería a media mañana.
   const porPri = (a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
-  const todays = state.habits.filter(h=>h.type!=='free'&&isScheduledToday(h)).sort(porPri);
+  const todays = state.habits.filter(h=>h.type!=='free'&&h.type!=='neg'&&isScheduledToday(h)).sort(porPri);
   const dueTasks = state.tasks.filter(x=>x.dueDate===t).sort(porPri);
   const overTasks = state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<t).sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
   const total = todays.length+dueTasks.length;
@@ -2231,7 +2302,7 @@ function render(){
   document.getElementById('projBox').classList.toggle('hidden',!hayTareas&&!state.projects.length);
   const box=document.getElementById('todayList'); box.innerHTML='';
   if(fresh){ box.appendChild(welcomeEl()); }
-  else if(!total && !overTasks.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada en el orden del día. Los hábitos libres están en Hábitos.</div>';
+  else if(!total && !overTasks.length) box.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center">Nada en el orden del día. Los hábitos libres y negativos están en Hábitos.</div>';
   // La talla mira el total del día, no los pendientes: si mirara los
   // pendientes, la lista encogería sola al marcar el sexto y daría un salto a
   // media mañana. El resto de la jerarquía —ser lo primero, el ancho completo,
@@ -2406,7 +2477,7 @@ function renderRank(){
   const pct=next?Math.min(100,Math.round((xp-base)/(next[1]-base)*100)):100;
   document.getElementById('rankBadge').textContent='R'+(i+1);
   document.getElementById('rankSummary').textContent=`· ${RANKS[i][0]} · ${xp} méritos`;
-  const habitDays=state.habits.reduce((a,h)=>a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
+  const habitDays=state.habits.reduce((a,h)=>h.type==='neg'?a:a+Object.values(h.log||{}).filter(n=>n>=1).length,0);
   const stats=[['Tareas completadas',state.tasks.filter(x=>x.done).length],['Hábitos cumplidos',habitDays],...(missionsUnlocked()?[[st.urgentFails?`Misiones completadas · ${st.urgentFails} ${st.urgentFails===1?'urgente fallida':'urgentes fallidas'}`:'Misiones completadas',st.missions]]:[]),['Rondas Forster',st.rounds],...(crewUnlocked()?[['Tripulantes contratados',st.hires]]:[]),['Nivel de la nave',Object.values(state.ship.modules).reduce((a,m)=>a+m.lv,0)+'/40']];
   document.getElementById('rankPanel').innerHTML=`
     <div class="flex items-center gap-2">
@@ -2707,6 +2778,14 @@ function renderShip(){
     mk.appendChild(el);
   }
 }
+const NOTE_ICON='<svg class="note-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg><span class="sr-only"> · tiene notas</span>';
+// Texto plano: solo se escapan y se hacen pulsables las direcciones web.
+function linkify(s){
+  return escapeHtml(s).replace(/https?:\/\/[^\s<]+/g,u=>{
+    const m=u.match(/[.,;:!?)\]]+$/), tail=m?m[0]:'', url=tail?u.slice(0,-tail.length):u;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline break-all">${url}</a>${tail}`;
+  });
+}
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 /* ---------- modal ---------- */
@@ -2720,17 +2799,23 @@ function openModal(mode,id=null){
   document.getElementById('rowTaskProject').classList.toggle('hidden',mode!=='task');
   document.getElementById('rowHabitType').classList.toggle('hidden',mode!=='habit');
   const t=document.getElementById('fTitle'), d=document.getElementById('fDate'), p=document.getElementById('fPriority'), ty=document.getElementById('fType');
+  const nt=document.getElementById('fNotes'); nt.value='';
   t.value='';d.value='';p.checked=false;ty.value='daily';syncDayPicker();syncAreaPicker();syncDiffPicker();
   document.getElementById('fProjNew').classList.add('hidden');
   document.getElementById('fProjName').value=''; document.getElementById('fProjDue').value='';
   fillProjectSelect('');
   if(isEdit){
     const it=(mode==='task'?state.tasks:state.habits).find(y=>y.id===id); pickedDiff=EFFORT[it?.diff]?it.diff:'normal'; syncDiffPicker();
+    nt.value=it?.notes||'';
     if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker(); fillProjectSelect(x.projectId||'');}
     else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
   }
+  growNotes();
   setTimeout(()=>t.focus(),30);
 }
+// El cuadro de notas crece con el texto (hasta su max-h) en vez de traer barra propia.
+function growNotes(){ const n=document.getElementById('fNotes'); n.style.height='auto'; n.style.height=n.scrollHeight+2+'px'; }
+document.getElementById('fNotes').addEventListener('input',growNotes);
 function fillProjectSelect(sel){
   const s=document.getElementById('fProject');
   s.innerHTML='<option value="">— Sin proyecto —</option>'+state.projects.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
@@ -2763,16 +2848,23 @@ function closeModal(){document.getElementById('modal').classList.add('hidden');m
 document.getElementById('modalSave').onclick=()=>{
   const title=document.getElementById('fTitle').value.trim();
   if(!title){toast('Escribe un título');return;}
+  const notes=document.getElementById('fNotes').value.trim().slice(0,NOTES_MAX);
+  const setNotes=(x)=>{ if(notes) x.notes=notes; else delete x.notes; return x; };
   if(modalMode==='task'){
     const due=document.getElementById('fDate').value||null, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     const pid=document.getElementById('fProject').value||null;
-    if(editingId){const x=state.tasks.find(y=>y.id===editingId); Object.assign(x,{title,dueDate:due,priority:pri,diff:pickedDiff,areas,projectId:pid});}
-    else state.tasks.push({id:uid(),title,dueDate:due,priority:pri,diff:pickedDiff,done:false,areas,projectId:pid,createdAt:Date.now()});
+    if(editingId){const x=state.tasks.find(y=>y.id===editingId); setNotes(Object.assign(x,{title,dueDate:due,priority:pri,diff:pickedDiff,areas,projectId:pid}));}
+    else state.tasks.push(setNotes({id:uid(),title,dueDate:due,priority:pri,diff:pickedDiff,done:false,areas,projectId:pid,createdAt:Date.now()}));
   } else {
     const type=document.getElementById('fType').value, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     if(type==='weekly'&&pickedDays.size===0){toast('Elige al menos un día');return;}
-    if(editingId){const h=state.habits.find(y=>y.id===editingId); Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas});}
-    else state.habits.push({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()});
+    if(editingId){
+      const h=state.habits.find(y=>y.id===editingId);
+      // El historial de uno se leería al revés en el otro: cumplimientos como caídas.
+      if((h.type==='neg')!==(type==='neg')&&Object.values(h.log||{}).some(n=>n>0)){toast('Con historial, un hábito no puede pasar de positivo a negativo ni al revés');return;}
+      setNotes(Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas}));
+    }
+    else state.habits.push(setNotes({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()}));
   }
   save();closeModal();render();toast('Guardado ✓');
 };
@@ -2977,7 +3069,7 @@ function yesterdayPending(){
   const ord=(a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
   const habits=[], free=[];
   for(const h of state.habits){
-    if((h.createdAt||0)>=start) continue;   // creado hoy: ayer no existía
+    if((h.createdAt||0)>=start||h.type==='neg') continue;   // creado hoy: ayer no existía; los negativos no se repasan
     const n=h.log?.[y]||0;
     if(h.type==='free'){ if(!n) free.push(h); continue; }
     if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
@@ -3171,7 +3263,7 @@ const focusTitle=(l)=>l.kind==='acc'?l.title:(focusItem(l)?.title||'');
 
 // lo pendiente de hoy: tareas abiertas + hábitos que tocan hoy sin cumplir (los libres siempre)
 function focusEligible(){
-  const hs=state.habits.filter(h=>isScheduledToday(h)&&(h.type==='free'||!isDoneToday(h))).sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
+  const hs=state.habits.filter(h=>h.type!=='neg'&&isScheduledToday(h)&&(h.type==='free'||!isDoneToday(h))).sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
   const ts=state.tasks.filter(x=>!x.done).sort((a,b)=>(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   return [...hs.map(h=>({kind:'habit',ref:h.id})),...ts.map(x=>({kind:'task',ref:x.id}))];
 }
@@ -3245,7 +3337,7 @@ function renderFocus(){
         <span class="f-dot" aria-hidden="true"></span>
         <span class="f-tile f-${l.kind}" aria-hidden="true">${FICON[l.kind]}</span>
         <span class="min-w-0 flex-1 flex flex-col gap-1">
-          <span class="f-title text-[15px] font-medium leading-snug break-words ${l.dotted&&!struck?'text-slate-50':'text-slate-300'}">${it?.priority?'<span class="text-amber-300">★ </span>':''}${title}</span>
+          <span class="f-title text-[15px] font-medium leading-snug break-words ${l.dotted&&!struck?'text-slate-50':'text-slate-300'}">${it?.priority?'<span class="text-amber-300">★ </span>':''}${title}${it?.notes?NOTE_ICON:''}</span>
           <span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${focusMetaHTML(l)}</span>
         </span>
         ${stamp}
@@ -3365,7 +3457,8 @@ function paintFocusModal(){
   if(fmStep==='menu'){
     const reward='';   // la recompensa existe, pero no se anuncia fuera de la nave
     const doneDesc=isT?'Tacha aquí y completa la tarea en Commander.':isH?(it.type==='free'?'Tacha aquí y suma un registro de hoy al hábito.':'Tacha aquí y marca el hábito como cumplido hoy.'):'Tacha la acción. Cuenta como una tarea fácil.';
-    html=`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
+    html=(it?.notes?`<details class="fm-notes mb-3 rounded-lg border border-slate-700 bg-slate-900/60"><summary class="cursor-pointer select-none px-3 py-2 mono text-[11px] text-slate-300">NOTAS</summary><div class="px-3 pb-3 text-sm leading-relaxed text-slate-200 whitespace-pre-wrap break-words">${linkify(it.notes)}</div></details>`:'')
+      +`<p class="sys-label mb-2.5">¿Qué quieres hacer?</p>
       <div class="grid grid-cols-2 gap-2.5">
         <button type="button" data-fm="progress" class="f-opt border-cyan-900 bg-[#0b1f2e]"><span class="flex items-center gap-2 text-cyan-300 text-[15px] font-semibold">${FOPT_ICON.progress} Progreso</span><span class="text-xs leading-snug text-slate-300">Tacha esta línea y la vuelve a poner al final, sin punto. El original no cambia.</span></button>
         <button type="button" data-fm="done" class="f-opt border-emerald-900 bg-[#0b211c]"><span class="flex items-center gap-2 text-emerald-300 text-[15px] font-semibold">${FOPT_ICON.done} Completado</span><span class="text-xs leading-snug text-slate-300">${doneDesc}</span>${reward}</button>
