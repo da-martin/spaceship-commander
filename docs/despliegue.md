@@ -28,8 +28,9 @@ npm run deploy
 ```
 
 No hace falta configurar nada más: **no hay secretos ni servicios externos**.
-La única salida a internet son los calendarios iCal que conecte cada usuario
-(ver [Calendarios iCal](#calendarios-ical)).
+Las únicas salidas a internet son los calendarios iCal que conecte cada usuario
+(ver [Calendarios iCal](#calendarios-ical)) y la importación de TaskHero, solo
+cuando alguien la lanza con su clave (ver [Importar de TaskHero](#importar-de-taskhero)).
 
 Tras el primer despliegue, desactiva GitHub Pages (Settings → Pages) para que
 no quede sirviéndose una versión vieja en paralelo.
@@ -164,6 +165,26 @@ npm run deploy
 | ----------------- | --------------------------- |
 | Altas             | 20 por cuenta cada hora     |
 | Descargas de .ics | 120 por cuenta cada hora    |
+
+## Importar de TaskHero
+
+Desde **Menú → Guardar / cargar partida → Importar de TaskHero**, quien tenga
+cuenta pega su clave de API de TaskHero, revisa lo leído y elige qué importar.
+
+- **De paso, sin guardar nada:** `GET /api/taskhero/tasks` y `/api/taskhero/lists`
+  reenvían la petición a `https://api.taskhero.app/api/v1` con la cabecera
+  `Authorization` del usuario y devuelven el cuerpo tal cual, sin parsearlo (CPU
+  del plan gratis). La clave no se guarda en D1, ni en la partida, ni en los
+  registros. Hace falta proxy porque el navegador no puede llamar a TaskHero
+  desde nuestro dominio.
+- Solo pasan los parámetros `type`, `status`, `cursor` y `limit`; la paginación
+  la lleva el cliente. Corta a los 10 s.
+- No necesita migraciones: lo importado entra en la partida como cualquier tarea
+  o hábito, con `src: 'taskhero:<id>'` para no duplicar si se importa otra vez.
+
+| Qué                      | Límite                   |
+| ------------------------ | ------------------------ |
+| Lecturas de TaskHero     | 60 páginas por cuenta cada hora |
 
 ## Límites conocidos
 
