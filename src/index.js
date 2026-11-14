@@ -26,6 +26,7 @@ const ICS_TIMEOUT_MS = 8_000;
 const ICS_HEAD_BYTES = 16_000;       // tope de lo que se lee al dar de alta para validar y sacar el nombre
 const TASKHERO_API = 'https://api.taskhero.app/api/v1';
 const TH_TIMEOUT_MS = 10_000;
+const TH_BODY_MAX = 4_000;           // complete y tracker-points llevan unos pocos campos
 
 // Intentos por ventana. Los registros cuentan aunque el nombre esté cogido: así
 // tampoco se puede usar el registro para sondear qué nombres existen.
@@ -38,6 +39,8 @@ const LIMITS = {
   calFetch: { max: 120, window: 60 * MIN },
   // cada página de la importación de TaskHero cuenta una
   thFetch: { max: 60, window: 60 * MIN },
+  thLink: { max: 10, window: 60 * MIN },
+  thSend: { max: 300, window: 60 * MIN },
 };
 
 export default {
@@ -478,41 +481,145 @@ async function proxyCalendar(env, user, id) {
   });
 }
 
-/* ---------- importación de TaskHero ---------- */
+/* ---------- TaskHero: importación y envíos ---------- */
 
 // Paso directo, como los .ics: el navegador no puede llamar a TaskHero desde
-// nuestro dominio (CORS), así que el Worker reenvía la petición con la clave del
-// usuario y devuelve el cuerpo sin parsearlo. La clave no se guarda ni se registra;
-// la paginación la lleva el cliente.
+// nuestro dominio (CORS), así que el Worker reenvía la petición y devuelve el
+// cuerpo sin parsearlo. La paginación y las decisiones las lleva el cliente.
+//
+// La clave llega de dos formas: en la cabecera Authorization (importar sin
+// conectar, no se guarda) o guardada en taskhero_links al conectar la cuenta.
+// Los envíos (complete, uncomplete, tracker-points) solo usan la guardada.
+// Nunca se registra ni se devuelve.
 const TH_PARAMS = ['type', 'status', 'cursor', 'limit'];
+const TH_AUTH = /^Bearer [\x21-\x7e]{8,300}$/;
 
-async function taskhero(request, env, user, url) {
-  const m = url.pathname.match(/^\/api\/taskhero\/(tasks|lists)$/);
-  if (!m) return json({ error: 'not_found' }, 404);
-  if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
-  const auth = request.headers.get('authorization') || '';
-  if (!/^Bearer [\x21-\x7e]{8,300}$/.test(auth)) return json({ error: 'bad_key' }, 400);
+const noTable = (err) => /no such table/i.test(String(err?.message));
+const notReady = () => json({ error: 'not_ready' }, 503);
 
-  const key = `th:fetch:${user.id}`;
-  if (await throttled(env, [[key, LIMITS.thFetch]])) return tooMany();
-  await bump(env, key, LIMITS.thFetch).run();
+async function storedAuth(env, user) {
+  const row = await env.DB.prepare('SELECT api_key FROM taskhero_links WHERE user_id = ?').bind(user.id).first();
+  return row ? `Bearer ${row.api_key}` : null;
+}
 
-  const q = new URLSearchParams();
-  for (const k of TH_PARAMS) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k).slice(0, 500));
-  let r;
-  try {
-    r = await fetch(`${TASKHERO_API}/${m[1]}${q.size ? `?${q}` : ''}`, {
-      headers: { authorization: auth, accept: 'application/json' },
-      signal: AbortSignal.timeout(TH_TIMEOUT_MS),
-    });
-  } catch {
-    return json({ error: 'upstream' }, 502);
-  }
-  return new Response(r.body, {
+function thForward(path, auth, init = {}) {
+  return fetch(`${TASKHERO_API}/${path}`, {
+    ...init,
+    headers: { authorization: auth, accept: 'application/json', ...(init.headers || {}) },
+    signal: AbortSignal.timeout(TH_TIMEOUT_MS),
+  });
+}
+
+const passThrough = (r) =>
+  new Response(r.body, {
     status: r.status,
     headers: {
       'content-type': r.headers.get('content-type') || 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     },
   });
+
+async function taskhero(request, env, user, url) {
+  try {
+    return await taskheroRoutes(request, env, user, url);
+  } catch (err) {
+    // Sin la migración 0005 solo falla esto; el resto de la app sigue igual.
+    if (noTable(err)) return notReady();
+    throw err;
+  }
+}
+
+async function taskheroRoutes(request, env, user, url) {
+  const path = url.pathname.slice('/api/taskhero/'.length);
+  const method = request.method;
+
+  if (path === 'link') {
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT 1 FROM taskhero_links WHERE user_id = ?').bind(user.id).first();
+      return json({ connected: !!row });
+    }
+    if (method === 'PUT') return linkTaskhero(request, env, user);
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM taskhero_links WHERE user_id = ?').bind(user.id).run();
+      return json({ connected: false });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  const read = path.match(/^(tasks|lists)$/);
+  const done = path.match(/^tasks\/([A-Za-z0-9_-]{1,128})\/(complete|uncomplete)$/);
+  const points = path === 'tracker-points';
+  if (!read && !done && !points) return json({ error: 'not_found' }, 404);
+
+  if (read) {
+    if (method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    const given = request.headers.get('authorization');
+    if (given && !TH_AUTH.test(given)) return json({ error: 'bad_key' }, 400);
+    const auth = given || (await storedAuth(env, user));
+    if (!auth) return json({ error: 'bad_key' }, 400);
+
+    const key = `th:fetch:${user.id}`;
+    if (await throttled(env, [[key, LIMITS.thFetch]])) return tooMany();
+    await bump(env, key, LIMITS.thFetch).run();
+
+    const q = new URLSearchParams();
+    for (const k of TH_PARAMS) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k).slice(0, 500));
+    try {
+      return passThrough(await thForward(`${read[1]}${q.size ? `?${q}` : ''}`, auth));
+    } catch {
+      return json({ error: 'upstream' }, 502);
+    }
+  }
+
+  if (method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+  if (Number(request.headers.get('content-length')) > TH_BODY_MAX) return json({ error: 'too_large' }, 413);
+  const body = await request.text();
+  if (body.length > TH_BODY_MAX) return json({ error: 'too_large' }, 413);
+
+  const auth = await storedAuth(env, user);
+  if (!auth) return json({ error: 'not_linked' }, 409);
+
+  const key = `th:send:${user.id}`;
+  if (await throttled(env, [[key, LIMITS.thSend]])) return tooMany();
+  await bump(env, key, LIMITS.thSend).run();
+
+  const target = points ? 'tracker-points' : `tasks/${done[1]}/${done[2]}`;
+  // uncomplete no lleva cuerpo; los otros dos, JSON tal cual lo manda el cliente
+  const init = body ? { method: 'POST', body, headers: { 'content-type': 'application/json' } } : { method: 'POST' };
+  try {
+    return passThrough(await thForward(target, auth, init));
+  } catch {
+    return json({ error: 'upstream' }, 502);
+  }
+}
+
+// Antes de guardar, la clave se prueba con /me: así una clave mala se nota al
+// conectar y no en el primer envío.
+async function linkTaskhero(request, env, user) {
+  const body = await readBody(request);
+  const apiKey = str(body?.key).trim();
+  const auth = `Bearer ${apiKey}`;
+  if (!TH_AUTH.test(auth)) return json({ error: 'bad_key' }, 400);
+
+  const key = `th:link:${user.id}`;
+  if (await throttled(env, [[key, LIMITS.thLink]])) return tooMany();
+  await bump(env, key, LIMITS.thLink).run();
+
+  let r;
+  try {
+    r = await thForward('me', auth);
+  } catch {
+    return json({ error: 'upstream' }, 502);
+  }
+  r.body?.cancel().catch(() => {});
+  if (r.status === 401 || r.status === 403) return json({ error: 'bad_key' }, 400);
+  if (!r.ok) return json({ error: 'upstream' }, 502);
+
+  await env.DB.prepare(
+    `INSERT INTO taskhero_links (user_id, api_key, created_at) VALUES (?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET api_key = excluded.api_key, created_at = excluded.created_at`
+  )
+    .bind(user.id, apiKey, Date.now())
+    .run();
+  return json({ connected: true });
 }

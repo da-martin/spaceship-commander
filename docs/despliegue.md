@@ -29,8 +29,8 @@ npm run deploy
 
 No hace falta configurar nada más: **no hay secretos ni servicios externos**.
 Las únicas salidas a internet son los calendarios iCal que conecte cada usuario
-(ver [Calendarios iCal](#calendarios-ical)) y la importación de TaskHero, solo
-cuando alguien la lanza con su clave (ver [Importar de TaskHero](#importar-de-taskhero)).
+(ver [Calendarios iCal](#calendarios-ical)) y TaskHero, solo para quien lo use con
+su clave (ver [TaskHero](#taskhero-importar-y-sincronizar)).
 
 Tras el primer despliegue, desactiva GitHub Pages (Settings → Pages) para que
 no quede sirviéndose una versión vieja en paralelo.
@@ -166,25 +166,66 @@ npm run deploy
 | Altas             | 20 por cuenta cada hora     |
 | Descargas de .ics | 120 por cuenta cada hora    |
 
-## Importar de TaskHero
+## TaskHero: importar y sincronizar
+
+Al desplegar esta versión hay que aplicar la migración `0005_taskhero.sql`. El
+despliegue automático desde GitHub **no aplica migraciones**, así que hay que
+lanzarla a mano una vez:
+
+```bash
+npm run db:remote
+```
+
+Mientras falte, el resto de la app funciona igual; solo Ajustes › TaskHero
+avisa de que falta preparar la base de datos y no se envía nada.
+
+### Importar
 
 Desde **Menú → Guardar / cargar partida → Importar de TaskHero**, quien tenga
-cuenta pega su clave de API de TaskHero, revisa lo leído y elige qué importar.
+cuenta revisa lo leído y elige qué importar. Sin cuenta de TaskHero conectada,
+pega su clave para esa lectura (no se guarda, salvo que marque «Conectar
+también»). Lo importado lleva `src: 'taskhero:<id>'`: evita duplicar al volver a
+importar y deja el elemento enlazado.
 
-- **De paso, sin guardar nada:** `GET /api/taskhero/tasks` y `/api/taskhero/lists`
-  reenvían la petición a `https://api.taskhero.app/api/v1` con la cabecera
-  `Authorization` del usuario y devuelven el cuerpo tal cual, sin parsearlo (CPU
-  del plan gratis). La clave no se guarda en D1, ni en la partida, ni en los
-  registros. Hace falta proxy porque el navegador no puede llamar a TaskHero
-  desde nuestro dominio.
-- Solo pasan los parámetros `type`, `status`, `cursor` y `limit`; la paginación
-  la lleva el cliente. Corta a los 10 s.
-- No necesita migraciones: lo importado entra en la partida como cualquier tarea
-  o hábito, con `src: 'taskhero:<id>'` para no duplicar si se importa otra vez.
+### Sincronizar
 
-| Qué                      | Límite                   |
-| ------------------------ | ------------------------ |
-| Lecturas de TaskHero     | 60 páginas por cuenta cada hora |
+Desde **Ajustes → TaskHero** (o con la casilla del importador) se conecta la
+cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
+
+- **Enlazado** (importado, o con el mismo nombre que un hábito o una tarea
+  pendiente de allí): se completa allí con `POST /tasks/{id}/complete`. El enlace
+  por nombre se guarda en `src` la primera vez, así que sobrevive a cambios de
+  nombre. Cada elemento se puede desenlazar (`thOff`). Un id de TaskHero se
+  enlaza a un solo elemento; los hábitos negativos nunca.
+- **Lo demás:** su esfuerzo como tracker points (`POST /tracker-points`, Fácil
+  0,5 · Normal 1 · Difícil 2).
+- **Cola con 30 s de margen,** en `localStorage['spaceship-commander:thq']` de cada
+  dispositivo: marcar y desmarcar dentro del margen no envía nada. Desmarcar
+  después descompleta lo enlazado (`/uncomplete`); los puntos ya enviados se
+  quedan, porque la API no permite retirarlos. Cada dispositivo envía solo lo que
+  se marca en él, así que la sincronización de partidas no duplica nada.
+- `complete` y `tracker-points` van con `idempotencyKey`, así que reintentar
+  tras un corte no duplica. `uncomplete` no la admite: solo se reintenta si no
+  llegó a salir.
+
+### En el servidor
+
+- **La clave se guarda en claro en D1**, en `taskhero_links`, por cuenta y nunca
+  en la partida, como las URL de calendarios. Da escritura en la cuenta de
+  TaskHero de quien la pega. Al conectar se prueba con `GET /me`; la API solo
+  dice si hay una conectada, nunca la devuelve.
+- **De paso, sin parsear** (CPU del plan gratis): `/api/taskhero/tasks`, `lists`,
+  `tasks/:id/complete`, `tasks/:id/uncomplete` y `tracker-points` reenvían a
+  `https://api.taskhero.app/api/v1` y devuelven el cuerpo tal cual. Las lecturas
+  usan la cabecera `Authorization` si llega (importar sin conectar) y si no, la
+  clave guardada; los envíos, siempre la guardada. Cuerpos de 4 KB como mucho;
+  corta a los 10 s.
+
+| Qué                         | Límite                          |
+| --------------------------- | ------------------------------- |
+| Lecturas de TaskHero        | 60 páginas por cuenta cada hora |
+| Envíos a TaskHero           | 300 por cuenta cada hora        |
+| Intentos de conectar        | 10 por cuenta cada hora         |
 
 ## Límites conocidos
 
