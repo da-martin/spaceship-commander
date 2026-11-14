@@ -112,6 +112,7 @@
   .row-gear:hover{color:#67e8f9}
   /* Marca de «tiene notas»: va dentro de la línea del título, no suma altura. */
   .note-ic{display:inline-block;vertical-align:-1px;margin-left:5px;color:#94a3b8}
+  .link-ic{display:inline-block;vertical-align:-1px;margin-left:5px;color:#67e8f9}
   .row-hit:focus,.row-body:focus,.row-gear:focus{outline:none}
   .row:has(.row-hit:focus-visible),.row:has(.row-body:focus-visible),.row:has(.row-gear:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
   .done-chev{transition:transform .15s}
@@ -633,6 +634,10 @@
         <label for="fNotes" class="mono text-[11px] text-slate-400">NOTAS (OPCIONAL)</label>
         <textarea id="fNotes" rows="2" maxlength="4000" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm leading-relaxed outline-none focus:border-cyan-600 resize-none max-h-[45vh]" placeholder="Más información, enlaces, pasos…"></textarea>
       </div>
+      <div id="fThRow" class="hidden flex items-center gap-2 rounded-lg border px-3 py-2">
+        <span id="fThText" class="flex-1 min-w-0 text-[13px]"></span>
+        <button type="button" id="fThToggle" class="shrink-0 px-2 h-9 rounded-lg text-xs underline underline-offset-2"></button>
+      </div>
       <div>
         <span id="fDiffLabel" class="mono text-[11px] text-slate-400">DIFICULTAD · PUNTOS DE ESFUERZO</span>
         <div id="diffPicker" class="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-labelledby="fDiffLabel">
@@ -741,7 +746,8 @@
         <input id="thKey" type="password" autocomplete="off" spellcheck="false" placeholder="Clave de API (th-api-…)" aria-label="Clave de API de TaskHero" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
         <button id="thRead" type="submit" class="shrink-0 px-3.5 h-11 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">Leer</button>
       </form>
-      <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">Trae tus hábitos y tus tareas pendientes con su nombre, su frecuencia y su fecha. Lo demás (dificultad, lista, notas…) va a las notas de cada uno. La clave solo se usa para esta lectura: no se guarda.</p>
+      <label id="thLinkRow" class="hidden mt-2 flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input id="thLinkToo" type="checkbox" class="w-4 h-4 accent-cyan-600 shrink-0"> Conectar también con TaskHero (guardar la clave)</label>
+      <p id="thHelp" class="mono text-[11px] text-slate-400 mt-2 leading-relaxed"></p>
       <div id="thMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
       <div id="thPreview" class="hidden mt-3"></div>
     </div>
@@ -806,6 +812,22 @@
       </form>
       <div id="calMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
       <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">En Google Calendar: Configuración › tu calendario › «Dirección secreta en formato iCal». Los eventos que se repiten no aparecen por ahora.</p>
+    </div>
+
+    <!-- La clave vive en el servidor, por cuenta: nunca entra en la partida. -->
+    <div class="sys-label mt-6 mb-2">TaskHero</div>
+    <div id="thsSignedOut" class="hidden text-sm text-slate-300 border border-dashed border-slate-700 rounded-lg px-3 py-2.5">
+      Entra en tu cuenta para conectar TaskHero.
+      <button id="thsLogin" type="button" class="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">Entrar</button>
+    </div>
+    <div id="thsBox" class="hidden">
+      <form id="thsForm" class="flex gap-2">
+        <input id="thsKey" type="password" autocomplete="off" spellcheck="false" placeholder="Clave de API (th-api-…)" aria-label="Clave de API de TaskHero" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
+        <button id="thsConnect" type="submit" class="shrink-0 btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">Conectar</button>
+      </form>
+      <div id="thsOn" class="hidden"></div>
+      <div id="thsMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
+      <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">Lo que completes aquí se completa también en TaskHero si está enlazado: lo importado de allí y lo que se llame igual (lleva el icono de enlace). Lo demás envía su esfuerzo como tracker points: Fácil 0,5 · Normal 1 · Difícil 2. Sale 30 s después de marcar; si lo desmarcas antes, no se envía nada.</p>
     </div>
   </div>
 </div>
@@ -1070,7 +1092,7 @@ function normState(s){
   [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.notes==='string'&&x.notes.trim()) x.notes=x.notes.slice(0,NOTES_MAX); else delete x.notes; });
   st.habits.forEach(h=>{ if(!HABIT_TYPES.includes(h.type)) h.type='daily'; });
   // origen de lo importado de otra app ('taskhero:<id>'): evita duplicar al volver a importar
-  [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.src!=='string'||!x.src||x.src.length>200) delete x.src; });
+  [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.src!=='string'||!x.src||x.src.length>200) delete x.src; if(x.thOff!==true) delete x.thOff; });
   [...st.tasks,...st.habits].forEach(x=>{ if(!EFFORT[x.diff]) x.diff='normal'; if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });
   st.projects=normProjects(s?.projects);
   // una tarea va en un proyecto como mucho; si el proyecto ya no existe, se queda sin él
@@ -1097,6 +1119,9 @@ let state = load();
 // `hold`: hay un selector de partidas esperando respuesta. Mientras esté puesto
 // no se sube nada, porque el estado local todavía no es una decisión.
 const cloud = {user:null, rev:0, timer:null, pending:false, busy:false, hold:false, status:'local'};
+// TaskHero conectado a la cuenta (la clave vive en el servidor). `ready` es false
+// si falta la migración 0005; `busy`, mientras se envía la cola.
+const thc = {connected:false, ready:true, timer:null, busy:false, removing:false};
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(); }
 // Noticias de la nave: todo va a la bitácora. Dentro de Spaceship lo pequeño
 // sale además como aviso y el final de una misión abre su informe; fuera, se
@@ -1206,9 +1231,10 @@ const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.res].sym}
 function grantTask(x,day=todayStr()){
   const ef=effOf(x), g={mc:payRound(EF_MC*ef*(1+perk('quarter')),ef),res:pickAreaRes(x),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  x.grant=g; x.doneOn=day; onComplete(x,g,day); return g;
+  x.grant=g; x.doneOn=day; onComplete(x,g,day); thTrack(x,'task','+',day,ef); return g;
 }
 function revokeTask(x){
+  thTrack(x,'task','-',x.doneOn||todayStr());
   delete x.doneOn;
   if(!x.grant) return;
   subW('mc',x.grant.mc); if(x.grant.res) subW(x.grant.res,1);
@@ -1217,10 +1243,10 @@ function revokeTask(x){
 function checkHabit(h,k){
   const ef=effOf(h), g={mc:payRound((EF_MC+perk('instructor'))*ef,ef),res:pickAreaRes(h),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); return g;
+  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); thTrack(h,'habit','+',k,ef); return g;
 }
 function uncheckHabit(h,k){
-  if(h.g?.[k]){ subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
+  if(h.g?.[k]){ thTrack(h,'habit','-',k); subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
 // El primer toque del día fija lo que vale cada toque ese día (g.tap), para que
 // −1 reste lo mismo aunque la dificultad cambie a media jornada.
@@ -1232,6 +1258,7 @@ function tapFree(h,k){
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
   if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
+  thTrack(h,'habit','+',k,first?effOf(h):0);   // con pareja, cada toque es una repetición allí
   return g;
 }
 // Hábito negativo: cada toque daña un módulo y no da nada. Se guarda qué
@@ -1258,7 +1285,8 @@ function cleanDays(h){
   return Math.max(0,Math.round((dayParse(t)-dayParse(from))/864e5)+(last?0:1));   // sin caídas, el día de alta también cuenta
 }
 function untapFree(h,k){
-  h.log=h.log||{}; h.log[k]=Math.max(0,(h.log[k]||0)-1);
+  h.log=h.log||{}; if(h.log[k]>0) thTrack(h,'habit','-',k);
+  h.log[k]=Math.max(0,(h.log[k]||0)-1);
   subW('mc',freeTap(h,k));
   if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
@@ -1700,7 +1728,7 @@ function rowHTML(o){
   return `<div class="${cls}">
     <button type="button" data-act="done" class="row-hit" aria-pressed="${!!o.on}" aria-label="${o.markLabel}"><span class="${mark}" aria-hidden="true">${o.markText||''}</span></button>
     <button type="button" data-act="body" class="row-body" aria-label="Opciones de ${o.title}">
-      <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}${o.notes?NOTE_ICON:''}</span>
+      <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}${o.notes?NOTE_ICON:''}${o.linked?LINK_ICON:''}</span>
       ${o.meta?`<span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${o.meta}</span>`:''}
     </button>
     ${o.extras||''}
@@ -1737,7 +1765,7 @@ function habitRowEl(h,size,t){
     areaBadges(h.areas)
   ].filter(Boolean).join('');
   const el=rowEl({
-    kind:'habit', size, title, pri:h.priority, notes:!!h.notes,
+    kind:'habit', size, title, pri:h.priority, notes:!!h.notes, linked:thShow(h),
     done:d&&!free, on:!free&&d, off:!d&&((free&&c===0)||!sched), dim:!sched&&!d,
     markText:free?String(c):(d?'✓':''),
     markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
@@ -1765,7 +1793,7 @@ function negRowEl(h,size,t){
     areaBadges(h.areas)
   ].filter(Boolean).join('');
   const el=rowEl({
-    kind:'habit', tone:c?'neg':'', size, title, pri:h.priority, notes:!!h.notes,
+    kind:'habit', tone:c?'neg':'', size, title, pri:h.priority, notes:!!h.notes, linked:thShow(h),
     off:!c, markText:c?String(c):'−',
     markLabel:'Anotar una caída: '+title,
     meta,
@@ -1895,7 +1923,7 @@ function taskRowEl(x,t,size){
     projBadge(x.projectId), areaBadges(x.areas)
   ].filter(Boolean).join('');
   return rowEl({
-    kind:'task', size, title, pri:x.priority, notes:!!x.notes, done:x.done, over, on:x.done,
+    kind:'task', size, title, pri:x.priority, notes:!!x.notes, linked:thShow(x), done:x.done, over, on:x.done,
     markText:x.done?'✓':'',
     markLabel:(x.done?'Desmarcar ':'Completar ')+title,
     meta
@@ -2798,6 +2826,8 @@ function renderShip(){
     mk.appendChild(el);
   }
 }
+const LINK_SVG='<svg class="link-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>';
+const LINK_ICON=LINK_SVG+'<span class="sr-only"> · enlazado con TaskHero</span>';
 const NOTE_ICON='<svg class="note-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg><span class="sr-only"> · tiene notas</span>';
 // Texto plano: solo se escapan y se hacen pulsables las direcciones web.
 function linkify(s){
@@ -2830,9 +2860,30 @@ function openModal(mode,id=null){
     if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker(); fillProjectSelect(x.projectId||'');}
     else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
   }
+  thModalLink=null; paintThModal();
   growNotes();
   setTimeout(()=>t.focus(),30);
 }
+// Enlace con TaskHero en el modal: el cambio se aplica al guardar, como lo demás.
+// thModalLink: null = sin tocar; true/false = enlazado o no al guardar.
+let thModalLink=null;
+function paintThModal(){
+  const row=document.getElementById('fThRow'), it=editingId?(modalMode==='task'?state.tasks:state.habits).find(y=>y.id===editingId):null;
+  const show=!!(thc.connected&&it&&thIsLinked(it)&&it.type!=='neg');
+  row.classList.toggle('hidden',!show); if(!show) return;
+  const on=thModalLink??!it.thOff, changed=thModalLink!==null&&thModalLink!==!it.thOff;
+  row.className='flex items-center gap-2 rounded-lg border px-3 py-2 '+(on?'border-cyan-900 bg-cyan-950/20':'border-slate-700 bg-slate-900/60');
+  document.getElementById('fThText').innerHTML=on
+    ? `<span class="text-cyan-200">${LINK_SVG} Enlazado con TaskHero</span>${changed?'<span class="block mono text-[11px] text-slate-400">al guardar</span>':''}`
+    : `<span class="text-slate-300">Sin enlace: envía su esfuerzo como tracker points</span>${changed?'<span class="block mono text-[11px] text-slate-400">al guardar</span>':''}`;
+  const b=document.getElementById('fThToggle');
+  b.textContent=on?'Quitar enlace':'Volver a enlazar';
+  b.className='shrink-0 px-2 h-9 rounded-lg text-xs underline underline-offset-2 '+(on?'text-slate-300 hover:text-red-300':'text-cyan-300 hover:text-cyan-200');
+}
+document.getElementById('fThToggle').onclick=()=>{
+  const it=(modalMode==='task'?state.tasks:state.habits).find(y=>y.id===editingId); if(!it) return;
+  thModalLink=!(thModalLink??!it.thOff); paintThModal();
+};
 // El cuadro de notas crece con el texto (hasta su max-h) en vez de traer barra propia.
 function growNotes(){ const n=document.getElementById('fNotes'); n.style.height='auto'; n.style.height=n.scrollHeight+2+'px'; }
 document.getElementById('fNotes').addEventListener('input',growNotes);
@@ -2870,10 +2921,12 @@ document.getElementById('modalSave').onclick=()=>{
   if(!title){toast('Escribe un título');return;}
   const notes=document.getElementById('fNotes').value.trim().slice(0,NOTES_MAX);
   const setNotes=(x)=>{ if(notes) x.notes=notes; else delete x.notes; return x; };
+  // quitar el enlace deja el origen (src) para no duplicar al importar; thOff para el envío y el enlace por nombre
+  const setThLink=(x)=>{ if(thModalLink===false) x.thOff=true; else if(thModalLink===true) delete x.thOff; return x; };
   if(modalMode==='task'){
     const due=document.getElementById('fDate').value||null, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
     const pid=document.getElementById('fProject').value||null;
-    if(editingId){const x=state.tasks.find(y=>y.id===editingId); setNotes(Object.assign(x,{title,dueDate:due,priority:pri,diff:pickedDiff,areas,projectId:pid}));}
+    if(editingId){const x=state.tasks.find(y=>y.id===editingId); setThLink(setNotes(Object.assign(x,{title,dueDate:due,priority:pri,diff:pickedDiff,areas,projectId:pid})));}
     else state.tasks.push(setNotes({id:uid(),title,dueDate:due,priority:pri,diff:pickedDiff,done:false,areas,projectId:pid,createdAt:Date.now()}));
   } else {
     const type=document.getElementById('fType').value, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
@@ -2882,7 +2935,7 @@ document.getElementById('modalSave').onclick=()=>{
       const h=state.habits.find(y=>y.id===editingId);
       // El historial de uno se leería al revés en el otro: cumplimientos como caídas.
       if((h.type==='neg')!==(type==='neg')&&Object.values(h.log||{}).some(n=>n>0)){toast('Con historial, un hábito no puede pasar de positivo a negativo ni al revés');return;}
-      setNotes(Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas}));
+      setThLink(setNotes(Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas})));
     }
     else state.habits.push(setNotes({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()}));
   }
@@ -3052,9 +3105,9 @@ function paintSettings(){
   document.getElementById('setProjects').setAttribute('aria-checked',String(state.settings.showProjects));
   document.getElementById('setEvents').setAttribute('aria-checked',String(state.settings.showEvents));
   document.getElementById('setBadgeEvents').setAttribute('aria-checked',String(state.settings.badgeEvents));
-  paintCalendars();
+  paintCalendars(); paintTh();
 }
-function openSettings(){ calRemoving=null; showCalMsg(''); paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); loadCalEvents(); }
+function openSettings(){ calRemoving=null; thc.removing=false; showCalMsg(''); thsMsg(''); paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); loadCalEvents(); if(thc.connected) thRefreshMap().then(paintTh); }
 function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
 document.getElementById('miSettings').onclick=openSettings;
 document.getElementById('settingsClose').onclick=closeSettings;
@@ -3142,7 +3195,8 @@ function thTask(t,lists){
 // Errores de TaskHero llegan como {error:{code}}; los del Worker, como {error:'texto'}.
 async function thGet(key,path){
   let r;
-  try{ r=await api('/api/taskhero/'+path,{headers:{authorization:'Bearer '+key}}); }
+  // sin clave, el Worker usa la de la cuenta conectada
+  try{ r=await api('/api/taskhero/'+path,key?{headers:{authorization:'Bearer '+key}}:{}); }
   catch{ throw userErr('Sin conexión. Prueba otra vez.'); }
   const b=await r.json().catch(()=>null);
   if(r.ok&&b) return b;
@@ -3150,7 +3204,8 @@ async function thGet(key,path){
   if(e&&typeof e==='object') throw userErr(TH_ERR[e.code]||`TaskHero respondió con un error (${e.code||r.status}).`);
   if(r.status===401) throw userErr('Tu sesión ha caducado. Vuelve a entrar en tu cuenta.');
   if(r.status===429) throw userErr('Demasiadas lecturas seguidas. Prueba dentro de un rato.');
-  if(e==='bad_key') throw userErr('Esa clave no parece completa. Cópiala entera desde TaskHero.');
+  if(e==='bad_key') throw userErr(key?'Esa clave no parece completa. Cópiala entera desde TaskHero.':'Pega tu clave de API de TaskHero.');
+  if(e==='not_ready') throw userErr('Falta preparar la base de datos para TaskHero (migración 0005).');
   if(r.status===502) throw userErr('TaskHero no responde. Prueba más tarde.');
   throw userErr('No se pudo leer TaskHero.');
 }
@@ -3186,6 +3241,12 @@ function thReset(){
   document.getElementById('thSignedOut').classList.toggle('hidden',on);
   document.getElementById('thLogin').classList.toggle('hidden',!cloud.online);
   document.getElementById('thBox').classList.toggle('hidden',!on);
+  const linked=on&&thc.connected;
+  document.getElementById('thKey').placeholder=linked?'Clave conectada (no hace falta pegarla)':'Clave de API (th-api-…)';
+  document.getElementById('thLinkRow').classList.toggle('hidden',linked||!thc.ready);
+  document.getElementById('thLinkToo').checked=false;
+  document.getElementById('thHelp').textContent='Trae tus hábitos y tus tareas pendientes con su nombre, su frecuencia y su fecha. Lo demás (dificultad, lista, notas…) va a las notas de cada uno. '
+    +(linked?'Usa la clave de la cuenta conectada.':'La clave solo se usa para esta lectura y no se guarda, salvo que marques «Conectar también».');
 }
 const thPicked = () => thPending?[...thPending.habits,...thPending.tasks].filter(x=>thSel.has(x.src)):[];
 function paintThPreview(){
@@ -3243,13 +3304,15 @@ function thApply(){
   // misma copia que al cargar una partida: «Deshacer última carga» también deshace esto
   try{ localStorage.setItem(BACKUPKEY,JSON.stringify({at:now,data:state})); }catch{}
   state.habits.push(...hs); state.tasks.push(...ts); save(); render();
+  const key=document.getElementById('thKey').value.trim(), link=!thc.connected&&key&&document.getElementById('thLinkToo').checked;
   document.getElementById('thKey').value=''; closeSaveModal();
   toast(`Importados ${[hs.length&&plural(hs.length,'hábito','hábitos'),ts.length&&plural(ts.length,'tarea','tareas')].filter(Boolean).join(' y ')} ✓`);
+  if(link) thConnect(key).then(err=>toast(err||'TaskHero conectado ✓'));
 }
 document.getElementById('thForm').onsubmit=async(e)=>{
   e.preventDefault();
   const key=document.getElementById('thKey').value.trim(), btn=document.getElementById('thRead');
-  if(!key||thBusy) return;
+  if((!key&&!thc.connected)||thBusy) return;
   thBusy=true; thMsg(''); thPending=null; paintThPreview(); btn.disabled=true; btn.textContent='Leyendo…';
   try{
     thPending=await thRead(key);
@@ -3259,6 +3322,249 @@ document.getElementById('thForm').onsubmit=async(e)=>{
   finally{ thBusy=false; btn.disabled=false; btn.textContent='Leer'; }
 };
 document.getElementById('thLogin').onclick=()=>{ closeSaveModal(); openAuthModal('login'); };
+
+/* ---------- TaskHero: enlace y envíos ---------- */
+// Con la cuenta conectada, lo que se completa aquí llega a TaskHero:
+// - enlazado (src 'taskhero:<id>', importado o con el mismo nombre): se completa allí;
+// - lo demás: su esfuerzo como tracker points.
+// Cada envío espera TH_DELAY en una cola de este dispositivo; marcar y desmarcar
+// dentro de ese margen no envía nada. La cola no va en la partida: no se exporta
+// ni viaja a otros dispositivos, que solo envían lo que se marca en ellos.
+const THQKEY='spaceship-commander:thq';
+const TH_DELAY=30e3, TH_RETRY=60e3, TH_KEY_RETRY=10*60e3, TH_MAP_TTL=36e5, TH_SENT_DAYS=3, TH_SOURCE='Spaceship Commander';
+const TH_LABEL={habit:'Hábito',task:'Tarea',acc:'Acción rápida'};
+const thBlank=(user)=>({user,connected:false,q:[],sent:{},map:null,err:null,okAt:0,retryAt:0});
+let thq=(()=>{ try{ const o=JSON.parse(localStorage.getItem(THQKEY)); if(o&&Array.isArray(o.q)&&o.sent&&typeof o.sent==='object') return o; }catch{} return thBlank(null); })();
+function thSave(){ try{ localStorage.setItem(THQKEY,JSON.stringify(thq)); }catch{} }
+// La cola es de una cuenta: si entra otra en este dispositivo, empieza de cero.
+function thFor(user){ if(thq.user!==user){ thq=thBlank(user); thSave(); } }
+const thIsLinked=(x)=>typeof x?.src==='string'&&x.src.startsWith('taskhero:');
+const thIdOf=(x)=>thIsLinked(x)&&!x.thOff&&x.type!=='neg'?x.src.slice(9):null;
+const thShow=(x)=>thc.connected&&!!thIdOf(x);
+const thActive=()=>!!cloud.user&&thc.connected;
+const thNorm=(t)=>String(t||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
+
+function thTrack(x,kind,op,day,ef=0){
+  if(!thActive()||!x||x.type==='neg') return;
+  thFor(cloud.user.id);
+  const q=thq.q;
+  // la contraria aún sin enviar del mismo elemento y día se anula con esta
+  for(let i=q.length-1;i>=0;i--){
+    const e=q[i]; if(e.ref!==x.id||e.day!==day) continue;
+    if(e.op!==op){ q.splice(i,1); thSave(); thPaintStatus(); return; }
+    break;
+  }
+  const at=Date.now();
+  q.push({id:uid(),ref:x.id,kind:x.kind==='acc'?'acc':kind,type:x.type||null,title:String(x.title||'').slice(0,200),
+    src:x.src||null,day,at,ef:+ef||0,op,due:at+TH_DELAY});
+  thSave(); thSchedule(); thPaintStatus();
+}
+function thSchedule(){
+  clearTimeout(thc.timer); thc.timer=null;
+  if(!thActive()||thq.user!==cloud.user.id||!thq.q.length) return;
+  const next=Math.max(Math.min(...thq.q.map(e=>e.due)),thq.retryAt||0);
+  thc.timer=setTimeout(thFlush,Math.max(1000,next-Date.now()));
+}
+// Hoy: el momento del toque. Del repaso de ayer: ese día a mediodía, lejos del cambio de día de TaskHero.
+function thWhen(e){
+  if(e.day===todayStr(new Date(e.at))) return new Date(e.at).toISOString();
+  const d=dayParse(e.day); d.setHours(12,0,0,0); return d.toISOString();
+}
+async function thPost(path,body){
+  try{
+    const r=await api('/api/taskhero/'+path,{method:'POST',...(body?{headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{})});
+    const b=await r.json().catch(()=>null), e=b?.error;
+    return {ok:r.ok,status:r.status,th:!!e&&typeof e==='object',code:(e&&typeof e==='object')?e.code:e};
+  }catch{ return {ok:false,status:0,th:false,code:'offline'}; }
+}
+// 'stop': se para y se reintenta más tarde con la entrada intacta. 'drop': se descarta.
+function thOutcome(r,retryable){
+  if(r.ok) return 'ok';
+  if(r.status===0) return 'stop';                                   // sin red
+  if(r.status===401&&!r.th) return 'stop';                          // nuestra sesión caducó
+  if(r.th&&(r.status===401||r.status===403)){ thq.err='TaskHero no acepta la clave guardada: vuelve a conectar.'; thq.retryAt=Date.now()+TH_KEY_RETRY; return 'stop'; }
+  if(r.code==='not_linked'){ thc.connected=false; thq.connected=false; render(); return 'stop'; }
+  if(r.code==='not_ready'){ thc.ready=false; return 'stop'; }
+  if(r.status===429||(retryable&&r.status>=500)){ thq.retryAt=Date.now()+TH_RETRY; return 'stop'; }
+  thq.err=`TaskHero rechazó un envío (${r.code||r.status}).`;
+  return 'drop';
+}
+async function thSendOne(e){
+  const list=e.kind==='habit'?state.habits:e.kind==='task'?state.tasks:[], it=list.find(y=>y.id===e.ref);
+  if(it&&e.op==='+') thLinkOne(it,e.kind);              // por si el mapa llegó después de marcar
+  const thId=it?thIdOf(it):(e.src?.startsWith('taskhero:')?e.src.slice(9):null);
+  const key=`${e.ref}|${e.day}`, stack=thq.sent[key]||[];
+  const note=(v)=>{ stack.push(v); thq.sent[key]=stack; };
+  if(e.op==='-'){
+    const last=stack.pop(); if(stack.length) thq.sent[key]=stack; else delete thq.sent[key];
+    if(last!=='c'||!thId) return 'ok';                    // los puntos enviados no se pueden retirar
+    // sin clave de idempotencia: repetirlo podría quitar dos, así que solo se reintenta si no llegó a salir
+    const r=await thPost(`tasks/${encodeURIComponent(thId)}/uncomplete`);
+    if(r.status===404&&r.th) return 'ok';                 // ya no existe allí
+    const out=thOutcome(r,false);
+    if(out==='stop') note(last);
+    return out;
+  }
+  if(thId){
+    const body={completedAt:thWhen(e),sourceName:TH_SOURCE,idempotencyKey:`spaceship:c:${e.id}`};
+    if(e.kind==='habit'&&e.type!=='free') body.onlyIfIncomplete=true;
+    const r=await thPost(`tasks/${encodeURIComponent(thId)}/complete`,body);
+    if(r.status===404&&r.th&&!e.again){
+      // ya no existe en TaskHero: se suelta el enlace y se vuelve a mirar con el mapa nuevo
+      if(it&&thIdOf(it)===thId){ delete it.src; save(); render(); }
+      e.again=true; return 'again';
+    }
+    const out=thOutcome(r,true); if(out==='ok') note('c'); return out;
+  }
+  if(!(e.ef>0)){ note('n'); return 'ok'; }               // toques de más de un libre sin pareja
+  const title=it?.title||e.title;
+  const out=thOutcome(await thPost('tracker-points',{value:e.ef,description:`${TH_LABEL[e.kind]||'Tarea'}: ${title}`.slice(0,200),
+    sourceId:e.ref,sourceName:TH_SOURCE,idempotencyKey:`spaceship:p:${e.id}`}),true);
+  if(out==='ok') note('p');
+  return out;
+}
+// `force` (al volver el foco o la red) no espera al reintento, salvo si la clave falló.
+async function thFlush(force=false){
+  clearTimeout(thc.timer); thc.timer=null;
+  if(!thActive()||thc.busy) return;
+  thFor(cloud.user.id);
+  const now=Date.now();
+  if(thq.retryAt>now&&(thq.err||!force)){ thSchedule(); return; }
+  const due=thq.q.filter(e=>e.due<=now).sort((a,b)=>a.at-b.at);
+  if(!due.length){ thSchedule(); return; }
+  thc.busy=true; thq.retryAt=0;
+  try{
+    if(due.some(e=>e.op==='+')) await thRefreshMap();
+    for(const e of due){
+      let out=await thSendOne(e);
+      if(out==='again'){ await thRefreshMap(true); out=await thSendOne(e); }
+      if(out==='stop'){ if(!(thq.retryAt>Date.now())) thq.retryAt=Date.now()+TH_RETRY; thSave(); break; }
+      thq.q=thq.q.filter(y=>y.id!==e.id);
+      if(out==='ok'){ thq.okAt=Date.now(); thq.err=null; }
+      thSave();
+    }
+    // las anotaciones de días viejos ya no sirven para deshacer
+    const cut=addDays(todayStr(),-TH_SENT_DAYS);
+    for(const k of Object.keys(thq.sent)) if(k.slice(-10)<cut) delete thq.sent[k];
+  }finally{ thc.busy=false; thSave(); thSchedule(); thPaintStatus(); }
+}
+
+// Mapa nombre → id de TaskHero. Al refrescarlo se enlaza lo que coincide, y el
+// enlace queda fijo en src: se puede renombrar aquí sin perderlo.
+async function thRefreshMap(force=false){
+  if(!thActive()) return;
+  thFor(cloud.user.id);
+  if(force||!thq.map||Date.now()-thq.map.at>TH_MAP_TTL){
+    try{
+      const [hs,ts]=await Promise.all([thAll('',{type:'habit',status:'all'}),thAll('',{type:'todo',status:'open'})]);
+      const ids=(arr,kind)=>{ const m={}; for(const t of arr) if(t?.type===kind&&typeof t.id==='string'){ const n=thNorm(t.title); if(n&&!(n in m)) m[n]=t.id; } return m; };
+      thq.map={at:Date.now(),habits:ids(hs,'habit'),todos:ids(ts,'todo')}; thSave();
+    }catch{ /* sin red o sin permiso: se queda el mapa que hubiera */ }
+  }
+  thLinkAll();
+}
+function thUsedIds(){ return new Set([...state.habits,...state.tasks].filter(thIsLinked).map(x=>x.src.slice(9))); }
+function thLinkOne(x,kind,used=thUsedIds()){
+  const m=thq.map; if(!m||x.src||x.thOff||x.type==='neg') return false;
+  const id=(kind==='habit'?m.habits:m.todos)[thNorm(x.title)];
+  if(!id||used.has(id)) return false;                    // un id de TaskHero, un solo elemento de aquí
+  x.src='taskhero:'+id; used.add(id); save(); return true;
+}
+function thLinkAll(){
+  if(!thActive()||!thq.map) return;
+  const used=thUsedIds(); let n=0;
+  for(const h of state.habits) if(thLinkOne(h,'habit',used)) n++;
+  for(const x of state.tasks) if(!x.done&&thLinkOne(x,'task',used)) n++;
+  if(n) render();
+}
+
+// Al entrar (y al conectar): ¿hay cuenta de TaskHero conectada? Luego mapa y cola.
+async function thInit(){
+  if(!cloud.user) return;
+  thFor(cloud.user.id);
+  thc.connected=!!thq.connected;   // lo último que se supo, mientras responde el servidor
+  try{
+    const r=await api('/api/taskhero/link');
+    if(r.status===503){ thc.ready=false; thc.connected=false; }
+    else if(r.ok){ thc.ready=true; thc.connected=!!(await r.json()).connected; }
+  }catch{ /* sin red: se queda lo último que se supo */ }
+  thq.connected=thc.connected; thSave();
+  render(); paintTh();
+  if(thc.connected){ await thRefreshMap(); paintTh(); thFlush(); }
+}
+// Devuelve el mensaje de error, o null si quedó conectada.
+async function thConnect(key){
+  let r;
+  try{ r=await api('/api/taskhero/link',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({key})}); }
+  catch{ return 'Sin conexión. Prueba otra vez.'; }
+  const b=await r.json().catch(()=>({}));
+  if(!r.ok) return ({bad_key:'TaskHero no acepta esa clave.',upstream:'TaskHero no responde. Prueba más tarde.',throttled:'Demasiados intentos. Prueba dentro de un rato.',
+    not_ready:'Falta preparar la base de datos para TaskHero (migración 0005).',unauthorized:'Tu sesión ha caducado. Vuelve a entrar en tu cuenta.'})[b.error]||'No se pudo conectar.';
+  thFor(cloud.user.id);
+  thc.connected=thq.connected=true; thq.err=null; thq.retryAt=0; thSave();
+  render(); paintTh();
+  await thRefreshMap(true); paintTh(); thFlush();
+  return null;
+}
+async function thDisconnect(){
+  try{ const r=await api('/api/taskhero/link',{method:'DELETE'}); if(!r.ok) throw 0; }
+  catch{ thsMsg('No se pudo desconectar. Prueba otra vez.'); return; }
+  thc.connected=false; thc.removing=false; thq.connected=false; thSave(); clearTimeout(thc.timer);
+  render(); paintTh(); toast('TaskHero desconectado');
+}
+
+function thsMsg(t){ const m=document.getElementById('thsMsg'); m.textContent=t||''; m.classList.toggle('hidden',!t); }
+const thAgo=(ms)=>{ const m=Math.round((Date.now()-ms)/6e4); return m<1?'hace un momento':m<60?`hace ${m} min`:m<1440?`hace ${Math.round(m/60)} h`:relDays(ms); };
+function thPaintStatus(){
+  const el=document.getElementById('thsStatus'); if(!el) return;
+  const n=thq.user===cloud.user?.id?thq.q.length:0;
+  el.className='mono text-[11px] mt-0.5 '+(thq.err?'text-red-300':'text-slate-400');
+  el.textContent=thq.err||[n?`${n} ${n===1?'envío pendiente':'envíos pendientes'}`:'',thq.okAt?`último envío ${thAgo(thq.okAt)}`:(n?'':'sin envíos todavía')].filter(Boolean).join(' · ');
+}
+function paintTh(){
+  const on=!!cloud.user;
+  document.getElementById('thsSignedOut').classList.toggle('hidden',on);
+  document.getElementById('thsLogin').classList.toggle('hidden',!cloud.online);
+  document.getElementById('thsBox').classList.toggle('hidden',!on);
+  if(!on) return;
+  if(!thc.ready){ document.getElementById('thsForm').classList.add('hidden'); document.getElementById('thsOn').classList.add('hidden');
+    thsMsg('Falta preparar la base de datos para TaskHero (migración 0005). Mientras tanto no se envía nada.'); return; }
+  document.getElementById('thsForm').classList.toggle('hidden',thc.connected);
+  const box=document.getElementById('thsOn'); box.classList.toggle('hidden',!thc.connected);
+  if(!thc.connected){ box.innerHTML=''; return; }
+  const hs=state.habits.filter(thIdOf), ts=state.tasks.filter(x=>!x.done&&thIdOf(x));
+  const names=(a)=>a.map(x=>`<li class="truncate">${escapeHtml(x.title)}</li>`).join('');
+  const btns=thc.removing
+    ? `<button type="button" data-ths="ok" class="shrink-0 px-3 h-11 rounded-lg bg-red-950/60 border border-red-800 text-xs text-red-200 hover:border-red-600">Desconectar</button>
+       <button type="button" data-ths="no" class="shrink-0 px-2.5 h-11 rounded-lg text-xs text-slate-300 hover:text-white">Cancelar</button>`
+    : `<button type="button" data-ths="del" class="shrink-0 px-3 h-11 rounded-lg text-xs text-slate-400 hover:text-red-300">Desconectar</button>`;
+  box.innerHTML=`<div class="flex items-center gap-1 rounded-lg border ${thc.removing?'border-red-900':'border-[#1f2a3d]'} bg-[#0f1729] pl-3 pr-1">
+      <div class="min-w-0 flex-1 py-2"><div class="text-sm">Conectado ✓</div><div id="thsStatus"></div></div>${btns}</div>
+    <details class="mt-2 rounded-lg border border-[#1f2a3d] bg-[#0f1729] px-3 py-2">
+      <summary class="text-[13px] text-slate-300 cursor-pointer">${LINK_SVG} ${plural(hs.length,'hábito enlazado','hábitos enlazados')} · ${plural(ts.length,'tarea enlazada','tareas enlazadas')}</summary>
+      ${hs.length?`<div class="sys-label mt-2 mb-1">Hábitos</div><ul class="text-[13px] text-slate-300 space-y-0.5">${names(hs)}</ul>`:''}
+      ${ts.length?`<div class="sys-label mt-2 mb-1">Tareas pendientes</div><ul class="text-[13px] text-slate-300 space-y-0.5">${names(ts)}</ul>`:''}
+      ${hs.length||ts.length?'':'<p class="text-[13px] text-slate-400 mt-1.5">Nada enlazado todavía: ningún hábito ni tarea pendiente se llama igual que uno de TaskHero.</p>'}
+    </details>`;
+  thPaintStatus();
+  box.querySelectorAll('[data-ths]').forEach(b=>b.onclick=async()=>{
+    const a=b.dataset.ths;
+    if(a==='del'){ thc.removing=true; paintTh(); return; }
+    if(a==='no'){ thc.removing=false; paintTh(); return; }
+    b.disabled=true; await thDisconnect();
+  });
+}
+document.getElementById('thsForm').onsubmit=async(e)=>{
+  e.preventDefault();
+  const inp=document.getElementById('thsKey'), btn=document.getElementById('thsConnect'), key=inp.value.trim();
+  if(!key) return;
+  thsMsg(''); btn.disabled=true; btn.textContent='Conectando…';
+  const err=await thConnect(key);
+  btn.disabled=false; btn.textContent='Conectar';
+  if(err){ thsMsg(err); return; }
+  inp.value=''; toast('TaskHero conectado ✓');
+};
+document.getElementById('thsLogin').onclick=()=>{ closeSettings(); openAuthModal('login'); };
 
 /* ---------- repaso de ayer ---------- */
 // La primera vez de cada día (el tick de hoy sin hacer) se pregunta por lo de
@@ -3545,7 +3851,7 @@ function renderFocus(){
         <span class="f-dot" aria-hidden="true"></span>
         <span class="f-tile f-${l.kind}" aria-hidden="true">${FICON[l.kind]}</span>
         <span class="min-w-0 flex-1 flex flex-col gap-1">
-          <span class="f-title text-[15px] font-medium leading-snug break-words ${l.dotted&&!struck?'text-slate-50':'text-slate-300'}">${it?.priority?'<span class="text-amber-300">★ </span>':''}${title}${it?.notes?NOTE_ICON:''}</span>
+          <span class="f-title text-[15px] font-medium leading-snug break-words ${l.dotted&&!struck?'text-slate-50':'text-slate-300'}">${it?.priority?'<span class="text-amber-300">★ </span>':''}${title}${it?.notes?NOTE_ICON:''}${thShow(it)?LINK_ICON:''}</span>
           <span class="mono text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">${focusMetaHTML(l)}</span>
         </span>
         ${stamp}
@@ -3908,7 +4214,7 @@ async function initCloud(){
   cloud.user=me.user||null;
   cloud.online=true;                     // hay servidor detrás: se puede entrar
   paintAccount();
-  if(cloud.user){ await hydrate(); loadCalEvents(); }
+  if(cloud.user){ await hydrate(); loadCalEvents(); thInit(); }
 }
 
 async function hydrate(){
@@ -3965,7 +4271,9 @@ async function logout(){
   localStorage.removeItem(CLOUDKEY);
   cloud.user=null; cloud.rev=0; cloud.pending=false; cloud.hold=false;
   ical=ICAL_EMPTY; try{ localStorage.removeItem(ICALKEY); }catch{}
-  closeAuthModal(); setSync('local'); render(); paintCalendars(); toast('Sesión cerrada');
+  // la cola de TaskHero se queda en este dispositivo y sale al volver a entrar con la misma cuenta
+  thc.connected=false; clearTimeout(thc.timer);
+  closeAuthModal(); setSync('local'); render(); paintCalendars(); paintTh(); toast('Sesión cerrada');
 }
 
 /* ---------- calendarios iCal ---------- */
@@ -4161,7 +4469,7 @@ function openAuthModal(mode,srv,forced=null){
       cloud.user=res.user;
       closeAuthModal(); paintAccount(); toast(nuevo?'Cuenta creada ✓':'Sesión iniciada ✓');
       await hydrate();                   // sube la partida local o pregunta cuál conservar
-      loadCalEvents();
+      loadCalEvents(); thInit();
     };
     body.appendChild(form);
     setTimeout(()=>user.focus(),30);
@@ -4240,7 +4548,7 @@ document.getElementById('hdrMenu').onclick=()=>{ document.getElementById('btnMen
 document.getElementById('authClose').onclick=dismissAuth;
 document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal') dismissAuth(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') dismissAuth(); });
-addEventListener('online',()=>{ if(cloud.pending) pushState(); });
+addEventListener('online',()=>{ if(cloud.pending) pushState(); thFlush(true); });
 // Dos pestañas del mismo navegador comparten cuenta: al escribir una, la otra
 // adopta su rev para no chocar contra sí misma con un 409 falso.
 addEventListener('storage',e=>{
@@ -4257,7 +4565,7 @@ requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add(
 addEventListener('focus',()=>{
   dailyTick(); render();
   // Al volver: reintenta lo pendiente, o comprueba si otro dispositivo escribió.
-  if(cloud.user){ if(cloud.pending) pushState(); else hydrate(); loadCalEvents(); }
+  if(cloud.user){ if(cloud.pending) pushState(); else hydrate(); loadCalEvents(); thFlush(true); }
 });
 initCloud();
 // cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
