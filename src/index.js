@@ -24,6 +24,8 @@ const CAL_MAX = 10;                  // calendarios por cuenta
 const ICS_MAX_BYTES = 2_000_000;
 const ICS_TIMEOUT_MS = 8_000;
 const ICS_HEAD_BYTES = 16_000;       // tope de lo que se lee al dar de alta para validar y sacar el nombre
+const TASKHERO_API = 'https://api.taskhero.app/api/v1';
+const TH_TIMEOUT_MS = 10_000;
 
 // Intentos por ventana. Los registros cuentan aunque el nombre esté cogido: así
 // tampoco se puede usar el registro para sondear qué nombres existen.
@@ -34,6 +36,8 @@ const LIMITS = {
   // Que nadie use el Worker como descargador de URLs ajenas.
   calAdd: { max: 20, window: 60 * MIN },
   calFetch: { max: 120, window: 60 * MIN },
+  // cada página de la importación de TaskHero cuenta una
+  thFetch: { max: 60, window: 60 * MIN },
 };
 
 export default {
@@ -163,6 +167,12 @@ async function handleApi(request, env, url) {
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
     return calendars(request, env, user, path);
+  }
+
+  if (path.startsWith('/api/taskhero/')) {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    return taskhero(request, env, user, url);
   }
 
   return json({ error: 'not_found' }, 404);
@@ -465,5 +475,44 @@ async function proxyCalendar(env, user, id) {
   // descarga quien conectó el calendario, con su propio límite por hora.
   return new Response(r.body, {
     headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
+/* ---------- importación de TaskHero ---------- */
+
+// Paso directo, como los .ics: el navegador no puede llamar a TaskHero desde
+// nuestro dominio (CORS), así que el Worker reenvía la petición con la clave del
+// usuario y devuelve el cuerpo sin parsearlo. La clave no se guarda ni se registra;
+// la paginación la lleva el cliente.
+const TH_PARAMS = ['type', 'status', 'cursor', 'limit'];
+
+async function taskhero(request, env, user, url) {
+  const m = url.pathname.match(/^\/api\/taskhero\/(tasks|lists)$/);
+  if (!m) return json({ error: 'not_found' }, 404);
+  if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+  const auth = request.headers.get('authorization') || '';
+  if (!/^Bearer [\x21-\x7e]{8,300}$/.test(auth)) return json({ error: 'bad_key' }, 400);
+
+  const key = `th:fetch:${user.id}`;
+  if (await throttled(env, [[key, LIMITS.thFetch]])) return tooMany();
+  await bump(env, key, LIMITS.thFetch).run();
+
+  const q = new URLSearchParams();
+  for (const k of TH_PARAMS) if (url.searchParams.has(k)) q.set(k, url.searchParams.get(k).slice(0, 500));
+  let r;
+  try {
+    r = await fetch(`${TASKHERO_API}/${m[1]}${q.size ? `?${q}` : ''}`, {
+      headers: { authorization: auth, accept: 'application/json' },
+      signal: AbortSignal.timeout(TH_TIMEOUT_MS),
+    });
+  } catch {
+    return json({ error: 'upstream' }, 502);
+  }
+  return new Response(r.body, {
+    status: r.status,
+    headers: {
+      'content-type': r.headers.get('content-type') || 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    },
   });
 }
