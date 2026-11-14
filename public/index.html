@@ -1347,7 +1347,7 @@ function addEffort(ef,day=todayStr()){
 }
 // `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer)
 function onComplete(x,g,day=todayStr()){
-  const ef=g.ef??1; g.day=day;
+  const ef=g.ef??1; g.day=day; g.at=Date.now();   // at: cuándo se marcó (lo recién marcado se queda a la vista)
   const h=healFor(x,ef); if(h) g.heal=h;
   // El material extra solo lo da Prospección: los módulos de área ya no suben
   // la ganancia del material que ellos mismos cuestan.
@@ -1834,27 +1834,50 @@ function welcomeEl(){
 // Hoy usa la fila grande hasta este número de filas; a partir de ahí cede la
 // talla. Cinco filas grandes son 395 px: menos de media pantalla de portátil.
 const HOY_LG_MAX = 5;
-let todayDoneOpen = false;
-// Lo completado, recogido al final de Hoy en una línea que se despliega. La
-// franja pasa a decir «te quedan tres» en vez de «tienes ocho», que es lo que
-// uno quiere saber a media tarde, y de paso recoge lo ganado en el día.
-// Llegan hábitos y tareas mezclados; solo los hábitos guardan lo ganado por día.
-function doneStripEl(hechos,size,t){
-  const n=hechos.length, mc=hechos.reduce((a,h)=>a+(+h.g?.[t]?.mc||0),0);
+let todayDoneOpen = false, tasksDoneOpen = false, habitsDoneOpen = false;
+// Lo recién marcado se queda en su sitio RECENT_MS antes de irse a Completados:
+// da tiempo a ver que se marcó y a desmarcarlo si fue sin querer. Es el mismo
+// margen que espera la cola de TaskHero, así que lo que aún se ve marcado no ha
+// salido. La hora va en la recompensa (g.at), y por eso vale también al recargar
+// o al marcar en otro dispositivo. Libres y negativos no se pliegan nunca: se
+// tocan varias veces al día.
+const RECENT_MS = 30e3;
+const recentAt = (at) => Number.isFinite(at) && Date.now()-at < RECENT_MS;
+const taskFolded = (x) => !!x.done && !recentAt(x.grant?.at);
+const habitFolded = (h,t) => h.type!=='free' && h.type!=='neg' && isDoneToday(h) && !recentAt(h.g?.[t]?.at);
+let recentTimer = null;
+// Repinta justo cuando lo siguiente deja de ser reciente.
+function scheduleRecent(t){
+  clearTimeout(recentTimer); recentTimer=null;
+  const now=Date.now(); let next=Infinity;
+  const see=(at)=>{ if(Number.isFinite(at)&&at+RECENT_MS>now) next=Math.min(next,at+RECENT_MS); };
+  for(const x of state.tasks) if(x.done) see(x.grant?.at);
+  for(const h of state.habits) if(h.type!=='free'&&h.type!=='neg') see(h.g?.[t]?.at);
+  if(next<Infinity) recentTimer=setTimeout(render,next-now+50);
+}
+// Lo completado, recogido al final de la lista en una línea que se despliega.
+function doneFoldEl(items,open,toggle,label,rowFn,extra=''){
   const wrap=document.createElement('div');
   wrap.className='space-y-2';
   const b=document.createElement('button');
   b.type='button';
   b.className='done-strip w-full flex items-center gap-2.5 rounded-lg border border-[#1f2a3d] bg-[#0d1526] px-3 h-11 hover:border-emerald-800';
-  b.setAttribute('aria-expanded',todayDoneOpen);
+  b.setAttribute('aria-expanded',open);
   b.innerHTML=`<span class="done-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
     <span class="w-5 h-5 shrink-0 rounded-full bg-emerald-800 text-emerald-50 grid place-items-center text-[11px]" aria-hidden="true">✓</span>
-    <span class="mono text-[11px] text-emerald-300">${n} ${n===1?'completado':'completados'}</span>
-    ${mc?`<span class="mono text-[11px] text-slate-400 ml-auto">+${mc} ¢ hoy</span>`:''}`;
-  b.onclick=()=>{ todayDoneOpen=!todayDoneOpen; render(); };
+    <span class="mono text-[11px] text-emerald-300">${label}</span>${extra}`;
+  b.onclick=()=>{ toggle(); render(); };
   wrap.appendChild(b);
-  if(todayDoneOpen) hechos.forEach(x=>wrap.appendChild(x.type?habitRowEl(x,size,t):taskRowEl(x,t,size)));
+  if(open) items.forEach(x=>wrap.appendChild(rowFn(x)));
   return wrap;
+}
+// En Hoy la franja pasa a decir «te quedan tres» en vez de «tienes ocho», que
+// es lo que uno quiere saber a media tarde, y de paso recoge lo ganado en el día.
+// Llegan hábitos y tareas mezclados; solo los hábitos guardan lo ganado por día.
+function doneStripEl(hechos,size,t){
+  const n=hechos.length, mc=hechos.reduce((a,h)=>a+(+h.g?.[t]?.mc||0),0);
+  return doneFoldEl(hechos,todayDoneOpen,()=>{ todayDoneOpen=!todayDoneOpen; },`${n} ${n===1?'completado':'completados'}`,
+    x=>x.type?habitRowEl(x,size,t):taskRowEl(x,t,size),mc?`<span class="mono text-[11px] text-slate-400 ml-auto">+${mc} ¢ hoy</span>`:'');
 }
 /* ---------- tareas: los grupos de «cuándo» ----------
    Es el orden que uno ya tiene en la cabeza. Dentro de cada grupo sigue
@@ -1866,12 +1889,12 @@ const TGROUPS=[
   {k:'week', name:'Esta semana',  cls:'text-slate-300',   bd:'border-slate-700'},
   {k:'later',name:'Más adelante', cls:'text-slate-300',   bd:'border-slate-700'},
   {k:'none', name:'Sin fecha',    cls:'text-slate-300',   bd:'border-slate-700'},
-  {k:'done', name:'Hechas',       cls:'text-emerald-300', bd:'border-emerald-800'}
+  {k:'done', name:'Completadas',  cls:'text-emerald-300', bd:'border-emerald-800'}
 ];
 const TGROUP_MAX = 6;   // filas abiertas antes de empezar a plegar
 let tGroupOpen = {};    // solo lo que el usuario ha tocado a mano
 function taskGroup(x,t){
-  if(x.done) return 'done';
+  if(taskFolded(x)) return 'done';   // recién marcada: sigue en su grupo hasta que pasa el margen
   if(!x.dueDate) return 'none';
   if(x.dueDate<t) return 'over';
   if(x.dueDate===t) return 'today';
@@ -2329,7 +2352,8 @@ function render(){
   const porPri = (a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
   const todays = state.habits.filter(h=>h.type!=='free'&&h.type!=='neg'&&isScheduledToday(h)).sort(porPri);
   const dueTasks = state.tasks.filter(x=>x.dueDate===t).sort(porPri);
-  const overTasks = state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<t).sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
+  // Las atrasadas que se cierran hoy se quedan: a la vista el margen y luego en Completados.
+  const overTasks = state.tasks.filter(x=>x.dueDate&&x.dueDate<t&&(!x.done||x.doneOn===t)).sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
   const total = todays.length+dueTasks.length;
   const done = todays.filter(isDoneToday).length+dueTasks.filter(x=>x.done).length;
   document.getElementById('todayDone').textContent = done;
@@ -2356,11 +2380,11 @@ function render(){
   // media mañana. El resto de la jerarquía —ser lo primero, el ancho completo,
   // el marco de esquinas y el número grande— no depende del número de filas.
   const hSize = total+overTasks.length>HOY_LG_MAX ? null : 'lg';
-  overTasks.forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
-  todays.filter(h=>!isDoneToday(h)).forEach(h=>box.appendChild(habitRowEl(h,hSize,t)));
-  dueTasks.filter(x=>!x.done).forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
-  const hechos = [...todays.filter(isDoneToday), ...dueTasks.filter(x=>x.done)];
-  if(total && hechos.length===total && !overTasks.length) box.insertAdjacentHTML('beforeend','<p class="mono text-[11px] text-emerald-300 text-center py-2">✓ Jornada completa</p>');
+  overTasks.filter(x=>!taskFolded(x)).forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
+  todays.filter(h=>!habitFolded(h,t)).forEach(h=>box.appendChild(habitRowEl(h,hSize,t)));
+  dueTasks.filter(x=>!taskFolded(x)).forEach(x=>box.appendChild(taskRowEl(x,t,hSize)));
+  const hechos = [...overTasks.filter(taskFolded), ...todays.filter(h=>habitFolded(h,t)), ...dueTasks.filter(taskFolded)];
+  if(total && done===total && !overTasks.some(x=>!x.done)) box.insertAdjacentHTML('beforeend','<p class="mono text-[11px] text-emerald-300 text-center py-2">✓ Jornada completa</p>');
   if(hechos.length) box.appendChild(doneStripEl(hechos,hSize,t));
 
   // --- 2) Tareas ---
@@ -2368,12 +2392,12 @@ function render(){
   renderProjects();
   let tasks=[...state.tasks];
   if(tFilter==='today') tasks=tasks.filter(x=>x.dueDate===t);
-  if(tFilter==='priority') tasks=tasks.filter(x=>x.priority && !x.done);
+  if(tFilter==='priority') tasks=tasks.filter(x=>x.priority);
   if(tFilter==='done') tasks=tasks.filter(x=>x.done);
   if(aFilterTasks.size>0) tasks=tasks.filter(x=>matchAreas(x,aFilterTasks));
   if(pFilter==='none') tasks=tasks.filter(x=>!x.projectId);
   else if(pFilter) tasks=tasks.filter(x=>x.projectId===pFilter);
-  tasks.sort((a,b)=>(a.done-b.done)||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
+  tasks.sort((a,b)=>(taskFolded(a)-taskFolded(b))||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
   const cv=document.getElementById('commander-view');
@@ -2388,7 +2412,13 @@ function render(){
   // «★ Prioridad» son un grupo de por sí, y partirlos otra vez no dice nada.
   if(!tasks.length) tl.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin tareas aquí.</div>';
   else if(tFilter==='all' && !pFilter && tasks.length>TGROUP_MAX) renderTaskGroups(tl,tasks,t);
-  else tasks.forEach(x=>tl.appendChild(taskRowEl(x,t)));
+  else if(tFilter==='done') tasks.forEach(x=>tl.appendChild(taskRowEl(x,t)));
+  else {
+    tasks.filter(x=>!taskFolded(x)).forEach(x=>tl.appendChild(taskRowEl(x,t)));
+    const hechas=tasks.filter(taskFolded);
+    if(hechas.length) tl.appendChild(doneFoldEl(hechas,tasksDoneOpen,()=>{ tasksDoneOpen=!tasksDoneOpen; },
+      `${hechas.length} ${hechas.length===1?'completada':'completadas'}`,x=>taskRowEl(x,t)));
+  }
 
   // --- 3) Hábitos: todos, libres incluidos, y se marcan desde aquí ---
   document.getElementById('habitCount').textContent=state.habits.length;
@@ -2398,8 +2428,12 @@ function render(){
   hs.sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
   const al=document.getElementById('allHabitsList'); al.innerHTML='';
   if(!hs.length) al.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin hábitos. Crea el primero.</div>';
-  hs.forEach(h=>al.appendChild(habitRowEl(h,null,t)));
+  hs.filter(h=>!habitFolded(h,t)).forEach(h=>al.appendChild(habitRowEl(h,null,t)));
+  const cumplidos=hs.filter(h=>habitFolded(h,t));
+  if(cumplidos.length) al.appendChild(doneFoldEl(cumplidos,habitsDoneOpen,()=>{ habitsDoneOpen=!habitsDoneOpen; },
+    `${cumplidos.length} ${cumplidos.length===1?'completado':'completados'} hoy`,h=>habitRowEl(h,null,t)));
 
+  scheduleRecent(t);
   renderShip();
   if(uiMode==='focus') renderFocus();
   renderWeeks();
@@ -3331,7 +3365,7 @@ document.getElementById('thLogin').onclick=()=>{ closeSaveModal(); openAuthModal
 // dentro de ese margen no envía nada. La cola no va en la partida: no se exporta
 // ni viaja a otros dispositivos, que solo envían lo que se marca en ellos.
 const THQKEY='spaceship-commander:thq';
-const TH_DELAY=30e3, TH_RETRY=60e3, TH_KEY_RETRY=10*60e3, TH_MAP_TTL=36e5, TH_SENT_DAYS=3, TH_SOURCE='Spaceship Commander';
+const TH_DELAY=RECENT_MS, TH_RETRY=60e3, TH_KEY_RETRY=10*60e3, TH_MAP_TTL=36e5, TH_SENT_DAYS=3, TH_SOURCE='Spaceship Commander';
 const TH_LABEL={habit:'Hábito',task:'Tarea',acc:'Acción rápida'};
 const thBlank=(user)=>({user,connected:false,q:[],sent:{},map:null,err:null,okAt:0,retryAt:0});
 let thq=(()=>{ try{ const o=JSON.parse(localStorage.getItem(THQKEY)); if(o&&Array.isArray(o.q)&&o.sent&&typeof o.sent==='object') return o; }catch{} return thBlank(null); })();
