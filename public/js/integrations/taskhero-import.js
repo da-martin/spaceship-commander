@@ -1,11 +1,11 @@
 /* Importar hábitos y tareas desde TaskHero. */
 import { NOTES_MAX } from '../config.js';
 import { on } from '../core/events.js';
-import { BACKUPKEY, closeSaveModal, userErr } from '../features/saves.js';
+import { BACKUPKEY, userErr } from '../features/saves.js';
 import { thc, thConnect } from './taskhero.js';
+import { closeThModal } from './taskhero-modal.js';
 import { save, state } from '../store.js';
-import { openAuthModal } from '../sync/auth.js';
-import { api, cloud } from '../sync/cloud.js';
+import { api } from '../sync/cloud.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
 import { dayParse, DOW_NAMES, escapeHtml, fmtDate, pick, plural, todayStr, uid } from '../util.js';
@@ -120,18 +120,18 @@ export async function thRead(key){
   return {habits,tasks,dup};
 }
 export function thMsg(t){ const m=document.getElementById('thMsg'); m.textContent=t||''; m.classList.toggle('hidden',!t); }
-export function thReset(){
-  thPending=null; thSel=new Set(); thMsg(''); paintThPreview();
-  const on=!!cloud.user;
-  document.getElementById('thSignedOut').classList.toggle('hidden',on);
-  document.getElementById('thLogin').classList.toggle('hidden',!cloud.online);
-  document.getElementById('thBox').classList.toggle('hidden',!on);
-  const linked=on&&thc.connected;
-  document.getElementById('thKey').placeholder=linked?'Clave conectada (no hace falta pegarla)':'Clave de API (th-api-…)';
-  document.getElementById('thLinkRow').classList.toggle('hidden',linked||!thc.ready);
-  document.getElementById('thLinkToo').checked=false;
-  document.getElementById('thHelp').textContent='Trae tus hábitos y tus tareas pendientes con su nombre, su frecuencia y su fecha. Lo demás (dificultad, lista, notas…) va a las notas de cada uno. '
-    +(linked?'Usa la clave de la cuenta conectada.':'La clave solo se usa para esta lectura y no se guarda, salvo que marques «Conectar también».');
+export function thReset(){ thPending=null; thSel=new Set(); thMsg(''); paintThPreview(); }
+// Lee TaskHero y enseña la vista previa. Sin clave, el Worker usa la de la cuenta conectada.
+export async function thStartRead(key){
+  if(thBusy) return;
+  const btn=document.getElementById('thRead'), wait=document.getElementById('thLoading');
+  thBusy=true; thMsg(''); thPending=null; paintThPreview(); btn.disabled=true; btn.textContent='Leyendo…'; wait.classList.remove('hidden');
+  try{
+    thPending=await thRead(key);
+    thSel=new Set([...thPending.habits,...thPending.tasks].map(x=>x.src));
+    paintThPreview();
+  }catch(err){ thMsg(err.user?err.message:'No se pudo leer TaskHero.'); }
+  finally{ thBusy=false; btn.disabled=false; btn.textContent='Leer'; wait.classList.add('hidden'); }
 }
 export const thPicked = () => thPending?[...thPending.habits,...thPending.tasks].filter(x=>thSel.has(x.src)):[];
 export function paintThPreview(){
@@ -162,7 +162,7 @@ export function paintThPreview(){
     </div>
   </div>`;
   pv.querySelectorAll('[data-th]').forEach(c=>c.onchange=()=>{ c.checked?thSel.add(c.dataset.th):thSel.delete(c.dataset.th); thCounts(); });
-  pv.querySelector('[data-tha="cancel"]').onclick=thReset;
+  pv.querySelector('[data-tha="cancel"]').onclick=closeThModal;
   const all=pv.querySelector('[data-tha="all"]');
   if(all) all.onclick=()=>{ const every=thPicked().length===n; thSel=new Set(every?[]:[...P.habits,...P.tasks].map(x=>x.src));
     pv.querySelectorAll('[data-th]').forEach(c=>c.checked=!every); thCounts(); };
@@ -185,29 +185,12 @@ export function thApply(){
   const have=thHave(), now=Date.now();
   const pick=(arr)=>arr.filter(x=>thSel.has(x.src)&&!have.has(x.src)).map(({_done,...x})=>({id:uid(),...x,createdAt:now}));
   const hs=pick(thPending.habits), ts=pick(thPending.tasks);
-  if(!hs.length&&!ts.length){ thReset(); return; }
+  if(!hs.length&&!ts.length){ closeThModal(); return; }
   // misma copia que al cargar una partida: «Deshacer última carga» también deshace esto
   try{ localStorage.setItem(BACKUPKEY,JSON.stringify({at:now,data:state})); }catch{}
   state.habits.push(...hs); state.tasks.push(...ts); save(); render();
   const key=document.getElementById('thKey').value.trim(), link=!thc.connected&&key&&document.getElementById('thLinkToo').checked;
-  document.getElementById('thKey').value=''; closeSaveModal();
+  closeThModal();
   toast(`Importados ${[hs.length&&plural(hs.length,'hábito','hábitos'),ts.length&&plural(ts.length,'tarea','tareas')].filter(Boolean).join(' y ')} ✓`);
   if(link) thConnect(key).then(err=>toast(err||'TaskHero conectado ✓'));
-}
-
-/* ---------- wiring: lo llama main.js al arrancar ---------- */
-export function init(){
-  document.getElementById('thForm').onsubmit=async(e)=>{
-    e.preventDefault();
-    const key=document.getElementById('thKey').value.trim(), btn=document.getElementById('thRead');
-    if((!key&&!thc.connected)||thBusy) return;
-    thBusy=true; thMsg(''); thPending=null; paintThPreview(); btn.disabled=true; btn.textContent='Leyendo…';
-    try{
-      thPending=await thRead(key);
-      thSel=new Set([...thPending.habits,...thPending.tasks].map(x=>x.src));
-      paintThPreview();
-    }catch(err){ thMsg(err.user?err.message:'No se pudo leer TaskHero.'); }
-    finally{ thBusy=false; btn.disabled=false; btn.textContent='Leer'; }
-  };
-  document.getElementById('thLogin').onclick=()=>{ closeSaveModal(); openAuthModal('login'); };
 }

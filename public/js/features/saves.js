@@ -1,6 +1,5 @@
 /* Exportar e importar la partida (archivo o código) y deshacer la carga. */
 import { dailyTick } from './review.js';
-import { thReset } from '../integrations/taskhero-import.js';
 import { normState, save, setState, state } from '../store.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
@@ -101,7 +100,7 @@ export function openSaveModal(){
   pendingSave=null;
   for(const id of ['importMsg','importPreview','exportCode']) document.getElementById(id).classList.add('hidden');
   document.getElementById('importCode').value='';
-  thReset(); paintSaveModal(); document.getElementById('saveModal').classList.remove('hidden');
+  paintSaveModal(); document.getElementById('saveModal').classList.remove('hidden');
 }
 export function closeSaveModal(){ document.getElementById('saveModal').classList.add('hidden'); }
 
