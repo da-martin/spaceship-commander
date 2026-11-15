@@ -51,7 +51,10 @@ export function rowHTML(o){
   const lg=o.size==='lg';
   const cls=['row',lg?'row--lg':'',o.done?'done':'',o.over?'over':'',o.dim?'dim':''].filter(Boolean).join(' ');
   const mark=['row-mark',o.kind,o.tone||'',o.on?'on':'',o.off?'off':''].filter(Boolean).join(' ');
-  return `<div class="${cls}">
+  // Recién marcado: la mecha se consume durante el margen y dice cuándo se irá.
+  // El retraso negativo la retoma por donde iba aunque la fila se repinte.
+  const fuse=o.until?`<span class="row-fuse" aria-hidden="true" style="animation-duration:${RECENT_MS}ms;animation-delay:${Math.min(0,o.until-RECENT_MS-Date.now())}ms"></span>`:'';
+  return `<div class="${cls}"${o.until?` data-until="${o.until}"`:''}>${fuse}
     <button type="button" data-act="done" class="row-hit" aria-pressed="${!!o.on}" aria-label="${o.markLabel}"><span class="${mark}" aria-hidden="true">${o.markText||''}</span></button>
     <button type="button" data-act="body" class="row-body" aria-label="Opciones de ${o.title}">
       <span class="row-title ${lg?'text-[17px]':'text-sm'} font-medium leading-snug break-words">${o.pri?'<span class="text-amber-300">★ </span>':''}${o.title}${o.notes?NOTE_ICON:''}${o.linked?LINK_ICON:''}</span>
@@ -90,8 +93,10 @@ export function habitRowEl(h,size,t){
     sched?'':'<span class="text-slate-400">stand-by hoy</span>',
     areaBadges(h.areas)
   ].filter(Boolean).join('');
+  const at=h.g?.[t]?.at;
   const el=rowEl({
     kind:'habit', size, title, pri:h.priority, notes:!!h.notes, linked:thShow(h),
+    until:(!free&&d&&recentAt(at))?at+RECENT_MS:0,
     done:d&&!free, on:!free&&d, off:!d&&((free&&c===0)||!sched), dim:!sched&&!d,
     markText:free?String(c):(d?'✓':''),
     markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
@@ -171,7 +176,67 @@ export function scheduleRecent(t){
   const see=(at)=>{ if(Number.isFinite(at)&&at+RECENT_MS>now) next=Math.min(next,at+RECENT_MS); };
   for(const x of state.tasks) if(x.done) see(x.grant?.at);
   for(const h of state.habits) if(h.type!=='free'&&h.type!=='neg') see(h.g?.[t]?.at);
-  if(next<Infinity) recentTimer=setTimeout(render,next-now+50);
+  if(next<Infinity) recentTimer=setTimeout(leaveRecent,next-now+50);
+}
+// Al acabar el margen, la fila viaja hasta la franja de completados mientras
+// las de abajo suben deslizándose: nada salta de golpe bajo el dedo.
+const EASE='cubic-bezier(.4,0,.2,1)';
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+export async function leaveRecent(){
+  recentTimer=null;
+  const now=Date.now();
+  const els=[...document.querySelectorAll('.row[data-until]')]
+    .filter(el=>+el.dataset.until<=now+100&&el.getClientRects().length);   // solo las que se ven
+  if(els.length){
+    // Lo que sube la franja de cada lista: el hueco de las filas que se van por encima.
+    const shift=new Map();
+    for(const el of els){ const p=el.parentElement; shift.set(p,(shift.get(p)||0)+el.offsetHeight+(parseFloat(getComputedStyle(el).marginTop)||0)); }
+    try{ await Promise.all(els.map(el=>reducedMotion.matches?fadeOut(el):flyOut(el,shift.get(el.parentElement)))); }catch{}
+  }
+  const lists=new Set(els.map(el=>el.parentElement));
+  render();
+  if(reducedMotion.matches) return;
+  for(const p of lists) p.querySelector('[data-done-target]')?.animate([
+    {borderColor:'#1f2a3d',backgroundColor:'#0d1526',transform:'scale(1)'},
+    {borderColor:'#047857',backgroundColor:'#0b211c',transform:'scale(1.02)',offset:.35},
+    {borderColor:'#1f2a3d',backgroundColor:'#0d1526',transform:'scale(1)'}
+  ],{duration:520,easing:'ease-out'});
+}
+// Cierra el hueco de la fila. Con space-y el hueco va en el margin-top de la
+// siguiente; si la fila es la primera, se lo descuenta con margin-bottom.
+function collapse(el,dur,delay=0){
+  const cs=getComputedStyle(el), next=el.nextElementSibling;
+  const under=!el.previousElementSibling&&next?parseFloat(getComputedStyle(next).marginTop)||0:0;
+  el.style.overflow='hidden';
+  return el.animate([
+    {height:el.offsetHeight+'px',paddingTop:cs.paddingTop,paddingBottom:cs.paddingBottom,borderTopWidth:cs.borderTopWidth,borderBottomWidth:cs.borderBottomWidth,marginTop:cs.marginTop,marginBottom:cs.marginBottom},
+    {height:'0px',paddingTop:'0px',paddingBottom:'0px',borderTopWidth:'0px',borderBottomWidth:'0px',marginTop:'0px',marginBottom:-under+'px'}
+  ],{duration:dur,delay,easing:EASE,fill:'forwards'}).finished;
+}
+function fadeOut(el){
+  el.inert=true;
+  return el.animate([{opacity:1},{opacity:0}],{duration:120,fill:'forwards'}).finished.then(()=>collapse(el,160));
+}
+function flyOut(el,shift){
+  el.inert=true;
+  const r=el.getBoundingClientRect(), list=el.parentElement;
+  // Sin franja todavía (el primero del día): va a donde aparecerá, al final de la lista.
+  const target=list.querySelector('[data-done-target]');
+  const tr=target?target.getBoundingClientRect():{top:list.getBoundingClientRect().bottom+8,height:44};
+  const dy=(tr.top-shift+tr.height/2)-(r.top+r.height/2);
+  // La copia vuela por encima de todo (fixed, en body): sobrevive aunque algo repinte a mitad.
+  const g=el.cloneNode(true);
+  g.querySelector('.row-fuse')?.remove();
+  g.removeAttribute('data-until'); g.setAttribute('aria-hidden','true'); g.inert=true;
+  Object.assign(g.style,{position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0',zIndex:'60',pointerEvents:'none'});
+  document.body.appendChild(g);
+  el.style.visibility='hidden';
+  const fly=g.animate([
+    {transform:'translateY(0) scale(1)',opacity:1},
+    {transform:`translateY(${dy}px) scale(.9)`,opacity:.85,offset:.8},
+    {transform:`translateY(${dy}px) scale(.82)`,opacity:0}
+  ],{duration:560,easing:'cubic-bezier(.55,0,.25,1)',fill:'forwards'}).finished;
+  return Promise.all([fly,collapse(el,380,60)]).finally(()=>g.remove());
 }
 // Lo completado, recogido al final de la lista en una línea que se despliega.
 export function doneFoldEl(items,open,toggle,label,rowFn,extra=''){
@@ -179,6 +244,7 @@ export function doneFoldEl(items,open,toggle,label,rowFn,extra=''){
   wrap.className='space-y-2';
   const b=document.createElement('button');
   b.type='button';
+  b.dataset.doneTarget='';
   b.className='done-strip w-full flex items-center gap-2.5 rounded-lg border border-[#1f2a3d] bg-[#0d1526] px-3 h-11 hover:border-emerald-800';
   b.setAttribute('aria-expanded',open);
   b.innerHTML=`<span class="done-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
@@ -198,7 +264,8 @@ export function doneStripEl(hechos,size,t){
     x=>x.type?habitRowEl(x,size,t):taskRowEl(x,t,size),mc?`<span class="mono text-[11px] text-slate-400 ml-auto">+${mc} ¢ hoy</span>`:'');
 }
 // Una tarea. El atraso es ámbar, no rojo: el rojo queda para lo destructivo.
-export function taskRowEl(x,t,size){
+// `stays`: la lista la enseña igual pasado el margen (filtro Completadas), así que no lleva mecha.
+export function taskRowEl(x,t,size,stays=false){
   const over=x.dueDate&&x.dueDate<t&&!x.done, eta=x.dueDate?etaDays(x.dueDate):null;
   const title=escapeHtml(x.title);
   const date=x.dueDate?('◷ '+fmtDate(x.dueDate)+(over?' · ATRASADA':x.dueDate===t?' · HOY':'')):'sin fecha';
@@ -210,6 +277,7 @@ export function taskRowEl(x,t,size){
   ].filter(Boolean).join('');
   return rowEl({
     kind:'task', size, title, pri:x.priority, notes:!!x.notes, linked:thShow(x), done:x.done, over, on:x.done,
+    until:(!stays&&x.done&&recentAt(x.grant?.at))?x.grant.at+RECENT_MS:0,
     markText:x.done?'✓':'',
     markLabel:(x.done?'Desmarcar ':'Completar ')+title,
     meta

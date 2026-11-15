@@ -115,6 +115,11 @@
   .link-ic{display:inline-block;vertical-align:-1px;margin-left:5px;color:#67e8f9}
   .row-hit:focus,.row-body:focus,.row-gear:focus{outline:none}
   .row:has(.row-hit:focus-visible),.row:has(.row-body:focus-visible),.row:has(.row-gear:focus-visible){outline:2px solid #22d3ee;outline-offset:2px}
+  /* Mecha de lo recién marcado: se consume durante el margen (RECENT_MS) y al
+     acabarse la fila viaja a Completados. Duración y punto de partida, en línea. */
+  .row-fuse{position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;background:#6ee7b7;opacity:.7;transform-origin:left center;pointer-events:none;animation-name:row-fuse;animation-timing-function:linear;animation-fill-mode:forwards}
+  .row--lg .row-fuse{left:16px;right:16px;bottom:4px}
+  @keyframes row-fuse{from{transform:scaleX(1)}to{transform:scaleX(0)}}
   .done-chev{transition:transform .15s}
   .done-strip[aria-expanded="true"] .done-chev{transform:rotate(90deg)}
   .grp-chev{transition:transform .15s}
