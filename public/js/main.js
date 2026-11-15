@@ -1,16 +1,19 @@
 /* Arranque de Spaceship Commander: carga la partida, engancha cada módulo y
  * pone en marcha los relojes. Los demás módulos solo declaran (como mucho leen
  * alguna preferencia de localStorage) y exportan init() si tienen botones. */
-import { dailyTick } from './core/day.js';
+import { RANKS } from './config.js';
+import { on } from './core/events.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './core/missions.js';
-import { needsReview } from './features/review.js';
+import { onLog, onLogged } from './features/log.js';
+import { dailyTick, needsReview } from './features/review.js';
 import { loadCalEvents } from './integrations/calendars.js';
-import { thFlush } from './integrations/taskhero.js';
+import { thFlush, thTrack } from './integrations/taskhero.js';
 import { load, save, setState, state } from './store.js';
-import { cloud, CLOUDKEY, hydrate, initCloud, pushState, readLink } from './sync/cloud.js';
+import { cloud, CLOUDKEY, hydrate, initCloud, pushState, readLink, schedulePush } from './sync/cloud.js';
 import { render } from './ui/commander.js';
 import { setMode, UIKEY, uiMode } from './ui/mode.js';
 import { paintMissionLeft, paintSignal, renderShip } from './ui/ship-view.js';
+import { toast } from './ui/toast.js';
 import { init as initUiModal } from './ui/modal.js';
 import { init as initUiCommander } from './ui/commander.js';
 import { init as initFeaturesSaves } from './features/saves.js';
@@ -26,6 +29,13 @@ import { init as initSyncAuth } from './sync/auth.js';
 
 // La partida se carga antes de enganchar nada, como cuando todo iba en un solo script.
 setState(load());
+// Lo que hace la vista cuando la lógica avisa (core/events.js).
+on('saved',schedulePush);
+on('log',onLog);
+on('logged',onLogged);
+// Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
+on('rankUp',i=>toast(`★ Ascenso: ahora eres ${RANKS[i][0]}`,'win'));
+on('track',thTrack);
 // Cada módulo engancha sus botones, en el mismo orden que antes.
 initUiModal();
 initUiCommander();

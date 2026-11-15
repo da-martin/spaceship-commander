@@ -1,4 +1,5 @@
 /* Panel de las próximas 13 semanas y su modal de detalle. */
+import { on } from '../core/events.js';
 import { projTaskCount } from '../core/projects.js';
 import { chip } from '../features/focus.js';
 import { ical } from '../integrations/calendars.js';

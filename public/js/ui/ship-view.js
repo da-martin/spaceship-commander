@@ -2,17 +2,18 @@
  * del Sistema Madre. */
 import { AGE_BONUS, AREA_COLORS, DIFFS, MATS, MODS, REP_DAYS, RES, SELFHEAL, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
-import { abandonContract, acceptOffer, agedMc, atHome, discardOffer, missionHint, missionsUnlocked, offerAge, offerDiscarding, offerSailing, sweep, sweepCost } from '../core/missions.js';
+import { on } from '../core/events.js';
+import { agedMc, atHome, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
-import { buildMod, buyMat, buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairMod, repairQuote, sellMat, sellOf } from '../core/shipyard.js';
-import { fDate } from '../features/focus.js';
+import { buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairQuote, sellOf } from '../core/shipyard.js';
 import { state } from '../store.js';
+import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
 import { uiMode } from './mode.js';
 import { view } from './view.js';
-import { addDays, dayParse, fmtEf, pctTxt, todayStr } from '../util.js';
+import { addDays, dayParse, fDate, fmtEf, pctTxt, todayStr } from '../util.js';
 
 /* ---------- render: nave ---------- */
 export const condColor=(c)=>c>=70?'#10b981':c>=35?'#f59e0b':'#ef4444';

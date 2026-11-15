@@ -1,7 +1,7 @@
 /* Nube: sincronización de la partida con el Worker (rev optimista). */
-import { dailyTick } from '../core/day.js';
+import { dailyTick } from '../features/review.js';
 import { BACKUPKEY, buildSave } from '../features/saves.js';
-import { ical, ICAL_EMPTY, ICALKEY, loadCalEvents, paintCalendars, resetIcal } from '../integrations/calendars.js';
+import { loadCalEvents, paintCalendars, resetIcal } from '../integrations/calendars.js';
 import { paintTh, thc, thInit } from '../integrations/taskhero.js';
 import { KEY, normState, setState, state } from '../store.js';
 import { closeAuthModal, openAuthModal, paintAccount } from './auth.js';

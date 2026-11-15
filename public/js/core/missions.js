@@ -1,15 +1,12 @@
 import { AGE_BONUS, DIFFS, effOf, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { returnHome } from './crew.js';
-import { addW, perk, subW } from './rewards.js';
+import { logShip } from './log.js';
+import { addW, perk } from './rewards.js';
 import { boardCap, cargoMult, maxDays, mod, repDamaged, signalRate } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
-import { fDate } from '../features/focus.js';
-import { logShip } from '../features/log.js';
 import { MISSIONS } from '../missions.js';
-import { save, state } from '../store.js';
-import { render } from '../ui/commander.js';
-import { toast } from '../ui/toast.js';
-import { addDays, dayParse, fmtEf, pick, todayStr, uid } from '../util.js';
+import { state } from '../store.js';
+import { addDays, dayParse, fDate, fmtEf, pick, todayStr, uid } from '../util.js';
 
 export const RECENT_MAX = 40;   // las últimas misiones que salieron en el tablón no vuelven a salir
 // El relato de un final ('win' | 'partial' | 'fail'). Las misiones de antes del
@@ -139,40 +136,5 @@ export const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no ha
 // tirado a mitad de una misión si llegara con la Antena sin mejorar.
 export const missionsUnlocked=()=>mod('comms').lv>=1||!!state.ship.contract;
 export const missionHint=()=>`Mejora la Antena a nivel 1 para recibir misiones · ${fmtCost(modCost('comms'))}`;
-/* acciones del tablón, módulos y mercado */
-export let offerSailing=null;   // primer toque de «Aceptar y zarpar» pide confirmación
-export function acceptOffer(id){
-  const sh=state.ship; if(sh.contract||!missionsUnlocked()) return;
-  const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
-  if(offerSailing!==id){ offerSailing=id; offerDiscarding=null; render(); return; }
-  offerSailing=null;
-  const now=new Date(), end=new Date(now); end.setDate(end.getDate()+o.days);   // cada día de plazo son 24 h desde ahora
-  sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),progress:0};
-  sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
-  save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
-}
-export function abandonContract(){
-  const c=state.ship.contract; if(!c) return;
-  tickBoard();
-  if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
-  state.ship.contract=null; const r=[returnHome(),boardNews()].filter(Boolean).join(' · '); save(); render();
-  toast((c.urgent?'Misión urgente abandonada · reputación dañada':'Misión abandonada')+' · de vuelta en el Sistema Madre'+(r?' · '+r:''));
-}
 // barrido de señal: paga lo que le falta a la barra y la transmisión llega ya
 export const sweepCost=()=>Math.max(1,Math.ceil((1-state.ship.board.signal)*SWEEP_MC-1e-9));
-export function sweep(){
-  if(!atHome()||!missionsUnlocked()) return;
-  tickBoard();
-  const b=state.ship.board, cost=sweepCost();
-  if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
-  if(state.wallet.mc<cost){ toast('Recursos insuficientes'); return; }
-  subW('mc',cost); b.signal=0; b.offers.push(freshOffer(b.offers));
-  save(); render(); toast(`Barrido de señal: nueva transmisión · −${cost} ¢`);
-}
-export let offerDiscarding=null;   // primer toque de ✕ pide confirmación
-export function discardOffer(id){
-  if(offerDiscarding!==id){ offerDiscarding=id; offerSailing=null; render(); return; }
-  offerDiscarding=null;
-  const b=state.ship.board; b.offers=b.offers.filter(o=>o.id!==id);
-  tickBoard(); save(); render(); toast(['Misión descartada',boardNews()].filter(Boolean).join(' · '));
-}

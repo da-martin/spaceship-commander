@@ -1,10 +1,9 @@
 /* Economía de Commander: méritos y rango, monedero, y lo que paga o devuelve
  * completar tareas y marcar hábitos. */
 import { AREA_RES, EF_MC, effOf, FREE_MC, MODS, payRound, RANKS, RES, ROLES, WAGE_CUT, WEAR_NEG, XP_BONUS } from '../config.js';
+import { emit } from './events.js';
 import { eff, mod, onComplete, onUndo, wear } from './ship.js';
-import { thTrack } from '../integrations/taskhero.js';
 import { state } from '../store.js';
-import { toast } from '../ui/toast.js';
 import { dayParse, todayStr } from '../util.js';
 
 /* ---------- rango y ventajas de la tripulación ---------- */
@@ -16,7 +15,7 @@ export function addXP(n){
   n=Math.round(n*(1+XP_BONUS*eff('spirit')));
   const before=rankIdx(); state.cmd.xp+=n; const after=rankIdx();
   // Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
-  if(after>before) toast(`★ Ascenso: ahora eres ${RANKS[after][0]}`,'win');
+  if(after>before) emit('rankUp',after);
   return n;
 }
 export const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
@@ -40,10 +39,10 @@ export const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.re
 export function grantTask(x,day=todayStr()){
   const ef=effOf(x), g={mc:payRound(EF_MC*ef*(1+perk('quarter')),ef),res:pickAreaRes(x),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  x.grant=g; x.doneOn=day; onComplete(x,g,day); thTrack(x,'task','+',day,ef); return g;
+  x.grant=g; x.doneOn=day; onComplete(x,g,day); emit('track',x,'task','+',day,ef); return g;
 }
 export function revokeTask(x){
-  thTrack(x,'task','-',x.doneOn||todayStr());
+  emit('track',x,'task','-',x.doneOn||todayStr());
   delete x.doneOn;
   if(!x.grant) return;
   subW('mc',x.grant.mc); if(x.grant.res) subW(x.grant.res,1);
@@ -52,10 +51,10 @@ export function revokeTask(x){
 export function checkHabit(h,k){
   const ef=effOf(h), g={mc:payRound((EF_MC+perk('instructor'))*ef,ef),res:pickAreaRes(h),ef};
   addW('mc',g.mc); if(g.res) addW(g.res,1);
-  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); thTrack(h,'habit','+',k,ef); return g;
+  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); emit('track',h,'habit','+',k,ef); return g;
 }
 export function uncheckHabit(h,k){
-  if(h.g?.[k]){ thTrack(h,'habit','-',k); subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
+  if(h.g?.[k]){ emit('track',h,'habit','-',k); subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
 // El primer toque del día fija lo que vale cada toque ese día (g.tap), para que
 // −1 reste lo mismo aunque la dificultad cambie a media jornada.
@@ -67,7 +66,7 @@ export function tapFree(h,k){
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
   if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
-  thTrack(h,'habit','+',k,first?effOf(h):0);   // con pareja, cada toque es una repetición allí
+  emit('track',h,'habit','+',k,first?effOf(h):0);   // con pareja, cada toque es una repetición allí
   return g;
 }
 // Hábito negativo: cada toque daña un módulo y no da nada. Se guarda qué
@@ -94,7 +93,7 @@ export function cleanDays(h){
   return Math.max(0,Math.round((dayParse(t)-dayParse(from))/864e5)+(last?0:1));   // sin caídas, el día de alta también cuenta
 }
 export function untapFree(h,k){
-  h.log=h.log||{}; if(h.log[k]>0) thTrack(h,'habit','-',k);
+  h.log=h.log||{}; if(h.log[k]>0) emit('track',h,'habit','-',k);
   h.log[k]=Math.max(0,(h.log[k]||0)-1);
   subW('mc',freeTap(h,k));
   if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }

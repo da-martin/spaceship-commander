@@ -1,8 +1,8 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
- * en localStorage. save() además programa la subida a la nube. */
+ * en localStorage. save() avisa con `saved` (la nube programa la subida). */
 import { AREAS, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
+import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
-import { schedulePush } from './sync/cloud.js';
 import { clampInt, todayStr, uid } from './util.js';
 
 export const KEY = 'spaceship-commander:v1';
@@ -108,4 +108,4 @@ export function load(){ try{ const raw=localStorage.getItem(KEY); if(!raw) retur
 // para cambiarla entera se sustituye su contenido con setState().
 export const state = {};
 export function setState(s){ for(const k of Object.keys(state)) delete state[k]; Object.assign(state,s); }
-export function save(){ localStorage.setItem(KEY, JSON.stringify(state)); schedulePush(); }
+export function save(){ localStorage.setItem(KEY, JSON.stringify(state)); emit('saved'); }

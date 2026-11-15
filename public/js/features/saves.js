@@ -1,10 +1,10 @@
 /* Exportar e importar la partida (archivo o código) y deshacer la carga. */
-import { dailyTick } from '../core/day.js';
+import { dailyTick } from './review.js';
 import { thReset } from '../integrations/taskhero-import.js';
 import { normState, save, setState, state } from '../store.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
-import { todayStr } from '../util.js';
+import { plural, todayStr } from '../util.js';
 
 /* ---------- guardar / cargar partida ---------- */
 export const BACKUPKEY = 'spaceship-commander:backup', EXPKEY = 'spaceship-commander:lastExport';
@@ -43,7 +43,6 @@ export async function parseSave(text){
 export function readBackup(){ try{ const b=JSON.parse(localStorage.getItem(BACKUPKEY)); return b?.data?b:null; }catch{ return null; } }
 export const relDays=(ms)=>{ const d=Math.floor((Date.now()-ms)/864e5); return d<=0?'hoy':d===1?'ayer':`hace ${d} días`; };
 export const fmtStamp=(ms)=>new Date(ms).toLocaleString('es-ES',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-export const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
 export const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ¢ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/40`;
 export function markExport(){ try{ localStorage.setItem(EXPKEY,String(Date.now())); }catch{} paintSaveModal(); }
 

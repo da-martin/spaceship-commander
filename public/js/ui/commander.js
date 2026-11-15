@@ -1,11 +1,13 @@
 /* Vista Commander: render() de toda la app, grupos de tareas y filtros. */
 import { RANKS } from '../config.js';
+import { on } from '../core/events.js';
 import { isDoneToday, isScheduledToday } from '../core/habits.js';
-import { addProject, projById } from '../core/projects.js';
+import { projById } from '../core/projects.js';
 import { rankIdx } from '../core/rewards.js';
 import { renderFocus } from '../features/focus.js';
 import { paintLog } from '../features/log.js';
 import { state } from '../store.js';
+import { addProject } from './actions.js';
 import { fillProjectSelect, openModal, paintAreaFilters, paintProjHint } from './modal.js';
 import { uiMode } from './mode.js';
 import { renderProjects } from './projects.js';

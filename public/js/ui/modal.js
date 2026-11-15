@@ -1,5 +1,6 @@
 /* Modal de alta y edición de tareas y hábitos. */
 import { EFFORT, NOTES_MAX } from '../config.js';
+import { on } from '../core/events.js';
 import { projById, projDue } from '../core/projects.js';
 import { closeSaveModal } from '../features/saves.js';
 import { thc, thIsLinked } from '../integrations/taskhero.js';

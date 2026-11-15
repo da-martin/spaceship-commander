@@ -1,13 +1,14 @@
 /* Importar hábitos y tareas desde TaskHero. */
 import { NOTES_MAX } from '../config.js';
-import { BACKUPKEY, closeSaveModal, plural, userErr } from '../features/saves.js';
+import { on } from '../core/events.js';
+import { BACKUPKEY, closeSaveModal, userErr } from '../features/saves.js';
 import { thc, thConnect } from './taskhero.js';
 import { save, state } from '../store.js';
 import { openAuthModal } from '../sync/auth.js';
 import { api, cloud } from '../sync/cloud.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
-import { dayParse, DOW_NAMES, escapeHtml, fmtDate, pick, todayStr, uid } from '../util.js';
+import { dayParse, DOW_NAMES, escapeHtml, fmtDate, pick, plural, todayStr, uid } from '../util.js';
 
 /* ---------- importar de TaskHero ---------- */
 // Se trae lo que tiene equivalente directo: nombre y frecuencia de los hábitos,

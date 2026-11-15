@@ -1,12 +1,11 @@
 /* Nave: nivel efectivo de los módulos, desgaste y reparación, esfuerzo del día. */
 import { AREA_MOD, BOARD_BASE, DIFFS, EF_XP, HEAL, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
 import { returnHome } from './crew.js';
+import { logShip } from './log.js';
 import { finishContract, logBoardNews, missionStory } from './missions.js';
 import { addW, addXP, perk, subW, subXP } from './rewards.js';
-import { logShip } from '../features/log.js';
-import { plural } from '../features/saves.js';
 import { state } from '../store.js';
-import { dayParse, efRound, todayStr } from '../util.js';
+import { dayParse, efRound, plural, todayStr } from '../util.js';
 
 export const mod=(k)=>state.ship.modules[k];
 export const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado

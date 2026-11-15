@@ -1,6 +1,7 @@
 /* TaskHero conectado: cola de envíos al completar y enlace de la cuenta. */
 import { RECENT_MS } from '../config.js';
-import { plural, relDays } from '../features/saves.js';
+import { on } from '../core/events.js';
+import { relDays } from '../features/saves.js';
 import { thAll } from './taskhero-import.js';
 import { save, state } from '../store.js';
 import { openAuthModal } from '../sync/auth.js';
@@ -9,7 +10,7 @@ import { render } from '../ui/commander.js';
 import { LINK_SVG } from '../ui/rows.js';
 import { closeSettings } from '../ui/settings.js';
 import { toast } from '../ui/toast.js';
-import { addDays, dayParse, escapeHtml, todayStr, uid } from '../util.js';
+import { addDays, dayParse, escapeHtml, plural, todayStr, uid } from '../util.js';
 
 // TaskHero conectado a la cuenta (la clave vive en el servidor). `ready` es false
 // si falta la migración 0005; `busy`, mientras se envía la cola.

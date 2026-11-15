@@ -1,4 +1,5 @@
 /* Cambio entre Commander, Focus y Spaceship. */
+import { on } from '../core/events.js';
 import { enterFocus, paintFocusClock, requestFocusExit } from '../features/focus.js';
 import { shipArrive } from '../features/log.js';
 import { render } from './commander.js';

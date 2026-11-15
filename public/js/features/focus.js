@@ -1,19 +1,19 @@
 /* Protocolo Forster (modo Focus, en memoria de Mark Forster). */
 import { EF_PROGRESS, XP_PROGRESS, XP_ROUND } from '../config.js';
+import { on } from '../core/events.js';
 import { countToday, isDoneToday, isScheduledToday } from '../core/habits.js';
 import { projBadge } from '../core/projects.js';
 import { addW, addXP, checkHabit, gainText, grantTask, perk, tapFree } from '../core/rewards.js';
 import { addEffort } from '../core/ship.js';
-import { deleteHabit, deleteTask } from '../core/tasks.js';
-import { plural } from './saves.js';
 import { thShow } from '../integrations/taskhero.js';
 import { save, state } from '../store.js';
+import { deleteHabit, deleteTask } from '../ui/actions.js';
 import { render } from '../ui/commander.js';
 import { openModal } from '../ui/modal.js';
 import { setMode, uiMode } from '../ui/mode.js';
 import { areaBadges, diffBadge, LINK_ICON, linkify, NOTE_ICON } from '../ui/rows.js';
 import { toast } from '../ui/toast.js';
-import { dayParse, DOW_NAMES, escapeHtml, etaDays, fmtDate, todayStr, uid } from '../util.js';
+import { DOW_NAMES, escapeHtml, etaDays, fDate, plural, todayStr, uid } from '../util.js';
 
 /* ---------- Protocolo Forster (modo focus, en memoria de Mark Forster) ---------- */
 export const FICON={
@@ -30,8 +30,6 @@ export const FOPT_ICON={
 };
 export const GRIP_SVG='<svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/></svg>';
 export const FKIND={habit:{label:'HÁBITO',cls:'text-emerald-300'},task:{label:'TAREA',cls:'text-sky-300'},acc:{label:'ACCIÓN',cls:'text-slate-200'}};
-export const FDAY=['dom','lun','mar','mié','jue','vie','sáb'];
-export const fDate=(s)=>FDAY[dayParse(s).getDay()]+' '+fmtDate(s);
 export const fClock=(ms)=>new Date(ms).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 export const chip=(txt,cls)=>`<span class="mono text-[11px] px-2 py-1 rounded border ${cls}">${txt}</span>`;
 export const newLine=(kind,ref,extra)=>({id:uid(),kind,ref,dotted:false,status:null,re:0,added:Date.now(),...extra});
