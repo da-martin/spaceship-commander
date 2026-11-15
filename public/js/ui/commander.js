@@ -11,7 +11,7 @@ import { addProject } from './actions.js';
 import { fillProjectSelect, openModal, paintAreaFilters, paintProjHint } from './modal.js';
 import { uiMode } from './mode.js';
 import { renderProjects } from './projects.js';
-import { doneFoldEl, doneStripEl, habitFolded, habitRowEl, HOY_LG_MAX, matchAreas, scheduleRecent, taskFolded, taskRowEl, welcomeEl } from './rows.js';
+import { doneFoldEl, doneStripEl, habitFolded, habitRowEl, HOY_LG_MAX, matchAreas, noteTouch, scheduleRecent, taskFolded, taskRowEl, welcomeEl } from './rows.js';
 import { renderShip } from './ship-view.js';
 import { toast } from './toast.js';
 import { view } from './view.js';
@@ -195,6 +195,12 @@ export function init(){
       s.querySelector('.acc-head').setAttribute('aria-expanded',on);
     });
   });
+  // Tocar, desplazar o recorrer con el teclado una lista retiene la salida de lo completado.
+  for(const id of ['todayList','allHabitsList','taskList']){
+    const l=document.getElementById(id);
+    for(const ev of ['pointerdown','touchmove','wheel','keydown']) l.addEventListener(ev,noteTouch,{passive:true});
+    l.addEventListener('pointermove',e=>{ if(e.pointerType==='mouse') noteTouch(); },{passive:true});
+  }
   document.getElementById('btnNewTask').onclick=()=>openModal('task');
   document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
   document.getElementById('btnWeeks').onclick=()=>setWeeks(!(wideMQ.matches?weeksOpen:view.weeksScreen));

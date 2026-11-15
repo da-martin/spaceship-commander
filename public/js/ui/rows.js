@@ -165,28 +165,40 @@ export function welcomeEl(){
 // Hoy usa la fila grande hasta este número de filas; a partir de ahí cede la
 // talla. Cinco filas grandes son 395 px: menos de media pantalla de portátil.
 export const HOY_LG_MAX = 5;
-export const recentAt = (at) => Number.isFinite(at) && Date.now()-at < RECENT_MS;
+// Lo vencido no se pliega con el reloj sino cuando leaveRecent lo suelta
+// (`released`): así un repintado cualquiera —marcar otra fila, por ejemplo— no
+// lo quita de golpe mientras espera a que dejes de tocar la lista.
+let released = Date.now();
+export const recentAt = (at) => Number.isFinite(at) && at+RECENT_MS > released;
 export const taskFolded = (x) => !!x.done && !recentAt(x.grant?.at);
 export const habitFolded = (h,t) => h.type!=='free' && h.type!=='neg' && isDoneToday(h) && !recentAt(h.g?.[t]?.at);
 export let recentTimer = null;
-// Repinta justo cuando lo siguiente deja de ser reciente.
+// Mientras se toca una lista (y TOUCH_HOLD después), lo vencido espera: que
+// nada se mueva justo cuando uno va a pulsar. Lo anotan las listas de Commander.
+export const TOUCH_HOLD = 1500;
+let lastTouch = 0;
+export const noteTouch = () => { lastTouch = Date.now(); };
+// Despierta justo cuando lo siguiente deja de ser reciente.
 export function scheduleRecent(t){
   clearTimeout(recentTimer); recentTimer=null;
   const now=Date.now(); let next=Infinity;
-  const see=(at)=>{ if(Number.isFinite(at)&&at+RECENT_MS>now) next=Math.min(next,at+RECENT_MS); };
+  const see=(at)=>{ if(Number.isFinite(at)&&at+RECENT_MS>released) next=Math.min(next,at+RECENT_MS); };
   for(const x of state.tasks) if(x.done) see(x.grant?.at);
   for(const h of state.habits) if(h.type!=='free'&&h.type!=='neg') see(h.g?.[t]?.at);
-  if(next<Infinity) recentTimer=setTimeout(leaveRecent,next-now+50);
+  if(next<Infinity) recentTimer=setTimeout(leaveRecent,Math.max(0,next-now)+50);
 }
 // Al acabar el margen, la fila viaja hasta la franja de completados mientras
 // las de abajo suben deslizándose: nada salta de golpe bajo el dedo.
 const EASE='cubic-bezier(.4,0,.2,1)';
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 export async function leaveRecent(){
-  recentTimer=null;
+  clearTimeout(recentTimer); recentTimer=null;
+  const wait=lastTouch+TOUCH_HOLD-Date.now();
+  if(wait>0){ recentTimer=setTimeout(leaveRecent,wait+50); return; }   // aún tocando la lista
   const now=Date.now();
+  released=Math.max(released,now+100);
   const els=[...document.querySelectorAll('.row[data-until]')]
-    .filter(el=>+el.dataset.until<=now+100&&el.getClientRects().length);   // solo las que se ven
+    .filter(el=>+el.dataset.until<=released&&el.getClientRects().length);   // solo las que se ven
   if(els.length){
     // Lo que sube la franja de cada lista: el hueco de las filas que se van por encima.
     const shift=new Map();
