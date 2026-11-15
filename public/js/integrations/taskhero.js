@@ -219,9 +219,14 @@ export function paintTh(){
   document.getElementById('thsLogin').classList.toggle('hidden',!cloud.online);
   document.getElementById('thsBox').classList.toggle('hidden',!on);
   if(!on) return;
-  if(!thc.ready){ document.getElementById('thsForm').classList.add('hidden'); document.getElementById('thsOn').classList.add('hidden');
-    thsMsg('Falta preparar la base de datos para TaskHero (migración 0005). Mientras tanto no se envía nada.'); return; }
-  document.getElementById('thsForm').classList.toggle('hidden',thc.connected);
+  const imp='<span class="text-slate-300">Importar</span> trae tus hábitos y tareas pendientes de TaskHero, y eliges cuáles.';
+  document.getElementById('thsHelp').innerHTML=thc.connected
+    ? imp+' Lo que completes aquí se completa también allí si está enlazado; lo demás envía su esfuerzo como tracker points.'
+    : imp+' <span class="text-slate-300">Conectar</span> guarda la clave para que lo que completes aquí se complete también allí.';
+  // Importar va siempre (la clave viaja en cada lectura); Conectar, solo si no lo está ya.
+  if(!thc.ready){ document.getElementById('thsConnect').classList.add('hidden'); document.getElementById('thsOn').classList.add('hidden');
+    thsMsg('Falta preparar la base de datos para TaskHero (migración 0005). Se puede importar, pero no conectar.'); return; }
+  document.getElementById('thsConnect').classList.toggle('hidden',thc.connected);
   const box=document.getElementById('thsOn'); box.classList.toggle('hidden',!thc.connected);
   if(!thc.connected){ box.innerHTML=''; return; }
   const hs=state.habits.filter(thIdOf), ts=state.tasks.filter(x=>!x.done&&thIdOf(x));
@@ -248,16 +253,7 @@ export function paintTh(){
 }
 
 /* ---------- wiring: lo llama main.js al arrancar ---------- */
+// Importar y Conectar abren el modal de la clave: lo cablea taskhero-modal.js.
 export function init(){
-  document.getElementById('thsForm').onsubmit=async(e)=>{
-    e.preventDefault();
-    const inp=document.getElementById('thsKey'), btn=document.getElementById('thsConnect'), key=inp.value.trim();
-    if(!key) return;
-    thsMsg(''); btn.disabled=true; btn.textContent='Conectando…';
-    const err=await thConnect(key);
-    btn.disabled=false; btn.textContent='Conectar';
-    if(err){ thsMsg(err); return; }
-    inp.value=''; toast('TaskHero conectado ✓');
-  };
   document.getElementById('thsLogin').onclick=()=>{ closeSettings(); openAuthModal('login'); };
 }

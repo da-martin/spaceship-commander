@@ -25,7 +25,7 @@ public/js/
   lib/ics.js     parser iCal
   ui/            vistas: commander (render), actions, rows, projects, weeks, ship-view, crew-view, modal, settings, mode, toast, view
   features/      saves, review, log, focus
-  integrations/  calendars, taskhero, taskhero-import
+  integrations/  calendars, taskhero, taskhero-import, taskhero-modal
   sync/          cloud, auth
 ```
 

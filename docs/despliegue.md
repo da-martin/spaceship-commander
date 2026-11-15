@@ -176,20 +176,26 @@ lanzarla a mano una vez:
 npm run db:remote
 ```
 
-Mientras falte, el resto de la app funciona igual; solo Ajustes › TaskHero
-avisa de que falta preparar la base de datos y no se envía nada.
+Mientras falte, el resto de la app funciona igual; solo Ajustes › Integración
+con TaskHero avisa de que falta preparar la base de datos: se puede importar,
+pero no conectar, y no se envía nada.
+
+Importar y conectar viven juntos en **Menú → Ajustes → Integración con
+TaskHero**: dos botones, **Importar** y **Conectar**, y cada uno abre un modal
+que pide la clave de API.
 
 ### Importar
 
-Desde **Menú → Guardar / cargar partida → Importar de TaskHero**, quien tenga
-cuenta revisa lo leído y elige qué importar. Sin cuenta de TaskHero conectada,
-pega su clave para esa lectura (no se guarda, salvo que marque «Conectar
-también»). Lo importado lleva `src: 'taskhero:<id>'`: evita duplicar al volver a
+Con **Importar**, quien tenga cuenta revisa lo leído y elige qué importar. Sin
+TaskHero conectado, pega su clave para esa lectura (no se guarda, salvo que
+marque «Conectar también»); conectado, el modal no pide clave y lee
+directamente con la guardada. «Deshacer última carga», en Guardar / cargar
+partida, también deshace una importación. Lo importado lleva `src: 'taskhero:<id>'`: evita duplicar al volver a
 importar y deja el elemento enlazado.
 
 ### Sincronizar
 
-Desde **Ajustes → TaskHero** (o con la casilla del importador) se conecta la
+Con **Conectar** (o con la casilla del importador) se guarda la clave en la
 cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
 
 - **Enlazado** (importado, o con el mismo nombre que un hábito o una tarea

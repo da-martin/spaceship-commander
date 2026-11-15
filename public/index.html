@@ -738,24 +738,6 @@
     <div id="importMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
     <div id="importPreview" class="hidden mt-3"></div>
 
-    <div class="border-t border-slate-800 my-4"></div>
-
-    <!-- La clave no se guarda: va en cada lectura y el campo se vacía al importar. -->
-    <div class="sys-label mb-2">Importar de TaskHero</div>
-    <div id="thSignedOut" class="hidden text-sm text-slate-300 border border-dashed border-slate-700 rounded-lg px-3 py-2.5">
-      Entra en tu cuenta para importar.
-      <button id="thLogin" type="button" class="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">Entrar</button>
-    </div>
-    <div id="thBox" class="hidden">
-      <form id="thForm" class="flex gap-2">
-        <input id="thKey" type="password" autocomplete="off" spellcheck="false" placeholder="Clave de API (th-api-…)" aria-label="Clave de API de TaskHero" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
-        <button id="thRead" type="submit" class="shrink-0 px-3.5 h-11 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">Leer</button>
-      </form>
-      <label id="thLinkRow" class="hidden mt-2 flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input id="thLinkToo" type="checkbox" class="w-4 h-4 accent-cyan-600 shrink-0"> Conectar también con TaskHero (guardar la clave)</label>
-      <p id="thHelp" class="mono text-[11px] text-slate-400 mt-2 leading-relaxed"></p>
-      <div id="thMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
-      <div id="thPreview" class="hidden mt-3"></div>
-    </div>
     <div id="undoRow" class="hidden mt-4 pt-3 border-t border-slate-800">
       <button id="btnUndoLoad" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-amber-500 text-sm text-amber-200"></button>
     </div>
@@ -819,21 +801,46 @@
       <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">En Google Calendar: Configuración › tu calendario › «Dirección secreta en formato iCal». Los eventos que se repiten no aparecen por ahora.</p>
     </div>
 
-    <!-- La clave vive en el servidor, por cuenta: nunca entra en la partida. -->
-    <div class="sys-label mt-6 mb-2">TaskHero</div>
+    <!-- Importar y conectar viven juntos; la clave se pide en #thModal. Al
+         conectar se guarda en el servidor, por cuenta: nunca entra en la partida. -->
+    <div class="sys-label mt-6 mb-2">Integración con TaskHero</div>
     <div id="thsSignedOut" class="hidden text-sm text-slate-300 border border-dashed border-slate-700 rounded-lg px-3 py-2.5">
-      Entra en tu cuenta para conectar TaskHero.
+      Entra en tu cuenta para importar de TaskHero o conectarlo.
       <button id="thsLogin" type="button" class="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">Entrar</button>
     </div>
     <div id="thsBox" class="hidden">
-      <form id="thsForm" class="flex gap-2">
-        <input id="thsKey" type="password" autocomplete="off" spellcheck="false" placeholder="Clave de API (th-api-…)" aria-label="Clave de API de TaskHero" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
-        <button id="thsConnect" type="submit" class="shrink-0 btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">Conectar</button>
-      </form>
-      <div id="thsOn" class="hidden"></div>
+      <div id="thsOn" class="hidden mb-2"></div>
+      <div class="flex gap-2">
+        <button id="thsImport" type="button" class="flex-1 px-3 h-11 rounded-lg bg-slate-800 border border-slate-700 hover:border-cyan-600 text-sm font-medium">Importar</button>
+        <button id="thsConnect" type="button" class="flex-1 btn-primary px-3 h-11 rounded-lg text-sm font-medium">Conectar</button>
+      </div>
       <div id="thsMsg" class="hidden mt-2 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
-      <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">Lo que completes aquí se completa también en TaskHero si está enlazado: lo importado de allí y lo que se llame igual (lleva el icono de enlace). Lo demás envía su esfuerzo como tracker points: Fácil 0,5 · Normal 1 · Difícil 2. Sale 30 s después de marcar; si lo desmarcas antes, no se envía nada.</p>
+      <p id="thsHelp" class="mono text-[11px] text-slate-400 mt-2 leading-relaxed"></p>
     </div>
+  </div>
+</div>
+
+<!-- TASKHERO: la clave se pide aquí, para importar o para conectar. Va por
+     encima de Ajustes, que se queda abierto debajo. -->
+<div id="thModal" class="hidden fixed inset-0 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm" style="z-index:60">
+  <div role="dialog" aria-modal="true" aria-labelledby="thmTitle" class="panel w-full max-w-md p-5 mx-auto my-8">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Ajustes // TaskHero</div>
+        <h3 id="thmTitle" class="text-lg font-bold mt-1">Importar de TaskHero</h3>
+      </div>
+      <button id="thmClose" type="button" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <p id="thHelp" class="text-sm text-slate-300 mt-3 leading-relaxed"></p>
+    <form id="thForm" class="mt-4">
+      <label for="thKey" class="block text-sm font-medium mb-1.5">Clave de API de TaskHero</label>
+      <input id="thKey" type="password" autocomplete="off" spellcheck="false" placeholder="th-api-…" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
+      <label id="thLinkRow" class="hidden mt-2 flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input id="thLinkToo" type="checkbox" class="w-4 h-4 accent-cyan-600 shrink-0"> Conectar también (guardar la clave)</label>
+      <button id="thRead" type="submit" class="w-full mt-3 btn-primary h-11 rounded-lg text-sm font-semibold">Leer</button>
+    </form>
+    <p id="thLoading" class="hidden mono text-[11px] text-slate-400 mt-4">Leyendo TaskHero…</p>
+    <div id="thMsg" class="hidden mt-3 text-sm text-red-300 border border-red-900 bg-red-950/30 rounded-lg px-3 py-2"></div>
+    <div id="thPreview" class="hidden mt-3"></div>
   </div>
 </div>
 
