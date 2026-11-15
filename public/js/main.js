@@ -10,6 +10,7 @@ import { loadCalEvents } from './integrations/calendars.js';
 import { thFlush, thTrack } from './integrations/taskhero.js';
 import { load, save, setState, state } from './store.js';
 import { cloud, CLOUDKEY, hydrate, initCloud, pushState, readLink, schedulePush } from './sync/cloud.js';
+import { allianceBoot, init as initUiAllianceView, refreshAlliance } from './ui/alliance-view.js';
 import { render } from './ui/commander.js';
 import { setMode, UIKEY, uiMode } from './ui/mode.js';
 import { paintMissionLeft, paintSignal, renderShip } from './ui/ship-view.js';
@@ -47,6 +48,7 @@ initFeaturesReview();
 initFeaturesLog();
 initFeaturesFocus();
 initUiMode();
+initUiAllianceView();
 initIntegrationsCalendars();
 initSyncAuth();
 
@@ -60,15 +62,16 @@ addEventListener('storage',e=>{
 });
 /* ---------- boot ---------- */
 dailyTick();
-{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'?m:'commander'); }
+{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'||m==='alliance'?m:'commander'); }
 // El panel de semanas se anima a partir de aquí, no al pintar el estado guardado.
 requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('weeks-anim')));
 addEventListener('focus',()=>{
   dailyTick(); render();
   // Al volver: reintenta lo pendiente, o comprueba si otro dispositivo escribió.
-  if(cloud.user){ if(cloud.pending) pushState(); else hydrate(); loadCalEvents(); thFlush(true); }
+  if(cloud.user){ if(cloud.pending) pushState(); else hydrate(); loadCalEvents(); thFlush(true); refreshAlliance(); }
 });
-initCloud();
+// La alianza se pide al saber quién eres: pinta la vista si estás en ella y el aviso de invitaciones.
+initCloud().then(allianceBoot);
 // cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
 setInterval(()=>{
   // la misión vence a su hora (salvo con el repaso de ayer pendiente: lo marcado allí aún cuenta)

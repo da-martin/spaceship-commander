@@ -4,6 +4,7 @@ import { loadCalEvents } from '../integrations/calendars.js';
 import { thInit } from '../integrations/taskhero.js';
 import { normState, state } from '../store.js';
 import { adoptCloud, api, cloud, hydrate, keepLocal, logout, SYNCTEXT } from './cloud.js';
+import { refreshAlliance } from '../ui/alliance-view.js';
 import { toast } from '../ui/toast.js';
 
 export function paintAccount(){
@@ -112,7 +113,7 @@ export function openAuthModal(mode,srv,forced=null){
       cloud.user=res.user;
       closeAuthModal(); paintAccount(); toast(nuevo?'Cuenta creada ✓':'Sesión iniciada ✓');
       await hydrate();                   // sube la partida local o pregunta cuál conservar
-      loadCalEvents(); thInit();
+      loadCalEvents(); thInit(); refreshAlliance();
     };
     body.appendChild(form);
     setTimeout(()=>user.focus(),30);
@@ -144,7 +145,7 @@ export function openAuthModal(mode,srv,forced=null){
       if(!res) return;
       cloud.user=res.user;
       closeAuthModal(); paintAccount(); toast('Contraseña guardada ✓');
-      if(forced) await hydrate();
+      if(forced){ await hydrate(); refreshAlliance(); }
     };
     body.appendChild(form);
     setTimeout(()=>(cur||p1).focus(),30);

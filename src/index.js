@@ -9,6 +9,9 @@
  * de hashear nada, para que nadie pueda gastarnos la CPU.
  */
 
+import { alliance } from './alliance.js';
+import { cleanName, json, readBody, str } from './lib/http.js';
+import { bump, clientIp, MIN, throttled, tooMany } from './lib/throttle.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 const SESSION_COOKIE = 'sc_sess';
@@ -19,7 +22,6 @@ const NAME_MAX = 24;
 const LEGACY_NAME_MAX = 60;          // los nombres que daba invite.mjs
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 200;
-const MIN = 60_000;
 const CAL_MAX = 10;                  // calendarios por cuenta
 const ICS_MAX_BYTES = 2_000_000;
 const ICS_TIMEOUT_MS = 8_000;
@@ -57,16 +59,6 @@ export default {
 };
 
 /* ---------- utilidades ---------- */
-
-const json = (body, status = 200, headers = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      ...headers,
-    },
-  });
 
 const hex = (buf) =>
   [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -172,6 +164,12 @@ async function handleApi(request, env, url) {
     return calendars(request, env, user, path);
   }
 
+  if (path === '/api/alliance' || path.startsWith('/api/alliance/')) {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    return alliance(request, env, user, url);
+  }
+
   if (path.startsWith('/api/taskhero/')) {
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
@@ -181,36 +179,8 @@ async function handleApi(request, env, url) {
   return json({ error: 'not_found' }, 404);
 }
 
-/* ---------- límite de intentos ---------- */
-
-// En local no hay CF-Connecting-IP: todos los intentos cuentan como uno solo.
-const clientIp = (request) => request.headers.get('cf-connecting-ip') || 'local';
-
-async function throttled(env, checks) {
-  const { results } = await env.DB.prepare(
-    `SELECT k, n FROM auth_throttle WHERE k IN (${checks.map(() => '?').join(', ')}) AND reset_at > ?`
-  )
-    .bind(...checks.map(([k]) => k), Date.now())
-    .all();
-  return checks.some(([k, { max }]) => (results.find((r) => r.k === k)?.n ?? 0) >= max);
-}
-
-// Si la ventana ya pasó, el contador vuelve a empezar en vez de acumular.
-const bump = (env, k, { window }) =>
-  env.DB.prepare(
-    `INSERT INTO auth_throttle (k, n, reset_at) VALUES (?1, 1, ?2 + ?3)
-     ON CONFLICT(k) DO UPDATE SET
-       n        = CASE WHEN reset_at <= ?2 THEN 1 ELSE n + 1 END,
-       reset_at = CASE WHEN reset_at <= ?2 THEN ?2 + ?3 ELSE reset_at END`
-  ).bind(k, Date.now(), window);
-
-const tooMany = () => json({ error: 'throttled' }, 429);
-
 /* ---------- usuario y contraseña ---------- */
 
-const readBody = (request) => request.json().catch(() => null);
-const cleanName = (x) => (typeof x === 'string' ? x.normalize('NFC').trim().replace(/\s+/g, ' ') : '');
-const str = (x) => (typeof x === 'string' ? x : '');
 const goodPassword = (p) => p.length >= PASSWORD_MIN && p.length <= PASSWORD_MAX;
 // Empieza por letra o número; luego también espacios, punto, guion y guion bajo.
 const goodName = (n) => n.length >= NAME_MIN && n.length <= NAME_MAX && /^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u.test(n);
