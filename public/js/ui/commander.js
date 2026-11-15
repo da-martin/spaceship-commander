@@ -11,7 +11,7 @@ import { addProject } from './actions.js';
 import { fillProjectSelect, openModal, paintAreaFilters, paintProjHint } from './modal.js';
 import { uiMode } from './mode.js';
 import { renderProjects } from './projects.js';
-import { doneFoldEl, doneStripEl, habitFolded, habitRowEl, HOY_LG_MAX, matchAreas, scheduleRecent, taskFolded, taskRowEl, welcomeEl } from './rows.js';
+import { doneFoldEl, doneStripEl, habitFolded, habitRowEl, HOY_LG_MAX, matchAreas, noteTouch, scheduleRecent, taskFolded, taskRowEl, welcomeEl } from './rows.js';
 import { renderShip } from './ship-view.js';
 import { toast } from './toast.js';
 import { view } from './view.js';
@@ -55,6 +55,7 @@ export function renderTaskGroups(tl,tasks,t){
     head.type='button';
     head.className='grp-head w-full flex items-center gap-2 px-1 pt-2 pb-1 rounded-md hover:bg-slate-800/40';
     head.setAttribute('aria-expanded',on);
+    if(g.k==='done') head.dataset.doneTarget='';   // adonde vuelan las recién completadas
     head.innerHTML=`<span class="grp-chev mono text-slate-400 text-sm leading-none" aria-hidden="true">▸</span>
       <span class="mono text-[11px] tracking-[.16em] uppercase ${g.cls}">${g.name}</span>
       <span class="mono text-[11px] px-1.5 py-px rounded border ${g.bd} ${g.cls}">${items.length}</span>`;
@@ -155,7 +156,7 @@ export function render(){
   // «★ Prioridad» son un grupo de por sí, y partirlos otra vez no dice nada.
   if(!tasks.length) tl.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin tareas aquí.</div>';
   else if(tFilter==='all' && !view.pFilter && tasks.length>TGROUP_MAX) renderTaskGroups(tl,tasks,t);
-  else if(tFilter==='done') tasks.forEach(x=>tl.appendChild(taskRowEl(x,t)));
+  else if(tFilter==='done') tasks.forEach(x=>tl.appendChild(taskRowEl(x,t,undefined,true)));
   else {
     tasks.filter(x=>!taskFolded(x)).forEach(x=>tl.appendChild(taskRowEl(x,t)));
     const hechas=tasks.filter(taskFolded);
@@ -194,6 +195,12 @@ export function init(){
       s.querySelector('.acc-head').setAttribute('aria-expanded',on);
     });
   });
+  // Tocar, desplazar o recorrer con el teclado una lista retiene la salida de lo completado.
+  for(const id of ['todayList','allHabitsList','taskList']){
+    const l=document.getElementById(id);
+    for(const ev of ['pointerdown','touchmove','wheel','keydown']) l.addEventListener(ev,noteTouch,{passive:true});
+    l.addEventListener('pointermove',e=>{ if(e.pointerType==='mouse') noteTouch(); },{passive:true});
+  }
   document.getElementById('btnNewTask').onclick=()=>openModal('task');
   document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
   document.getElementById('btnWeeks').onclick=()=>setWeeks(!(wideMQ.matches?weeksOpen:view.weeksScreen));
