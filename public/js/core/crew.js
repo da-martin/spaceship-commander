@@ -1,14 +1,10 @@
 /* Tripulación: candidatos, contratos semanales y sueldos. */
 import { BERTHS, CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, RANKS, ROLES } from '../config.js';
-import { atHome } from './missions.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
 import { mod } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
-import { fDate } from '../features/focus.js';
-import { save, state } from '../store.js';
-import { render } from '../ui/commander.js';
-import { toast } from '../ui/toast.js';
-import { addDays, pick, todayStr, uid } from '../util.js';
+import { state } from '../store.js';
+import { addDays, pick, uid } from '../util.js';
 
 export function genCandidates(){
   const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
@@ -30,17 +26,6 @@ export function hireBlock(x){
 // así que quien ya tenga gente nunca debe quedarse sin panel donde verla.
 export const crewUnlocked=()=>mod('bridge').lv>=1||state.ship.crew.length>0;
 export const crewHint=()=>`Mejora el Puente a nivel 1 para contratar tripulación · ${fmtCost(modCost('bridge'))}`;
-export function hireCrew(id){
-  if(!atHome()||!crewUnlocked()) return;
-  const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
-  const why=hireBlock(x); if(why){ toast(why); return; }
-  const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
-  subW('mc',paid);
-  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
-  sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
-  state.cmd.stats.hires++;
-  save(); render(); toast(`${x.name} se une a la tripulación · −${paid} ¢/sem, se renueva solo`);
-}
 // cobra cada semana vencida mientras haya saldo; si el contrato termina (cancelado o sin ¢),
 // el tripulante se va, salvo en misión: entonces sigue a bordo sin bono hasta volver
 export function crewPayroll(t){
@@ -66,24 +51,4 @@ export function returnHome(){
   if(!off.length) return null;
   sh.crew=sh.crew.filter(m=>!m.idle);
   return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
-}
-export function toggleCancel(id){
-  const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
-  m.cancel=!m.cancel;
-  save(); render(); toast(m.cancel?`${m.name} trabajará hasta el ${fDate(m.until)} y se marchará`:`Contrato de ${m.name} mantenido · se renueva solo`);
-}
-export function rehireCrew(id){
-  const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;
-  const due=wageOf(m.wage);
-  if(state.wallet.mc<due){ toast('Recursos insuficientes'); return; }
-  subW('mc',due); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
-  save(); render(); toast(`${m.name} vuelve a contrato · −${due} ¢`);
-}
-export let crewReleasing=null;   // primer toque de «Despedir ya» pide confirmación
-export function releaseCrew(id){
-  if(!atHome()) return;
-  if(crewReleasing!==id){ crewReleasing=id; render(); return; }
-  const m=state.ship.crew.find(c=>c.id===id); crewReleasing=null; if(!m) return;
-  state.ship.crew=state.ship.crew.filter(c=>c.id!==id);
-  save(); render(); toast(`${m.name} deja la nave`);
 }

@@ -1,5 +1,6 @@
 /* Calendarios iCal: el Worker guarda las URL y reenvía cada .ics; aquí se
  * parsea y se pinta. */
+import { on } from '../core/events.js';
 import { parseIcs } from '../lib/ics.js';
 import { openAuthModal } from '../sync/auth.js';
 import { api, cloud } from '../sync/cloud.js';

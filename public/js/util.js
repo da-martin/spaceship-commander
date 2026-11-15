@@ -26,3 +26,9 @@ export const isoWeek=(s)=>{ const d=dayParse(s); d.setDate(d.getDate()+3-(d.getD
 export const mondayOf=(s)=>addDays(s,-((dayParse(s).getDay()+6)%7));
 
 export function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+// Fecha corta con el día de la semana: «sáb 14 nov».
+export const FDAY=['dom','lun','mar','mié','jue','vie','sáb'];
+export const fDate=(s)=>FDAY[dayParse(s).getDay()]+' '+fmtDate(s);
+
+export const plural=(n,one,many)=>`${n} ${n===1?one:many}`;

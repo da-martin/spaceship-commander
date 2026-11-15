@@ -1,32 +1,17 @@
 /* Bitácora de a bordo e informe de fin de misión. */
-import { LOG_DAYS, LOG_MAX, RES } from '../config.js';
-import { boardText } from '../core/missions.js';
-import { chip, fClock, fDate } from './focus.js';
+import { RES } from '../config.js';
+import { logText } from '../core/log.js';
+import { chip, fClock } from './focus.js';
 import { save, state } from '../store.js';
 import { uiMode } from '../ui/mode.js';
 import { toast } from '../ui/toast.js';
-import { addDays, escapeHtml, todayStr, uid } from '../util.js';
+import { addDays, escapeHtml, fDate, todayStr } from '../util.js';
 
-// Noticias de la nave: todo va a la bitácora. Dentro de Spaceship lo pequeño
-// sale además como aviso y el final de una misión abre su informe; fuera, se
-// queda sin ver y se enciende el punto del botón Spaceship. Quien llama guarda.
-export function logShip(e){
-  if(!e) return;
-  const L=state.ship.log, t=todayStr(), last=L[L.length-1];
-  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],story:null,rew:null,got:0,lost:0,seen:false,read:false,...e};
-  // el tablón cambia cada pocos minutos: lo que no se ha leído hoy se suma en una sola entrada
-  if(e.kind==='board'&&last?.kind==='board'&&!last.read&&last.day===t){
-    L.pop(); e={...last,at:e.at,got:last.got+e.got,lost:last.lost+e.lost,seen:false};
-    e.title=boardText(e);
-  }
-  if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e)); }
-  L.push(e);
-  const cut=Date.now()-LOG_DAYS*864e5;
-  state.ship.log=L.filter(x=>x.at>=cut||!x.read).slice(-LOG_MAX);
-  if(uiMode==='ship'&&e.big) openReport(); else paintLog();
-}
-export const logText=(e)=>[e.title,...e.lines].join(' · ');
 /* ---------- bitácora de a bordo e informes de misión ---------- */
+// Lo que la vista hace con cada entrada nueva (avisos de core/log.js). Dentro de
+// Spaceship lo pequeño se da por leído y sale como aviso; lo grande abre su informe.
+export function onLog(e){ if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e)); } }
+export function onLogged(e){ if(uiMode==='ship'&&e.big) openReport(); else paintLog(); }
 export const LOG_TONE={
   win: {label:'text-amber-300', edge:'border-amber-600', panel:'#92400e', ring:'bg-amber-950/60 border-amber-500 text-amber-300', btn:'bg-[#b45309] hover:bg-[#c2410c] border-amber-500',
         icon:'<polyline points="20 6 9 17 4 12"/>'},

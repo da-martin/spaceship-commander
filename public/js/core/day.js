@@ -1,11 +1,10 @@
 /* El cambio de día: desgaste de los días sin abrir, sueldos y tablón. */
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
 import { crewPayroll, genCandidates } from './crew.js';
+import { logShip } from './log.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
-import { logShip } from '../features/log.js';
-import { closeReview, needsReview, openReview, rv } from '../features/review.js';
-import { save, state } from '../store.js';
+import { state } from '../store.js';
 import { addDays, dayParse, todayStr, weekStart } from '../util.js';
 
 // días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
@@ -23,11 +22,9 @@ export function decayDay(day,miss){
     wear(x,WEAR_TASK*effOf(x)); miss.tasks++;
   }
 }
-export function dailyTick(){
-  // El día de ayer no se procesa hasta repasarlo: lo que se marque como hecho
-  // ya no desgasta y cuenta para la misión que vencía ayer.
-  if(needsReview()){ openReview(); return; }
-  if(rv.open) closeReview();   // otro dispositivo ya lo repasó (llega con la nube)
+// Procesa los días que han pasado desde la última vez. No guarda: lo hace quien
+// llama (dailyTick, en features/review.js, que antes pide el repaso de ayer).
+export function processDays(){
   const sh=state.ship, t=todayStr(), y=addDays(t,-1);
   if(!sh.lastTick||sh.lastTick>y) sh.lastTick=y;
   let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
@@ -43,5 +40,4 @@ export function dailyTick(){
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(atHome()) logBoardNews();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
-  save();
 }

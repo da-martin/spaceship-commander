@@ -1,11 +1,10 @@
 /* Repaso de ayer: marcar lo olvidado antes de procesar el día. */
-import { dailyTick } from '../core/day.js';
+import { processDays } from '../core/day.js';
 import { checkHabit, grantTask, tapFree } from '../core/rewards.js';
-import { fDate } from './focus.js';
-import { state } from '../store.js';
+import { save, state } from '../store.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
-import { addDays, dayParse, escapeHtml, fmtDate, todayStr } from '../util.js';
+import { addDays, dayParse, escapeHtml, fDate, fmtDate, todayStr } from '../util.js';
 
 /* ---------- repaso de ayer ---------- */
 // La primera vez de cada día (el tick de hoy sin hacer) se pregunta por lo de
@@ -33,6 +32,15 @@ export function yesterdayPending(){
   const tasks=state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<=y&&(x.createdAt||0)<start)
     .sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
   return {y,habits:habits.sort(ord),free:free.sort(ord),tasks,n:habits.length+free.length+tasks.length};
+}
+// El cambio de día tal como lo vive el comandante: el día de ayer no se procesa
+// hasta repasarlo, porque lo que se marque como hecho ya no desgasta y cuenta
+// para la misión que vencía ayer.
+export function dailyTick(){
+  if(needsReview()){ openReview(); return; }
+  if(rv.open) closeReview();   // otro dispositivo ya lo repasó (llega con la nube)
+  processDays();
+  save();
 }
 export function needsReview(){
   const sh=state.ship, t=todayStr();

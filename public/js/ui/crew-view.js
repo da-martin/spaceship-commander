@@ -1,12 +1,12 @@
 /* Hoja de servicios: rango y tripulación. */
 import { BERTHS, CREW_DAYS, CREW_LV, EF_XP, EFFORT, payRound, RANKS, ROLES, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
-import { crewHint, crewReleasing, crewUnlocked, hireBlock, hireCrew, rehireCrew, releaseCrew, toggleCancel } from '../core/crew.js';
+import { crewHint, crewUnlocked, hireBlock } from '../core/crew.js';
 import { atHome, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
-import { fDate } from '../features/focus.js';
 import { state } from '../store.js';
+import { crewReleasing, hireCrew, rehireCrew, releaseCrew, toggleCancel } from './actions.js';
 import { btnCls, showHomeTab } from './ship-view.js';
-import { addDays, dayParse, escapeHtml, todayStr, weekStart } from '../util.js';
+import { addDays, dayParse, escapeHtml, fDate, todayStr, weekStart } from '../util.js';
 
 /* ---------- render: rango y tripulación ---------- */
 export const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300'];

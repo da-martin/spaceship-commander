@@ -1,6 +1,8 @@
 /* La tira plegable de proyectos dentro de Tareas. */
-import { addProject, deleteProject, projById, projDue, projTaskCount } from '../core/projects.js';
+import { on } from '../core/events.js';
+import { projById, projDue, projTaskCount } from '../core/projects.js';
 import { save, state } from '../store.js';
+import { addProject, deleteProject } from './actions.js';
 import { projOpen, render } from './commander.js';
 import { GEAR_SVG } from './rows.js';
 import { toast } from './toast.js';

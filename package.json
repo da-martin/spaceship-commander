@@ -9,7 +9,8 @@
     "db:remote": "wrangler d1 migrations apply spaceship-commander --remote",
     "reset-password": "node scripts/reset-password.mjs",
     "reset-password:local": "node scripts/reset-password.mjs --local",
-    "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind.css -o public/tailwind.css --minify"
+    "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind.css -o public/tailwind.css --minify",
+    "test": "TZ=Europe/Madrid node --test test/*.test.js"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.19",
