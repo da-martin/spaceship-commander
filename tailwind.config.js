@@ -1,7 +1,7 @@
 /** Misma configuración que tenía el CDN en index.html. */
 export default {
   darkMode: 'class',
-  content: ['./public/index.html'],
+  content: ['./public/index.html', './public/js/**/*.js'],
   theme: {
     extend: {
       fontFamily: {

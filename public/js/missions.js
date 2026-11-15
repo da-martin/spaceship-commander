@@ -6,7 +6,7 @@
  *   fail    — urgente fallida, o el plazo se agota sin nada hecho
  * Las 24 primeras frases son las de antes del catálogo: no las cambies, que
  * las partidas viejas encuentran su historia por la frase. */
-const MISSIONS = [
+export const MISSIONS = [
   /* ---------- Exploración ---------- */
   {id:'exp-nebulosa', topic:'Exploración', flavor:'Cartografiar una nebulosa sin nombre',
    win:'La nave se adentró en la nebulosa con los sensores al límite y salió con un mapa completo de sus corrientes de gas. Las cartas ya circulan por las estaciones del sector. Por primera vez, aquella nube tiene rutas seguras.',
