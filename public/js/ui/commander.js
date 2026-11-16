@@ -169,7 +169,9 @@ export function render(){
   let hs=[...state.habits];
   if(hFilter!=='all') hs=hs.filter(h=>h.type===hFilter);
   if(aFilterHabits.size>0) hs=hs.filter(h=>matchAreas(h,aFilterHabits));
-  hs.sort((a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
+  // Primero lo que toca hoy (diarios, semanales, mensuales), luego libres y negativos, al final lo que no toca hoy.
+  const rango=h=>!isScheduledToday(h)?9:({daily:0,weekly:1,monthly:2,free:3,neg:4}[h.type]??2);
+  hs.sort((a,b)=>(rango(a)-rango(b))||(b.priority-a.priority)||a.title.localeCompare(b.title,'es'));
   const al=document.getElementById('allHabitsList'); al.innerHTML='';
   if(!hs.length) al.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center">Sin hábitos. Crea el primero.</div>';
   hs.filter(h=>!habitFolded(h,t)).forEach(h=>al.appendChild(habitRowEl(h,null,t)));
