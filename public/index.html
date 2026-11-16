@@ -808,6 +808,23 @@
       <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">En Google Calendar: Configuración › tu calendario › «Dirección secreta en formato iCal». Los eventos que se repiten no aparecen por ahora.</p>
     </div>
 
+    <!-- Lo que tu juego cuenta a tu alianza. Nunca tareas ni hábitos. -->
+    <div class="sys-label mt-6 mb-2">Alianza</div>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div id="lblAllyProgress" class="text-sm font-medium">Compartir mi progreso del día</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Tu alianza ve el porcentaje de «Hoy», no qué tareas son</div>
+      </div>
+      <button id="setAllyProgress" type="button" role="switch" aria-checked="true" aria-labelledby="lblAllyProgress" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+    <div class="flex items-center gap-3 mt-1">
+      <div class="flex-1 min-w-0">
+        <div id="lblAllyEvents" class="text-sm font-medium">Anunciar mis hitos en el chat</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Ascensos de rango y misiones completadas</div>
+      </div>
+      <button id="setAllyEvents" type="button" role="switch" aria-checked="true" aria-labelledby="lblAllyEvents" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+
     <!-- Importar y conectar viven juntos; la clave se pide en #thModal. Al
          conectar se guarda en el servidor, por cuenta: nunca entra en la partida. -->
     <div class="sys-label mt-6 mb-2">Integración con TaskHero</div>

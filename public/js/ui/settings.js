@@ -11,6 +11,8 @@ export function paintSettings(){
   document.getElementById('setProjects').setAttribute('aria-checked',String(state.settings.showProjects));
   document.getElementById('setEvents').setAttribute('aria-checked',String(state.settings.showEvents));
   document.getElementById('setBadgeEvents').setAttribute('aria-checked',String(state.settings.badgeEvents));
+  document.getElementById('setAllyProgress').setAttribute('aria-checked',String(state.settings.allyProgress));
+  document.getElementById('setAllyEvents').setAttribute('aria-checked',String(state.settings.allyEvents));
   paintCalendars(); paintTh();
 }
 export function openSettings(){ view.calRemoving=null; thc.removing=false; showCalMsg(''); thsMsg(''); paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); loadCalEvents(); if(thc.connected) thRefreshMap().then(paintTh); }
@@ -25,4 +27,7 @@ export function init(){
   document.getElementById('setProjects').onclick=()=>{ state.settings.showProjects=!state.settings.showProjects; save(); render(); paintSettings(); };
   document.getElementById('setEvents').onclick=()=>{ state.settings.showEvents=!state.settings.showEvents; save(); render(); paintSettings(); };
   document.getElementById('setBadgeEvents').onclick=()=>{ state.settings.badgeEvents=!state.settings.badgeEvents; save(); render(); paintSettings(); };
+  // save() avisa a alliance-share: al apagar el progreso se borra del servidor.
+  document.getElementById('setAllyProgress').onclick=()=>{ state.settings.allyProgress=!state.settings.allyProgress; save(); paintSettings(); };
+  document.getElementById('setAllyEvents').onclick=()=>{ state.settings.allyEvents=!state.settings.allyEvents; save(); paintSettings(); };
 }

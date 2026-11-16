@@ -64,7 +64,7 @@ export function normFocus(f){
 }
 // Ajustes: van en la partida para viajar con la cuenta y con los archivos.
 // Solo entran claves conocidas y del tipo de su valor por defecto.
-export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
+export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false,allyEvents:true,allyProgress:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 export function normWallet(w){ const d={mc:0,ecos:0,nexos:0,ale:0,bio:0}; if(w) for(const k of Object.keys(d)) if(Number.isFinite(+w[k])) d[k]=Math.max(0,Math.floor(+w[k])); return d; }
 // Proyectos: lista propia con fecha límite opcional. Los hábitos no llevan
 // proyecto: un proyecto se termina y un hábito no.

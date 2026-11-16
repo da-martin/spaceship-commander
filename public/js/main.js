@@ -4,6 +4,7 @@
 import { RANKS } from './config.js';
 import { on } from './core/events.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './core/missions.js';
+import { scheduleShare, shareEvent, shareSync } from './features/alliance-share.js';
 import { onLog, onLogged } from './features/log.js';
 import { dailyTick, needsReview } from './features/review.js';
 import { loadCalEvents } from './integrations/calendars.js';
@@ -37,6 +38,10 @@ on('logged',onLogged);
 // Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
 on('rankUp',i=>toast(`★ Ascenso: ahora eres ${RANKS[i][0]}`,'win'));
 on('track',thTrack);
+// Lo que comparte tu juego con la alianza: hitos al chat y el porcentaje del día.
+on('rankUp',i=>shareEvent({kind:'rank',rank:i}));
+on('missionWon',c=>shareEvent({kind:'mission',topic:c.topic}));
+on('saved',scheduleShare);
 // Cada módulo engancha sus botones, en el mismo orden que antes.
 initUiModal();
 initUiCommander();
@@ -52,7 +57,7 @@ initUiAllianceView();
 initIntegrationsCalendars();
 initSyncAuth();
 
-addEventListener('online',()=>{ if(cloud.pending) pushState(); thFlush(true); });
+addEventListener('online',()=>{ if(cloud.pending) pushState(); thFlush(true); shareSync(); });
 // Dos pestañas del mismo navegador comparten cuenta: al escribir una, la otra
 // adopta su rev para no chocar contra sí misma con un 409 falso.
 addEventListener('storage',e=>{

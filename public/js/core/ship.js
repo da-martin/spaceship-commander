@@ -1,6 +1,7 @@
 /* Nave: nivel efectivo de los módulos, desgaste y reparación, esfuerzo del día. */
 import { AREA_MOD, BOARD_BASE, DIFFS, EF_XP, HEAL, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
 import { returnHome } from './crew.js';
+import { emit } from './events.js';
 import { logShip } from './log.js';
 import { finishContract, logBoardNews, missionStory } from './missions.js';
 import { addW, addXP, perk, subW, subXP } from './rewards.js';
@@ -54,6 +55,7 @@ export function addEffort(ef,day=todayStr()){
     const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
     logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
     logBoardNews();
+    emit('missionWon',c);
   }
   return c.id;
 }

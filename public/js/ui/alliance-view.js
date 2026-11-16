@@ -4,8 +4,9 @@
 import { ally, allyAct, loadAlly, searchPlayers } from '../sync/alliance.js';
 import { openAuthModal } from '../sync/auth.js';
 import { cloud } from '../sync/cloud.js';
-import { escapeHtml, plural } from '../util.js';
-import { chatPanel, initChat, syncChat } from './alliance-chat.js';
+import { onShareShown, shareSync } from '../features/alliance-share.js';
+import { escapeHtml, plural, todayStr } from '../util.js';
+import { chatPanel, initChat, keepChatScroll, syncChat } from './alliance-chat.js';
 import { uiMode } from './mode.js';
 import { toast } from './toast.js';
 
@@ -27,7 +28,7 @@ const ERR={
 // ('leave' | 'disband' | 'kick:<id>'), el buscador y sus resultados.
 // `known`: ya se sabe si hay sesión (al arrancar aún no).
 const ui={ known:false, confirm:null, busy:false, q:'', results:null, searchErr:null, searchTimer:null, searchSeq:0 };
-const BG_POLL_MS=60000;
+const BG_POLL_MS=30000;
 const resetSearch=()=>{ clearTimeout(ui.searchTimer); ui.q=''; ui.results=null; ui.searchErr=null; ui.searchSeq++; };
 
 const btn='px-3 h-11 rounded-lg text-sm bg-slate-800 border border-slate-700 text-slate-200 hover:border-cyan-600';
@@ -52,6 +53,7 @@ export function renderAlliance(){
   if(uiMode!=='alliance'){ syncChat(); return; }   // sin vista solo se entera de si sigue habiendo alianza
   // Repintar no debe sacarte del campo en el que estás escribiendo.
   const focus=document.activeElement&&['chatInput','allySearch'].includes(document.activeElement.id)?document.activeElement.id:null;
+  keepChatScroll();
   paintBody();
   syncChat();   // monta el chat si hay alianza a la vista; si no, lo para
   paintDots();  // el chat acaba de marcar como leído lo que se ve
@@ -112,6 +114,7 @@ function alliancePanel(a){
   const me=cloud.user.id, founder=a.founderId===me, full=a.members.length>=a.max;
   const members=a.members.map(m=>`<li class="${row}">
       <span class="min-w-0 flex-1 basis-24 flex flex-wrap items-center gap-2"><span class="text-sm text-slate-100 break-words">${escapeHtml(m.name)}</span>${m.id===a.founderId?tag('FUNDADOR','border-amber-700 text-amber-300'):''}${m.id===me?tag('TÚ','border-cyan-800 text-cyan-300'):''}</span>
+      <span data-prog="${m.id}" class="shrink-0">${progHtml(m)}</span>
       ${founder&&m.id!==me?confirmBtns('kick:'+m.id,'Expulsar','¿Expulsar?'):''}
     </li>`).join('');
   const pending=a.invites.length?`<div class="sys-label mt-5">Invitaciones pendientes</div>
@@ -144,6 +147,22 @@ function alliancePanel(a){
       ${confirmBtns('leave','Salir de la alianza',a.members.length===1?'Eres el último: la alianza desaparecerá. ¿Salir?':founder?'El cargo de fundador pasará al más antiguo. ¿Salir?':'¿Salir de la alianza?')}
       ${founder&&a.members.length>1?confirmBtns('disband','Disolver','Se disolverá para todos. ¿Seguro?'):''}
     </section>`;
+}
+
+// El día de cada uno: solo el porcentaje. Si lo publicado no es de hoy, aún no ha abierto el juego.
+function progHtml(m){
+  const p=m.progress;
+  if(!p) return '';
+  const dim=(t)=>`<span class="mono text-[11px] text-slate-500">${t}</span>`;
+  if(p.day!==todayStr()) return dim('sin actividad hoy');
+  if(p.pct===null) return dim('día libre');
+  const full=p.pct>=100;
+  return `<span class="flex items-center gap-2" title="Progreso de hoy"><span class="block w-16 sm:w-24 h-1.5 rounded-full bg-slate-800 overflow-hidden" aria-hidden="true"><span class="block h-full rounded-full ${full?'bg-emerald-400':'bg-cyan-500'}" style="width:${p.pct}%"></span></span><span class="mono text-xs tabular-nums w-10 text-right ${full?'text-emerald-300':'text-slate-300'}">${p.pct}%</span><span class="sr-only">de su día</span></span>`;
+}
+// Cambia a menudo: se pinta en su sitio, sin repintar la vista.
+function paintProgress(){
+  const a=ally.data&&ally.data.alliance; if(!a) return;
+  for(const m of a.members){ const el=document.querySelector(`[data-prog="${m.id}"]`); if(el) el.innerHTML=progHtml(m); }
 }
 
 const STATUS={member:'Ya está en tu alianza',invited:'Invitado',taken:'En otra alianza'};
@@ -195,7 +214,8 @@ export async function refreshAlliance(){
   const pending=loadAlly();
   if(ally.status==='loading') renderAlliance();
   const changed=await pending;
-  paintDots();   // mensajes sin leer: cambian sin que cambie nada más
+  paintDots(); paintProgress();   // sin leer y progreso: cambian sin que cambie nada más
+  shareSync();                    // y lo tuyo: hitos en cola y tu porcentaje, si no están al día
   if(changed){
     renderAlliance();
     // Los resultados dicen quién está invitado o dentro: con la foto nueva ya no valen.
@@ -211,8 +231,10 @@ export function allianceBoot(){ ui.known=true; return refreshAlliance(); }
 /* ---------- wiring: lo llama main.js al arrancar ---------- */
 export function init(){
   const body=document.getElementById('allianceBody');
-  // Fuera de la vista se mira de vez en cuando, solo para el punto de aviso.
-  setInterval(()=>{ if(cloud.user&&uiMode!=='alliance'&&!document.hidden) refreshAlliance(); },BG_POLL_MS);
+  // La foto de la alianza se mira de vez en cuando: fuera de la vista, para el
+  // punto de aviso; dentro, para el progreso de cada uno. El chat va aparte.
+  setInterval(()=>{ if(cloud.user&&!document.hidden) refreshAlliance(); },BG_POLL_MS);
+  onShareShown(paintProgress);
   initChat(body,{
     onGone:()=>{ toast('Ya no estás en esa alianza'); refreshAlliance(); },   // expulsado o disuelta
     onRoster:refreshAlliance,                                                // alguien ha entrado o salido
