@@ -912,6 +912,10 @@
       <button id="thmClose" type="button" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
     </div>
     <p id="thHelp" class="text-sm text-slate-300 mt-3 leading-relaxed"></p>
+    <div id="thNegWarn" class="hidden mt-3 rounded-lg border border-amber-500 bg-amber-950/40 px-3 py-2.5 text-sm text-amber-100 leading-relaxed" role="note">
+      <strong class="block text-amber-300">⚠ Hábitos y tareas negativos</strong>
+      TaskHero no permite importar ni conectar los hábitos o tareas negativos: su API no los distingue. Tendrás que crearlos a mano aquí, y no se sincronizarán con TaskHero.
+    </div>
     <form id="thForm" class="mt-4">
       <label for="thKey" class="block text-sm font-medium mb-1.5">Clave de API de TaskHero</label>
       <input id="thKey" type="password" autocomplete="off" spellcheck="false" placeholder="th-api-…" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-cyan-600">
