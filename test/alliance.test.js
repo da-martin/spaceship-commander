@@ -17,7 +17,7 @@ function d1() {
     first: async () => db.prepare(sql).get(...args) ?? null,
     all: async () => ({ results: db.prepare(sql).all(...args) }),
     run: async () => ({ meta: { changes: Number(db.prepare(sql).run(...args).changes) } }),
-    exec: () => (/^\s*SELECT/i.test(sql) ? { results: db.prepare(sql).all(...args) } : { meta: { changes: Number(db.prepare(sql).run(...args).changes) } }),
+    exec: () => (/^\s*SELECT|\bRETURNING\b/i.test(sql) ? { results: db.prepare(sql).all(...args) } : { meta: { changes: Number(db.prepare(sql).run(...args).changes) } }),
   });
   return {
     prepare: (sql) => stmt(sql),
@@ -221,4 +221,104 @@ test('buscar: los comodines se buscan tal cual y hay tope de resultados y de int
   assert.equal((await ana.get('/search?q=pilo')).results.length, 8);
   for (let i = 0; i < 117; i++) await ana.get('/search?q=pilo');
   assert.equal((await ana.get('/search?q=pilo')).status, 429);
+});
+
+/* ---------- chat ---------- */
+
+const texts = (r) => r.messages.map((m) => (m.kind === 'text' ? `${m.name}: ${m.body}` : `[${m.kind} ${m.name}]`));
+
+test('chat: solo para miembros', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana);
+  assert.equal((await luis.get('/messages')).error, 'no_alliance');
+  assert.equal((await luis.post('/messages', { body: 'hola' })).error, 'no_alliance');
+  assert.deepEqual((await ana.get('/messages')).messages, []);
+});
+
+test('chat: enviar y leer en orden, con avisos de quien entra, sale o es expulsado', async () => {
+  const ana = player('Ana'), luis = player('Luis'), eva = player('Eva');
+  await allianceOf(ana, luis, eva);
+  const sent = await ana.post('/messages', { body: '  ¡Vamos!\r\n\n\n\nHoy toca  ' });
+  assert.equal(sent.status, 201);
+  assert.equal(sent.message.body, '¡Vamos!\n\nHoy toca');
+  await luis.post('/messages', { body: 'A por ello' });
+  await ana.post('/kick', { userId: eva.id });
+  await luis.post('/leave');
+  assert.deepEqual(texts(await ana.get('/messages')), ['[join Luis]', '[join Eva]', 'Ana: ¡Vamos!\n\nHoy toca', 'Luis: A por ello', '[kick Eva]', '[leave Luis]']);
+});
+
+test('chat: vacío o demasiado largo no se guarda; 500 caracteres sí', async () => {
+  const ana = player('Ana');
+  await allianceOf(ana);
+  assert.equal((await ana.post('/messages', { body: '   \n ' })).error, 'empty');
+  assert.equal((await ana.post('/messages', {})).error, 'empty');
+  assert.equal((await ana.post('/messages', { body: 'x'.repeat(501) })).error, 'too_long');
+  assert.equal((await ana.post('/messages', { body: '🚀'.repeat(500) })).status, 201);
+  assert.equal((await ana.get('/messages')).messages.length, 1);
+});
+
+test('chat: sin límite de frecuencia', async () => {
+  const ana = player('Ana');
+  await allianceOf(ana);
+  for (let i = 0; i < 150; i++) assert.equal((await ana.post('/messages', { body: 'm' + i })).status, 201);
+});
+
+test('chat: «after» da solo lo nuevo; «before» pagina hacia atrás', async () => {
+  const ana = player('Ana');
+  await allianceOf(ana);
+  const ids = [];
+  for (let i = 1; i <= 130; i++) ids.push((await ana.post('/messages', { body: 'm' + i })).message.id);
+
+  const last = await ana.get('/messages');
+  assert.equal(last.messages.length, 100);
+  assert.equal(last.more, true);
+  assert.equal(last.messages[0].body, 'm31');
+  assert.equal(last.messages.at(-1).body, 'm130');
+
+  const older = await ana.get('/messages?before=' + last.messages[0].id);
+  assert.deepEqual([older.messages.length, older.more, older.messages[0].body, older.messages.at(-1).body], [30, false, 'm1', 'm30']);
+
+  assert.deepEqual((await ana.get('/messages?after=' + ids.at(-1))).messages, []);
+  assert.deepEqual(texts(await ana.get('/messages?after=' + ids.at(-3))), ['Ana: m129', 'Ana: m130']);
+});
+
+test('chat: se conservan los últimos 500', async () => {
+  const ana = player('Ana');
+  await allianceOf(ana);
+  for (let i = 1; i <= 505; i++) await ana.post('/messages', { body: 'm' + i });
+  const rows = env.DB.raw.prepare('SELECT body FROM alliance_messages ORDER BY id').all();
+  assert.equal(rows.length, 500);
+  assert.equal(rows[0].body, 'm6');
+});
+
+test('chat: sin leer cuenta lo de los demás y se pone a cero al marcar leído', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana, luis);
+  assert.equal((await ana.get()).alliance.unread, 1);          // el aviso de que Luis ha entrado
+  assert.equal((await luis.get()).alliance.unread, 0);         // tu propia entrada no cuenta
+  await ana.post('/messages', { body: 'uno' });
+  const { message } = await ana.post('/messages', { body: 'dos' });
+  assert.equal((await ana.get()).alliance.unread, 1);          // lo que escribes tú, tampoco
+  assert.equal((await luis.get()).alliance.unread, 2);
+
+  await luis.post('/read', { id: message.id - 1 });
+  assert.equal((await luis.get()).alliance.unread, 1);
+  await luis.post('/read', { id: 999999 });                    // no pasa del último que existe
+  assert.equal((await luis.get()).alliance.unread, 0);
+  await luis.post('/read', { id: 1 });                         // ni retrocede
+  assert.equal((await luis.get()).alliance.lastRead, message.id);
+  await ana.post('/messages', { body: 'tres' });
+  assert.equal((await luis.get()).alliance.unread, 1);
+  assert.equal((await luis.post('/read', { id: 'x' })).error, 'bad_request');
+});
+
+test('chat: los mensajes son de la alianza; al disolverla desaparecen y otra no los ve', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana);
+  await ana.post('/messages', { body: 'secreto' });
+  await luis.post('', { name: 'Otra' });
+  assert.deepEqual((await luis.get('/messages')).messages, []);
+  assert.deepEqual((await luis.get('/messages?after=0')).messages, []);
+  await ana.post('/disband');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM alliance_messages').get().n, 0);
 });

@@ -6,8 +6,12 @@
  * fundador expulsa o disuelve. Si el fundador sale, hereda el más antiguo; si
  * sale el último, la alianza desaparece.
  *
- * Todas las rutas que cambian algo responden con la misma foto que
+ * Todas las rutas que cambian la alianza responden con la misma foto que
  * GET /api/alliance, para que el cliente repinte sin otra petición.
+ *
+ * El chat va por consulta: el cliente pide «lo nuevo desde el último que vi».
+ * Enviar mensajes no tiene límite de frecuencia (decisión de producto); el
+ * tope es el tamaño del mensaje y los que se conservan por alianza.
  */
 
 import { cleanName, json, readBody, str } from './lib/http.js';
@@ -19,6 +23,11 @@ const ANAME_MIN = 3;
 const ANAME_MAX = 30;
 const SEARCH_MIN = 3;                // letras para empezar a buscar
 const SEARCH_RESULTS = 8;
+const MSG_MAX = 500;                 // caracteres por mensaje
+const MSG_KEEP = 500;                // mensajes que se conservan por alianza
+const MSG_PAGE = 100;                // los que se dan al abrir el chat
+const MSG_OLDER = 50;                // cada «ver anteriores»
+const MSG_NEW = 200;                 // tope de una consulta de novedades
 
 const LIMITS = {
   // La búsqueda da nombres de cuenta: con tope, no sirve para listarlos todos.
@@ -30,7 +39,7 @@ const fail = (error, status = 400) => json({ error }, status);
 
 const membership = (env, userId) =>
   env.DB.prepare(
-    `SELECT a.id, a.name, a.founder_id AS founderId, a.created_at AS createdAt
+    `SELECT a.id, a.name, a.founder_id AS founderId, a.created_at AS createdAt, m.last_read_id AS lastRead
        FROM alliance_members m JOIN alliances a ON a.id = m.alliance_id
       WHERE m.user_id = ?`
   )
@@ -53,7 +62,7 @@ async function overview(env, user) {
       .all();
     return { alliance: null, invites: results };
   }
-  const [members, invites] = await env.DB.batch([
+  const [members, invites, unread] = await env.DB.batch([
     env.DB.prepare(
       `SELECT u.id, u.name, m.joined_at AS joinedAt
          FROM alliance_members m JOIN users u ON u.id = m.user_id
@@ -68,9 +77,14 @@ async function overview(env, user) {
         WHERE i.alliance_id = ?
         ORDER BY i.created_at`
     ).bind(mine.id),
+    // Lo propio no cuenta: ni lo que escribes ni el aviso de que has entrado.
+    env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM alliance_messages
+        WHERE alliance_id = ? AND id > ? AND (user_id IS NULL OR user_id != ?)`
+    ).bind(mine.id, mine.lastRead, user.id),
   ]);
   return {
-    alliance: { ...mine, max: ALLIANCE_MAX, members: members.results, invites: invites.results },
+    alliance: { ...mine, max: ALLIANCE_MAX, unread: unread.results[0].n, members: members.results, invites: invites.results },
     invites: [],
   };
 }
@@ -84,6 +98,9 @@ export async function alliance(request, env, user, url) {
   if (path === '' && method === 'GET') return snapshot(env, user);
   if (path === '' && method === 'POST') return create(request, env, user);
   if (path === '/search' && method === 'GET') return search(env, user, url);
+  if (path === '/messages' && method === 'GET') return messages(env, user, url);
+  if (path === '/messages' && method === 'POST') return postMessage(request, env, user);
+  if (path === '/read' && method === 'POST') return markRead(request, env, user);
   if (method !== 'POST') return fail('not_found', 404);
 
   if (path === '/leave') return leave(env, user);
@@ -122,6 +139,7 @@ async function leave(env, user) {
   if (!mine) return fail('no_alliance', 409);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM alliance_members WHERE user_id = ? AND alliance_id = ?').bind(user.id, mine.id),
+    notice(env, mine.id, 'leave', user.id),
     // Si quien sale era el fundador, hereda el miembro más antiguo.
     env.DB.prepare(
       `UPDATE alliances
@@ -152,6 +170,7 @@ async function kick(request, env, user) {
   if (!target || target === user.id) return fail('bad_request');
   const res = await env.DB.prepare('DELETE FROM alliance_members WHERE user_id = ? AND alliance_id = ?').bind(target, mine.id).run();
   if (!res.meta.changes) return fail('not_member', 404);
+  await notice(env, mine.id, 'kick', target).run();
   return snapshot(env, user);
 }
 
@@ -253,7 +272,10 @@ async function accept(request, env, user) {
     return still ? fail('full', 409) : fail('no_invite', 404);
   }
   // Ya está en una: las demás invitaciones dejan de tener sentido.
-  await env.DB.prepare('DELETE FROM alliance_invites WHERE user_id = ?').bind(user.id).run();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM alliance_invites WHERE user_id = ?').bind(user.id),
+    notice(env, allianceId, 'join', user.id),
+  ]);
   return snapshot(env, user);
 }
 
@@ -261,4 +283,80 @@ async function decline(request, env, user) {
   const allianceId = str((await readBody(request))?.allianceId);
   await env.DB.prepare('DELETE FROM alliance_invites WHERE alliance_id = ? AND user_id = ?').bind(allianceId, user.id).run();
   return snapshot(env, user);
+}
+
+/* ---------- chat ---------- */
+
+// Aviso del sistema en el chat: quién entra, sale o es expulsado.
+const notice = (env, allianceId, kind, userId) =>
+  env.DB.prepare('INSERT INTO alliance_messages (alliance_id, user_id, kind, created_at) VALUES (?, ?, ?, ?)').bind(allianceId, userId, kind, Date.now());
+
+const MSG_COLS = `g.id, g.user_id AS userId, u.name, g.kind, g.body, g.created_at AS createdAt
+       FROM alliance_messages g LEFT JOIN users u ON u.id = g.user_id`;
+
+const posInt = (x) => (/^\d{1,15}$/.test(String(x ?? '')) ? Number(x) : null);
+
+// Sin parámetros: los últimos. `after`: lo nuevo desde ese id. `before`: una
+// página de anteriores. `more` dice si quedan más antiguos por pedir.
+async function messages(env, user, url) {
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+
+  const after = posInt(url.searchParams.get('after'));
+  if (after !== null) {
+    const { results } = await env.DB.prepare(`SELECT ${MSG_COLS} WHERE g.alliance_id = ? AND g.id > ? ORDER BY g.id LIMIT ${MSG_NEW}`)
+      .bind(mine.id, after)
+      .all();
+    return json({ messages: results, lastRead: mine.lastRead });
+  }
+
+  const before = posInt(url.searchParams.get('before'));
+  const page = before === null ? MSG_PAGE : MSG_OLDER;
+  const { results } = await env.DB.prepare(
+    `SELECT ${MSG_COLS} WHERE g.alliance_id = ?1 AND (?2 IS NULL OR g.id < ?2) ORDER BY g.id DESC LIMIT ${page + 1}`
+  )
+    .bind(mine.id, before)
+    .all();
+  const more = results.length > page;
+  return json({ messages: results.slice(0, page).reverse(), more, lastRead: mine.lastRead });
+}
+
+// Saltos de línea sí; el resto de caracteres de control, fuera.
+const cleanMessage = (x) =>
+  str(x).normalize('NFC').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+async function postMessage(request, env, user) {
+  const body = cleanMessage((await readBody(request))?.body);
+  if (!body) return fail('empty');
+  if ([...body].length > MSG_MAX) return fail('too_long');
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+
+  const now = Date.now();
+  const [ins] = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO alliance_messages (alliance_id, user_id, kind, body, created_at) VALUES (?, ?, 'text', ?, ?) RETURNING id`
+    ).bind(mine.id, user.id, body, now),
+    // Solo se conservan los últimos: lo anterior se va al escribir.
+    env.DB.prepare(
+      `DELETE FROM alliance_messages
+        WHERE alliance_id = ?1
+          AND id <= (SELECT id FROM alliance_messages WHERE alliance_id = ?1 ORDER BY id DESC LIMIT 1 OFFSET ${MSG_KEEP})`
+    ).bind(mine.id),
+  ]);
+  return json({ message: { id: ins.results[0].id, userId: user.id, name: user.name, kind: 'text', body, createdAt: now } }, 201);
+}
+
+// Solo avanza, y nunca más allá del último mensaje que existe.
+async function markRead(request, env, user) {
+  const id = posInt((await readBody(request))?.id);
+  if (id === null) return fail('bad_request');
+  await env.DB.prepare(
+    `UPDATE alliance_members
+        SET last_read_id = MAX(last_read_id, MIN(?1, COALESCE((SELECT MAX(id) FROM alliance_messages WHERE alliance_id = alliance_members.alliance_id), 0)))
+      WHERE user_id = ?2`
+  )
+    .bind(id, user.id)
+    .run();
+  return json({ ok: true });
 }
