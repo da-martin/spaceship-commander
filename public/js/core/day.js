@@ -1,11 +1,22 @@
 /* El cambio de día: desgaste de los días sin abrir, sueldos y tablón. */
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
 import { crewPayroll, genCandidates } from './crew.js';
+import { isDoneToday, isScheduledToday } from './habits.js';
 import { logShip } from './log.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
 import { state } from '../store.js';
 import { addDays, dayParse, todayStr, weekStart } from '../util.js';
+
+// El progreso de «Hoy»: hábitos que tocan y tareas con fecha de hoy. Los
+// hábitos libres no tienen día y las tareas atrasadas no cuentan: al cerrarlas
+// dejan de ser de hoy y el total encogería a media mañana.
+export function todayProgress(){
+  const t=todayStr();
+  const habits=state.habits.filter(h=>h.type!=='free'&&h.type!=='neg'&&isScheduledToday(h));
+  const tasks=state.tasks.filter(x=>x.dueDate===t);
+  return {done:habits.filter(isDoneToday).length+tasks.filter(x=>x.done).length, total:habits.length+tasks.length};
+}
 
 // días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
 // `miss` cuenta las causas para el aviso de desgaste

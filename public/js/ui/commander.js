@@ -1,6 +1,7 @@
 /* Vista Commander: render() de toda la app, grupos de tareas y filtros. */
 import { RANKS } from '../config.js';
 import { on } from '../core/events.js';
+import { todayProgress } from '../core/day.js';
 import { isDoneToday, isScheduledToday } from '../core/habits.js';
 import { projById } from '../core/projects.js';
 import { rankIdx } from '../core/rewards.js';
@@ -98,8 +99,7 @@ export function render(){
   const dueTasks = state.tasks.filter(x=>x.dueDate===t).sort(porPri);
   // Las atrasadas que se cierran hoy se quedan: a la vista el margen y luego en Completados.
   const overTasks = state.tasks.filter(x=>x.dueDate&&x.dueDate<t&&(!x.done||x.doneOn===t)).sort((a,b)=>(b.priority-a.priority)||(a.dueDate<b.dueDate?-1:1));
-  const total = todays.length+dueTasks.length;
-  const done = todays.filter(isDoneToday).length+dueTasks.filter(x=>x.done).length;
+  const {done,total} = todayProgress();   // el mismo número que ve tu alianza
   document.getElementById('todayDone').textContent = done;
   document.getElementById('todayTotal').textContent = '/ '+total;
   document.getElementById('todayProgressBar').style.width = total? (done/total*100)+'%' : '0%';

@@ -225,7 +225,7 @@ test('buscar: los comodines se buscan tal cual y hay tope de resultados y de int
 
 /* ---------- chat ---------- */
 
-const texts = (r) => r.messages.map((m) => (m.kind === 'text' ? `${m.name}: ${m.body}` : `[${m.kind} ${m.name}]`));
+const texts = (r) => r.messages.map((m) => (m.kind === 'text' ? `${m.name}: ${m.body}` : `[${m.kind} ${m.name}${m.body ? ' ' + m.body : ''}]`));
 
 test('chat: solo para miembros', async () => {
   const ana = player('Ana'), luis = player('Luis');
@@ -321,4 +321,71 @@ test('chat: los mensajes son de la alianza; al disolverla desaparecen y otra no 
   assert.deepEqual((await luis.get('/messages?after=0')).messages, []);
   await ana.post('/disband');
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM alliance_messages').get().n, 0);
+});
+
+/* ---------- progreso e hitos ---------- */
+
+const progressOf = async (viewer) => Object.fromEntries((await viewer.get()).alliance.members.map((m) => [m.name, m.progress]));
+
+test('progreso: cada uno publica el suyo y lo ven los demás; solo día y porcentaje', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana, luis);
+  assert.deepEqual(await progressOf(luis), { Ana: null, Luis: null });
+  assert.equal((await ana.post('/progress', { day: '2026-11-16', pct: 60 })).ok, true);
+  await luis.post('/progress', { day: '2026-11-16', pct: null });       // hoy no tenía nada
+  assert.deepEqual(await progressOf(luis), { Ana: { day: '2026-11-16', pct: 60 }, Luis: { day: '2026-11-16', pct: null } });
+  const cols = env.DB.raw.prepare('PRAGMA table_info(alliance_members)').all().map((c) => c.name);
+  assert.deepEqual(cols, ['user_id', 'alliance_id', 'joined_at', 'last_read_id', 'progress_day', 'progress_pct']);
+});
+
+test('progreso: dejar de compartir lo borra, y al salir de la alianza no queda', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  const id = await allianceOf(ana, luis);
+  await luis.post('/progress', { day: '2026-11-16', pct: 100 });
+  await luis.post('/progress', { day: null });
+  assert.equal((await progressOf(ana)).Luis, null);
+  await luis.post('/progress', { day: '2026-11-16', pct: 100 });
+  await luis.post('/leave');
+  await ana.post('/invite', { userId: luis.id });
+  await luis.post('/accept', { allianceId: id });
+  assert.equal((await progressOf(ana)).Luis, null);
+});
+
+test('progreso: datos inválidos o sin alianza', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana);
+  for (const bad of [{ day: 'hoy', pct: 5 }, { day: '2026-11-16', pct: 101 }, { day: '2026-11-16', pct: -1 }, { day: '2026-11-16', pct: 1.5 }, { day: '2026-11-16', pct: '50' }])
+    assert.equal((await ana.post('/progress', bad)).error, 'bad_request', JSON.stringify(bad));
+  assert.equal((await luis.post('/progress', { day: '2026-11-16', pct: 5 })).error, 'no_alliance');
+});
+
+test('hitos: el ascenso y la misión completada salen en el chat y cuentan como sin leer', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana, luis);
+  await luis.post('/read', { id: 999 }); await ana.post('/read', { id: 999 });
+  assert.equal((await ana.post('/event', { kind: 'rank', rank: 2 })).posted, true);
+  assert.equal((await ana.post('/event', { kind: 'mission', topic: ' Exploración ' })).posted, true);
+  assert.deepEqual(texts(await luis.get('/messages')).slice(-2), ['[rank Ana 2]', '[mission Ana Exploración]']);
+  assert.equal((await luis.get()).alliance.unread, 2);
+  assert.equal((await ana.get()).alliance.unread, 0);
+});
+
+test('hitos: el mismo ascenso no se anuncia dos veces; las misiones sí se repiten', async () => {
+  const ana = player('Ana');
+  await allianceOf(ana);
+  await ana.post('/event', { kind: 'rank', rank: 2 });
+  assert.equal((await ana.post('/event', { kind: 'rank', rank: 2 })).posted, false);
+  await ana.post('/event', { kind: 'rank', rank: 3 });
+  await ana.post('/event', { kind: 'mission', topic: 'Rescate' });
+  await ana.post('/event', { kind: 'mission', topic: 'Rescate' });
+  assert.deepEqual(texts(await ana.get('/messages')), ['[rank Ana 2]', '[rank Ana 3]', '[mission Ana Rescate]', '[mission Ana Rescate]']);
+});
+
+test('hitos: datos inválidos o sin alianza', async () => {
+  const ana = player('Ana'), luis = player('Luis');
+  await allianceOf(ana);
+  for (const bad of [{}, { kind: 'text', body: 'x' }, { kind: 'join' }, { kind: 'rank', rank: 0 }, { kind: 'rank', rank: '2' }, { kind: 'rank', rank: 100 }, { kind: 'mission' }, { kind: 'mission', topic: 'x'.repeat(41) }])
+    assert.equal((await ana.post('/event', bad)).error, 'bad_request', JSON.stringify(bad));
+  assert.equal((await luis.post('/event', { kind: 'rank', rank: 2 })).error, 'no_alliance');
+  assert.deepEqual((await ana.get('/messages')).messages, []);
 });

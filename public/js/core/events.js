@@ -6,6 +6,7 @@
  *   log(e) / logged(e)    entrada de bitácora: antes de guardarla (la vista puede
  *                         marcarla como leída) y después (para repintar)
  *   rankUp(i)             ascenso al rango RANKS[i]
+ *   missionWon(c)         la misión `c` se ha completado con éxito
  *   track(x, kind, op, day, ef)   algo se ha marcado o desmarcado (cola de TaskHero) */
 const listeners = {};
 export function on(name, fn){ (listeners[name] ||= []).push(fn); }

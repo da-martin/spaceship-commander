@@ -11,8 +11,8 @@ export function resetAlly(){ ally.status='idle'; ally.data=null; ally.seq++; }
 const post=(path,body)=>api('/api/alliance'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
 
 // Lo que obliga a repintar la vista: quién está y quién está invitado. Los
-// contadores de lectura cambian con cada mensaje y solo mueven el punto de aviso.
-const shape=(d)=>JSON.stringify(d,(k,v)=>k==='unread'||k==='lastRead'?undefined:v);
+// contadores de lectura y el progreso de cada uno cambian a menudo y se pintan en su sitio.
+const shape=(d)=>JSON.stringify(d,(k,v)=>k==='unread'||k==='lastRead'||k==='progress'?undefined:v);
 
 // Devuelve true si la foto cambió. Una respuesta que llega después de cerrar
 // sesión (o de otra petición más nueva) se descarta.
@@ -72,3 +72,10 @@ async function chatCall(path,opts){
 export const fetchMessages=(q='')=>chatCall('/messages'+q);
 export const sendMessage=(body)=>chatCall('/messages',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body})});
 export const markRead=(id)=>chatCall('/read',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});
+
+/* ---------- lo que comparte tu juego ---------- */
+const jsonPost=(body)=>({method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+// {day, pct} publica el porcentaje de tu día; {day:null} deja de compartirlo.
+export const postProgress=(p)=>chatCall('/progress',jsonPost({day:p.day,pct:p.pct??null}));
+// {kind:'rank', rank} | {kind:'mission', topic}: hitos que anuncia el chat.
+export const postEvent=(ev)=>chatCall('/event',jsonPost(ev));

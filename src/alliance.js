@@ -64,7 +64,7 @@ async function overview(env, user) {
   }
   const [members, invites, unread] = await env.DB.batch([
     env.DB.prepare(
-      `SELECT u.id, u.name, m.joined_at AS joinedAt
+      `SELECT u.id, u.name, m.joined_at AS joinedAt, m.progress_day AS progressDay, m.progress_pct AS progressPct
          FROM alliance_members m JOIN users u ON u.id = m.user_id
         WHERE m.alliance_id = ?
         ORDER BY m.joined_at, u.id`
@@ -84,10 +84,13 @@ async function overview(env, user) {
     ).bind(mine.id, mine.lastRead, user.id),
   ]);
   return {
-    alliance: { ...mine, max: ALLIANCE_MAX, unread: unread.results[0].n, members: members.results, invites: invites.results },
+    alliance: { ...mine, max: ALLIANCE_MAX, unread: unread.results[0].n, members: members.results.map(memberOut), invites: invites.results },
     invites: [],
   };
 }
+
+// `progress`: null si no comparte; si no, el día y el porcentaje (null = nada programado ese día).
+const memberOut = ({ progressDay, progressPct, ...m }) => ({ ...m, progress: progressDay ? { day: progressDay, pct: progressPct } : null });
 
 const snapshot = async (env, user, status = 200) => json(await overview(env, user), status);
 
@@ -101,6 +104,8 @@ export async function alliance(request, env, user, url) {
   if (path === '/messages' && method === 'GET') return messages(env, user, url);
   if (path === '/messages' && method === 'POST') return postMessage(request, env, user);
   if (path === '/read' && method === 'POST') return markRead(request, env, user);
+  if (path === '/progress' && method === 'POST') return setProgress(request, env, user);
+  if (path === '/event' && method === 'POST') return postEvent(request, env, user);
   if (method !== 'POST') return fail('not_found', 404);
 
   if (path === '/leave') return leave(env, user);
@@ -287,7 +292,8 @@ async function decline(request, env, user) {
 
 /* ---------- chat ---------- */
 
-// Aviso del sistema en el chat: quién entra, sale o es expulsado.
+// Aviso del sistema en el chat: quién entra, sale o es expulsado. Los hitos
+// del juego ('rank', 'mission') entran por postEvent.
 const notice = (env, allianceId, kind, userId) =>
   env.DB.prepare('INSERT INTO alliance_messages (alliance_id, user_id, kind, created_at) VALUES (?, ?, ?, ?)').bind(allianceId, userId, kind, Date.now());
 
@@ -359,4 +365,54 @@ async function markRead(request, env, user) {
     .bind(id, user.id)
     .run();
   return json({ ok: true });
+}
+
+/* ---------- lo que comparte el juego de cada uno ---------- */
+
+// El porcentaje lo calcula el cliente, igual que el resto del juego: el
+// servidor solo guarda el número. {day: null} deja de compartir.
+async function setProgress(request, env, user) {
+  const body = await readBody(request);
+  const day = body?.day ?? null;
+  const pct = body?.pct ?? null;
+  if (day !== null && !/^\d{4}-\d{2}-\d{2}$/.test(str(day))) return fail('bad_request');
+  if (pct !== null && !(Number.isInteger(pct) && pct >= 0 && pct <= 100)) return fail('bad_request');
+  const res = await env.DB.prepare('UPDATE alliance_members SET progress_day = ?, progress_pct = ? WHERE user_id = ?')
+    .bind(day, day === null ? null : pct, user.id)
+    .run();
+  if (!res.meta.changes) return fail('no_alliance', 409);
+  return json({ ok: true });
+}
+
+const RANK_MAX = 99;
+const TOPIC_MAX = 40;
+
+// Hitos del juego que el chat anuncia. 'rank' lleva el índice del rango y
+// 'mission' el tema de la misión; el texto lo pone el cliente al pintarlo.
+async function postEvent(request, env, user) {
+  const body = await readBody(request);
+  const kind = str(body?.kind);
+  let text;
+  if (kind === 'rank') {
+    if (!(Number.isInteger(body.rank) && body.rank >= 1 && body.rank <= RANK_MAX)) return fail('bad_request');
+    text = String(body.rank);
+  } else if (kind === 'mission') {
+    text = cleanMessage(body.topic).replace(/\n/g, ' ');
+    if (!text || [...text].length > TOPIC_MAX) return fail('bad_request');
+  } else return fail('bad_request');
+
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+
+  // Un ascenso se anuncia una vez: desmarcar y volver a marcar una tarea puede
+  // hacerte cruzar el mismo rango varias veces.
+  const res = await env.DB.prepare(
+    `INSERT INTO alliance_messages (alliance_id, user_id, kind, body, created_at)
+     SELECT ?1, ?2, ?3, ?4, ?5
+      WHERE ?3 != 'rank' OR NOT EXISTS (
+        SELECT 1 FROM alliance_messages WHERE alliance_id = ?1 AND user_id = ?2 AND kind = 'rank' AND body = ?4)`
+  )
+    .bind(mine.id, user.id, kind, text, Date.now())
+    .run();
+  return json({ ok: true, posted: res.meta.changes === 1 }, 201);
 }

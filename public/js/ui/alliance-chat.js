@@ -1,6 +1,7 @@
 /* Chat de la alianza. Va por consulta: con la vista abierta se pide lo nuevo
  * cada pocos segundos. La lista se va completando sin repintarse entera, para
  * no mover el desplazamiento ni borrar lo que se está escribiendo. */
+import { RANKS } from '../config.js';
 import { ally, fetchMessages, markRead, sendMessage } from '../sync/alliance.js';
 import { cloud } from '../sync/cloud.js';
 import { escapeHtml, todayStr, addDays } from '../util.js';
@@ -13,7 +14,8 @@ const ERR={ too_long:`El mensaje no puede pasar de ${MSG_MAX} caracteres.`, empt
 
 // `allianceId`: de qué alianza son los mensajes cargados. `msgs` va en orden.
 // `gen` sube al vaciar: una respuesta que llega tarde de otra alianza se tira.
-const chat={ allianceId:null, msgs:[], more:false, loaded:false, error:false, draft:'', sending:false, busy:false, timer:null, readSent:0, gen:0 };
+// `keep`: dónde estaba el desplazamiento antes de repintar la vista entera.
+const chat={ keep:null, allianceId:null, msgs:[], more:false, loaded:false, error:false, draft:'', sending:false, busy:false, timer:null, readSent:0, gen:0 };
 let onGone=()=>{}, onRoster=()=>{};   // los pone alliance-view: te han sacado / ha cambiado quién está
 
 export function resetChat(){
@@ -47,6 +49,11 @@ function msgHtml(m,prev){
   const me=cloud.user&&m.userId===cloud.user.id, name=escapeHtml(m.name||'Alguien');
   const day=!prev||todayStr(new Date(prev.createdAt))!==todayStr(new Date(m.createdAt))
     ? `<div class="text-center mono text-[10px] tracking-widest uppercase text-slate-500 my-3">${dayLabel(m.createdAt)}</div>`:'';
+  // Los hitos del juego destacan; quién entra y sale, no.
+  if(m.kind==='rank'||m.kind==='mission'){
+    const txt=m.kind==='rank'?`★ ${name} asciende a ${escapeHtml(RANKS[+m.body]?.[0]||'un nuevo rango')}`:`◆ ${name} ha completado una misión de ${escapeHtml(m.body)}`;
+    return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border border-amber-800 bg-amber-950/40 text-amber-200 break-words">${txt}</div></div>`;
+  }
   if(m.kind!=='text')
     return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${name} ${NOTICE[m.kind]||''}</div>`;
   // Seguidos de la misma persona: el nombre solo va en el primero.
@@ -68,10 +75,17 @@ const atBottom=(el)=>el.scrollHeight-el.scrollTop-el.clientHeight<60;
 const toBottom=(el)=>{ el.scrollTop=el.scrollHeight; };
 function grow(inp){ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,128)+'px'; }
 
+// Antes de repintar la vista entera: si estabas leyendo arriba, ahí te quedas.
+export function keepChatScroll(){
+  const el=document.getElementById('chatList');
+  chat.keep=el&&chat.loaded?{stick:atBottom(el),fromEnd:el.scrollHeight-el.scrollTop}:null;
+}
 // Tras repintar la vista: la lista entera, el borrador y abajo del todo.
 export function mountChat(){
   const el=document.getElementById('chatList'); if(!el) return;
-  el.innerHTML=listHtml(); toBottom(el);
+  el.innerHTML=listHtml();
+  if(chat.keep&&!chat.keep.stick) el.scrollTop=el.scrollHeight-chat.keep.fromEnd; else toBottom(el);
+  chat.keep=null;
   const inp=document.getElementById('chatInput'); inp.value=chat.draft; grow(inp);
   seen();
 }
@@ -123,7 +137,7 @@ function append(fresh){
   el.innerHTML=listHtml();
   if(stick) toBottom(el); else el.scrollTop=top;
   if(stick) seen();
-  if(fresh.some(m=>m.kind!=='text')) onRoster();
+  if(fresh.some(m=>NOTICE[m.kind])) onRoster();
 }
 async function loadOlder(){
   if(chat.busy||!chat.msgs.length) return;
