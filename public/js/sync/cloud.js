@@ -4,7 +4,9 @@ import { BACKUPKEY, buildSave } from '../features/saves.js';
 import { loadCalEvents, paintCalendars, resetIcal } from '../integrations/calendars.js';
 import { paintTh, thc, thInit } from '../integrations/taskhero.js';
 import { KEY, normState, setState, state } from '../store.js';
+import { resetAlly } from './alliance.js';
 import { closeAuthModal, openAuthModal, paintAccount } from './auth.js';
+import { refreshAlliance } from '../ui/alliance-view.js';
 import { render } from '../ui/commander.js';
 import { toast } from '../ui/toast.js';
 
@@ -115,8 +117,8 @@ export async function logout(){
   try{ await api('/api/auth/logout',{method:'POST'}); }catch{}
   localStorage.removeItem(CLOUDKEY);
   cloud.user=null; cloud.rev=0; cloud.pending=false; cloud.hold=false;
-  resetIcal();
+  resetIcal(); resetAlly();
   // la cola de TaskHero se queda en este dispositivo y sale al volver a entrar con la misma cuenta
   thc.connected=false; clearTimeout(thc.timer);
-  closeAuthModal(); setSync('local'); render(); paintCalendars(); paintTh(); toast('Sesión cerrada');
+  closeAuthModal(); setSync('local'); render(); paintCalendars(); paintTh(); refreshAlliance(); toast('Sesión cerrada');
 }

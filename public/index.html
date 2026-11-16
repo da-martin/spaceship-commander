@@ -257,6 +257,7 @@
       <button id="btnCommander" aria-pressed="true" class="px-3 py-2 text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
       <button id="btnFocusMode" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
       <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
+      <button id="btnAlliance" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Alliance<span data-allydot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
     </div>
     <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
@@ -470,6 +471,12 @@
     </button>
     <div id="rankPanel" class="acc-body hidden mt-3"></div>
   </section>
+</main>
+
+<!-- ALLIANCE VIEW: la alianza y sus miembros. No es otro modo de juego: el
+     juego sigue igual; esto es el sitio donde darse apoyo. -->
+<main id="alliance-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-5">
+  <div id="allianceBody" class="space-y-4"></div>
 </main>
 
 <!-- FOCUS VIEW: PROTOCOLO FORSTER -->
@@ -853,7 +860,7 @@
   </div>
 </div>
 
-<!-- BARRA INFERIOR (solo móvil): los tres modos al alcance del pulgar -->
+<!-- BARRA INFERIOR (solo móvil): los modos y la alianza al alcance del pulgar -->
 <nav id="bottomNav" role="group" aria-label="Modo" class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex border-t border-slate-800 bg-[#0a0f1a]/95 backdrop-blur">
   <button type="button" data-mode="commander" aria-pressed="true" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M17.5 15.5l2 2 3-4"/></svg>
@@ -867,6 +874,11 @@
     <span data-logdot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full" aria-hidden="true"></span>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c2.4 2.7 3.7 6.1 3.7 9.5v4.5l2.3 2.3v1.2H6v-1.2L8.3 16.5V12c0-3.4 1.3-6.8 3.7-9.5z"/><circle cx="12" cy="10" r="1.6"/></svg>
     Spaceship
+  </button>
+  <button type="button" data-mode="alliance" aria-pressed="false" class="bnav relative flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
+    <span data-allydot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span>
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2"/><path d="M2.8 19.5c.5-3.4 3-5.4 6.2-5.4s5.7 2 6.2 5.4"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.8 14.6c1.9.7 3.1 2.4 3.4 4.9"/></svg>
+    Alliance
   </button>
 </nav>
 

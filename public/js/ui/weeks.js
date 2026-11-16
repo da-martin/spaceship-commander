@@ -143,7 +143,7 @@ export function measureBars(){
 }
 export function applyWeeks(){
   measureBars();   // también aquí: no esperar al primer aviso del ResizeObserver
-  const wide=wideMQ.matches, ship=uiMode==='ship', on=!ship&&(wide?weeksOpen:view.weeksScreen);
+  const wide=wideMQ.matches, ship=uiMode==='ship'||uiMode==='alliance', on=!ship&&(wide?weeksOpen:view.weeksScreen);
   document.body.classList.toggle('weeks-open',on&&wide);
   document.body.classList.toggle('weeks-screen',on&&!wide);
   const b=document.getElementById('btnWeeks');

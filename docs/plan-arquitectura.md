@@ -23,10 +23,10 @@ public/js/
   store.js       la partida: normState (también partidas antiguas), load, save, setState
   core/          reglas del juego: rewards, projects, ship, missions, day, crew, shipyard, habits, log, events
   lib/ics.js     parser iCal
-  ui/            vistas: commander (render), actions, rows, projects, weeks, ship-view, crew-view, modal, settings, mode, toast, view
+  ui/            vistas: commander (render), actions, rows, projects, weeks, ship-view, crew-view, alliance-view, modal, settings, mode, toast, view
   features/      saves, review, log, focus
   integrations/  calendars, taskhero, taskhero-import, taskhero-modal
-  sync/          cloud, auth
+  sync/          cloud, auth, alliance
 ```
 
 Reglas que hay que respetar al tocarlo:
