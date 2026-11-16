@@ -5,7 +5,7 @@ import { countToday, isDoneToday, isScheduledToday, streak } from '../core/habit
 import { projBadge } from '../core/projects.js';
 import { cleanDays, revokeTask, untapFree, untapNeg } from '../core/rewards.js';
 import { thShow } from '../integrations/taskhero.js';
-import { save, state } from '../store.js';
+import { areaName, save, state } from '../store.js';
 import { completeTask, deleteHabit, deleteTask, toggleHabitToday } from './actions.js';
 import { render } from './commander.js';
 import { openModal } from './modal.js';
@@ -16,7 +16,7 @@ import { DOW_NAMES, escapeHtml, etaDays, fmtDate, uid } from '../util.js';
 export function areaBadges(areas,max=2){
   areas=(areas||[]).filter(a=>AREAS.includes(a));
   if(!areas.length) return '';
-  const shown=areas.slice(0,max).map(a=>`<span class="mono text-[11px] text-slate-400 inline-flex items-center gap-1"><span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${AREA_DOT[a]}" aria-hidden="true"></span>${a}</span>`).join('');
+  const shown=areas.slice(0,max).map(a=>`<span class="mono text-[11px] text-slate-400 inline-flex items-center gap-1"><span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${AREA_DOT[a]}" aria-hidden="true"></span>${escapeHtml(areaName(a))}</span>`).join('');
   return shown+(areas.length>max?`<span class="mono text-[11px] text-slate-400">+${areas.length-max}</span>`:'');
 }
 // Solo lo que se sale de lo normal lleva etiqueta: hoy casi todo es normal.

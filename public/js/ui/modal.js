@@ -4,7 +4,7 @@ import { on } from '../core/events.js';
 import { projById, projDue } from '../core/projects.js';
 import { closeSaveModal } from '../features/saves.js';
 import { thc, thIsLinked } from '../integrations/taskhero.js';
-import { save, state } from '../store.js';
+import { areaName, save, state } from '../store.js';
 import { aFilterHabits, aFilterTasks, render } from './commander.js';
 import { LINK_SVG } from './rows.js';
 import { toast } from './toast.js';
@@ -80,6 +80,8 @@ export function syncAreaPicker(){
   document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.classList.toggle('on',pickedAreas.has(b.dataset.area)));
 }
 export function paintAreaFilters(){
+  // Los nombres de las áreas se pueden cambiar en Ajustes: las etiquetas se repintan aquí.
+  document.querySelectorAll('[data-tarea],[data-harea],#areaPicker [data-area]').forEach(b=>{const a=b.dataset.tarea||b.dataset.harea||b.dataset.area; if(a!=='__all') b.textContent=areaName(a);});
   document.querySelectorAll('.tafilter[data-tarea]').forEach(b=>{const a=b.dataset.tarea; if(a!=='__all') b.classList.toggle('on',aFilterTasks.has(a));});
   document.querySelectorAll('.hafilter[data-harea]').forEach(b=>{const a=b.dataset.harea; if(a!=='__all') b.classList.toggle('on',aFilterHabits.has(a));});
 }

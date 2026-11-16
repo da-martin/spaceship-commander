@@ -82,3 +82,10 @@ test('cualquier cosa rara da una partida válida', () => {
     assert.equal(s.ship.contract, null);
   }
 });
+
+test('normAreaNames: solo áreas conocidas, recorta y descarta vacíos o el nombre original', async () => {
+  const { normAreaNames, AREA_NAME_MAX } = await import('../public/js/store.js');
+  assert.deepEqual(normAreaNames({ Spirit: '  Mente ', Social: '', Craft: 'Craft', Health: 5, Otro: 'x' }), { Spirit: 'Mente' });
+  assert.equal(normAreaNames({ Health: 'x'.repeat(50) }).Health.length, AREA_NAME_MAX);
+  assert.deepEqual(normAreaNames(null), {});
+});

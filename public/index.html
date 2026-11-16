@@ -139,6 +139,9 @@
   .bnav{color:#94a3b8}
   .bnav[aria-pressed="true"]{color:#67e8f9}
   .bnav:hover{color:#e2e8f0}
+  .stab{color:#94a3b8;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .stab:hover{color:#e2e8f0}
+  .stab[aria-pressed="true"]{color:#fff;font-weight:600;border-bottom-color:#22d3ee}
   .ctab{min-height:44px;border-radius:10px;border:1px solid #334155;color:#cbd5e1}
   .ctab[aria-selected="true"]{background:#0e7490;border-color:#22d3ee;color:#fff;font-weight:600}
   /* Commander en una columna infinita obligaba a bajar 1.600 px para ver una
@@ -255,9 +258,7 @@
          la cabecera recupera la fila que ocupaba. -->
     <div id="navToggle" role="group" aria-label="Modo" class="hidden sm:flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" aria-pressed="true" class="px-3 py-2 text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
-      <button id="btnFocusMode" aria-pressed="false" class="px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Focus</button>
-      <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
-      <button id="btnAlliance" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Alliance<span data-allydot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
+      <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span><span data-allydot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
     </div>
     <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
@@ -272,6 +273,14 @@
 <!-- Las tres vistas juntas: con el panel de semanas abierto, solo esto se
      estrecha y la cabecera se queda donde está. -->
 <div id="views">
+
+<!-- PESTAÑAS DE SPACESHIP: la nave y la alianza viven en el mismo modo -->
+<nav id="shipTabs" aria-label="Spaceship" class="hidden max-w-6xl mx-auto px-4 pt-4">
+  <div class="flex border-b border-slate-800">
+    <button type="button" data-stab="ship" aria-pressed="true" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Nave<span data-logdot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
+    <button type="button" data-stab="alliance" aria-pressed="false" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Alianza<span data-allydot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
+  </div>
+</nav>
 
 <!-- COMMANDER VIEW -->
 <main id="commander-view" class="max-w-6xl mx-auto px-4 pb-24 pt-5 space-y-5">
@@ -303,6 +312,15 @@
         </div>
         <div class="h-2 bg-slate-800 rounded-full mt-2.5 overflow-hidden"><div id="todayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div></div>
       </div>
+      <!-- El Protocolo Forster vive dentro de Commander: se entra desde aquí -->
+      <button type="button" id="btnFocusMode" class="w-full sm:w-auto flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg border border-amber-700/70 bg-amber-950/30 hover:border-amber-500 text-left">
+        <span class="w-9 h-9 shrink-0 rounded-lg grid place-items-center border border-amber-500/50 bg-amber-900/30 text-amber-300" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg></span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-sm font-semibold text-slate-100">Empezar Focus</span>
+          <span class="block mono text-[11px] text-amber-300">PROTOCOLO FORSTER</span>
+        </span>
+        <svg class="shrink-0 text-amber-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
     </div>
     <div id="todayList" class="space-y-2"></div>
   </section>
@@ -400,13 +418,7 @@
            estira hasta la altura de la lista y el dibujo la llena (slice). -->
       <div id="shipArt" class="w-full sm:w-[290px] shrink-0 rounded-xl border border-[#1f2a3d] bg-gradient-to-b from-[#101a2d] to-[#0b1322] overflow-hidden"></div>
       <div class="w-full min-w-0 flex-1">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="mono text-[11px] tracking-[.18em] text-slate-400 flex-1">SISTEMAS</span>
-          <div role="group" aria-label="Ordenar sistemas" class="flex bg-slate-900 border border-slate-700 rounded-md p-0.5">
-            <button type="button" id="sortNave" class="mono text-[11px] px-2 py-1 rounded">nave</button>
-            <button type="button" id="sortEstado" class="mono text-[11px] px-2 py-1 rounded">estado</button>
-          </div>
-        </div>
+        <div class="mono text-[11px] tracking-[.18em] text-slate-400 mb-2">SISTEMAS</div>
         <div id="shipSystems" class="flex flex-col gap-1.5"></div>
       </div>
     </div>
@@ -752,6 +764,27 @@
 </div>
 
 <!-- AJUSTES: una sección por grupo. Se aplican al momento, sin botón Guardar. -->
+<!-- EDITAR ÁREAS: solo el nombre; el color y lo que paga cada una no cambian -->
+<div id="areasModal" class="hidden fixed inset-0 z-[60] overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="areasTitle" class="panel w-full max-w-md p-5 mx-auto my-16">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Ajustes // Áreas</div>
+        <h3 id="areasTitle" class="text-lg font-bold mt-1">Editar áreas</h3>
+      </div>
+      <button id="areasClose" type="button" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">Cambia cómo se llama cada área. Su color, sus tareas y hábitos y lo que paga en la nave se quedan igual. Déjalo vacío para volver al nombre original.</p>
+    <form id="areasForm" class="mt-4 space-y-2.5" autocomplete="off">
+      <div id="areasList" class="space-y-2.5"></div>
+      <div class="flex gap-2 pt-2">
+        <button id="areasCancel" type="button" class="flex-1 h-11 rounded-lg bg-slate-800 border border-slate-700 text-sm">Cancelar</button>
+        <button type="submit" class="flex-1 btn-primary h-11 rounded-lg text-sm font-semibold">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="settingsModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
   <div class="panel w-full max-w-md p-5 mx-auto my-8">
     <div class="flex items-start gap-2">
@@ -770,6 +803,15 @@
       </div>
       <button id="setStreaks" type="button" role="switch" aria-checked="true" aria-labelledby="lblStreaks" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
     </div>
+
+    <div class="sys-label mt-6 mb-2">Áreas</div>
+    <button id="setAreas" type="button" class="w-full flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-600 text-left">
+      <span class="flex-1 min-w-0">
+        <span class="block text-sm font-medium">Editar áreas</span>
+        <span id="setAreasSub" class="block mono text-[11px] text-slate-400 mt-0.5 truncate"></span>
+      </span>
+      <svg class="shrink-0 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
 
     <!-- Las URL viven en el servidor, por cuenta: nunca entran en la partida. -->
     <div class="sys-label mt-6 mb-2">Calendarios</div>
@@ -877,25 +919,17 @@
   </div>
 </div>
 
-<!-- BARRA INFERIOR (solo móvil): los modos y la alianza al alcance del pulgar -->
+<!-- BARRA INFERIOR (solo móvil): los dos modos al alcance del pulgar -->
 <nav id="bottomNav" role="group" aria-label="Modo" class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex border-t border-slate-800 bg-[#0a0f1a]/95 backdrop-blur">
   <button type="button" data-mode="commander" aria-pressed="true" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M17.5 15.5l2 2 3-4"/></svg>
     Commander
   </button>
-  <button type="button" data-mode="focus" aria-pressed="false" class="bnav flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></svg>
-    Focus
-  </button>
   <button type="button" data-mode="ship" aria-pressed="false" class="bnav relative flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
     <span data-logdot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full" aria-hidden="true"></span>
+    <span data-allydot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c2.4 2.7 3.7 6.1 3.7 9.5v4.5l2.3 2.3v1.2H6v-1.2L8.3 16.5V12c0-3.4 1.3-6.8 3.7-9.5z"/><circle cx="12" cy="10" r="1.6"/></svg>
     Spaceship
-  </button>
-  <button type="button" data-mode="alliance" aria-pressed="false" class="bnav relative flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
-    <span data-allydot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span>
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2"/><path d="M2.8 19.5c.5-3.4 3-5.4 6.2-5.4s5.7 2 6.2 5.4"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.8 14.6c1.9.7 3.1 2.4 3.4 4.9"/></svg>
-    Alliance
   </button>
 </nav>
 

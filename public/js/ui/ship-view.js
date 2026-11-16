@@ -7,13 +7,12 @@ import { agedMc, atHome, missionHint, missionsUnlocked, offerAge, sweepCost } fr
 import { perk } from '../core/rewards.js';
 import { baseSignal, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairQuote, sellOf } from '../core/shipyard.js';
-import { state } from '../store.js';
+import { areaName, state } from '../store.js';
 import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
 import { uiMode } from './mode.js';
-import { view } from './view.js';
-import { addDays, dayParse, fDate, fmtEf, pctTxt, todayStr } from '../util.js';
+import { addDays, dayParse, escapeHtml, fDate, fmtEf, pctTxt, todayStr } from '../util.js';
 
 /* ---------- render: nave ---------- */
 export const condColor=(c)=>c>=70?'#10b981':c>=35?'#f59e0b':'#ef4444';
@@ -101,11 +100,9 @@ export function shipArt(){
 
 export const SYS_ORDER=['bridge','engines','cargo','comms','spirit','social','craft','health'];
 export function shipSystems(){
-  const m=state.ship.modules, keys=SYS_ORDER.slice();
-  // Por estado: primero lo más desgastado; lo que aún no se ha mejorado, al
-  // final, porque en nivel 0 el estado no afecta a nada.
-  if(view.sysSort==='estado') keys.sort((a,b)=>(m[a].lv?m[a].cond:1e3)-(m[b].lv?m[b].cond:1e3));
-  return keys.map(k=>{
+  const m=state.ship.modules;
+  // Siempre en el orden de la nave: el desgaste se lee en la barra de cada fila.
+  return SYS_ORDER.map(k=>{
     const x=m[k], up=x.lv>0, col=condColor(x.cond);
     const pips=[0,1,2,3,4].map(i=>`<i class="block w-2.5 h-1.5 rounded-sm ${i<x.lv?'bg-cyan-300':'bg-slate-700'}"></i>`).join('');
     const label=up?`${MODS[k].name}, nivel ${x.lv} de 5, estado ${x.cond} por ciento`:`${MODS[k].name}, sin mejoras`;
@@ -118,13 +115,6 @@ export function shipSystems(){
       </span>`:`<span class="mono text-[11px] text-slate-400 w-[86px] shrink-0 text-right" aria-hidden="true">sin mejoras</span>`}
     </button>`;
   }).join('');
-}
-export function paintSysSort(){
-  for(const [id,v] of [['sortNave','nave'],['sortEstado','estado']]){
-    const b=document.getElementById(id), on=view.sysSort===v;
-    b.className='mono text-[11px] px-2 py-1 rounded '+(on?'bg-cyan-700 text-white':'text-slate-400 hover:text-white');
-    b.setAttribute('aria-pressed',String(on));
-  }
 }
 // pestañas del Sistema Madre: se recuerda la última abierta
 export const HOMEKEY='spaceship-commander:home';
@@ -255,7 +245,6 @@ export function renderShip(){
     shipArtRO.observe(document.getElementById('shipArt'));
   }
   const sc=document.getElementById('shipSystems'); sc.innerHTML=shipSystems();
-  paintSysSort();
   sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
     const k=g.dataset.slot;
     if(!sh.contract&&homeTab!=='yard') showHomeTab('yard',false);
@@ -309,7 +298,7 @@ export function renderShip(){
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="font-semibold text-sm">${def.name}</span>
-        <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${def.kind==='area'?AREA_COLORS[def.area]:'border-slate-600 text-slate-300'}">${def.kind==='area'?def.area:'GENERAL'}</span>
+        <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${def.kind==='area'?AREA_COLORS[def.area]:'border-slate-600 text-slate-300'}">${def.kind==='area'?escapeHtml(areaName(def.area)):'GENERAL'}</span>
         <span class="mono text-[11px] ${m.lv>=5?'text-emerald-300':'text-slate-400'} ml-auto">${'●'.repeat(m.lv)}${'○'.repeat(5-m.lv)}</span>
       </div>
       <div class="mono text-[11px] text-slate-400 mt-1.5">${def.desc}${def.kind==='area'?' · opcional':''}</div>
