@@ -14,8 +14,6 @@ export const view = {
   projDel: null,
   // Las 13 semanas a pantalla completa (móvil); en escritorio es un panel.
   weeksScreen: false,
-  // Orden de la lista de sistemas de la nave: 'nave' | 'estado'.
-  sysSort: 'nave',
   // Calendarios: hay una descarga en marcha; id del que pide confirmación para quitarlo.
   calBusy: false,
   calRemoving: null,
