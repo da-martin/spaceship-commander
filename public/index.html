@@ -25,11 +25,16 @@
   .corner::before{top:-1px;left:-1px;border-width:1px 0 0 1px;border-radius:12px 0 0 0}
   .corner::after{bottom:-1px;right:-1px;border-width:0 1px 1px 0;border-radius:0 0 12px 0}
   .btn-primary{background:#0e7490;color:#fff}.btn-primary:hover{background:#0891b2}.btn-primary:disabled{opacity:.4;cursor:not-allowed;background:#0e7490}
-  .day-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
+  .day-pill.on,.mday-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
   .area-pill.on{background:#0e7490;color:#fff;border-color:#22d3ee}
   .diff-pill.on[data-diff="easy"]{background:#064e3b;color:#fff;border-color:#34d399}
   .diff-pill.on[data-diff="normal"]{background:#0e7490;color:#fff;border-color:#22d3ee}
   .diff-pill.on[data-diff="hard"]{background:#7f1d1d;color:#fff;border-color:#f87171}
+  .diff-pill.on[data-diff="micro"]{background:#0c4a6e;color:#fff;border-color:#38bdf8}
+  .diff-pill.on[data-diff="epic"]{background:#4c1d95;color:#fff;border-color:#a78bfa}
+  /* Cinco dificultades en una fila; en pantallas estrechas el número va debajo igual. */
+  #diffPicker{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #diffPicker .diff-pill{padding-left:2px;padding-right:2px}
   .gear-menu{position:absolute;z-index:30;min-width:180px;background:#0f172a;border:1px solid #2a3a55;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);overflow:hidden}
   .gear-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 12px;font-size:13px;color:#e5e7eb}
   .gear-menu button:hover{background:#1e293b}
@@ -323,6 +328,7 @@
         <button data-hfilter="all" class="hfilter px-2.5 py-1 rounded-md bg-cyan-800 text-white">Todos</button>
         <button data-hfilter="daily" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Diarios</button>
         <button data-hfilter="weekly" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Semanales</button>
+        <button data-hfilter="monthly" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Mensuales</button>
         <button data-hfilter="free" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Libres</button>
         <button data-hfilter="neg" class="hfilter px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300">Negativos</button>
       </div>
@@ -446,7 +452,7 @@
           <div id="marketList" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
         <div data-pane="missions" role="tabpanel" class="hidden">
-          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma sus puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2.</p>
+          <p class="mono text-[13px] text-slate-400 mb-3 leading-relaxed">Las misiones llegan con la señal y esperan en el tablón hasta que caducan; cuanto más esperan, más pagan. Al aceptar una zarpas y el Sistema Madre queda atrás hasta que termine. Cada hábito o tarea completada suma sus puntos de esfuerzo: micro 0,1 · fácil 0,5 · normal 1 · difícil 2 · épica 3.</p>
           <div id="signalBox" class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 mb-3"></div>
           <div id="offerList" class="grid sm:grid-cols-2 gap-3"></div>
         </div>
@@ -652,10 +658,12 @@
       </div>
       <div>
         <span id="fDiffLabel" class="mono text-[11px] text-slate-400">DIFICULTAD · PUNTOS DE ESFUERZO</span>
-        <div id="diffPicker" class="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-labelledby="fDiffLabel">
+        <div id="diffPicker" class="mt-2 grid gap-1.5" role="group" aria-labelledby="fDiffLabel">
+          <button type="button" data-diff="micro" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Micro<span class="mono text-[11px] opacity-80">0,1</span></button>
           <button type="button" data-diff="easy" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Fácil<span class="mono text-[11px] opacity-80">0,5</span></button>
           <button type="button" data-diff="normal" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Normal<span class="mono text-[11px] opacity-80">1</span></button>
           <button type="button" data-diff="hard" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Difícil<span class="mono text-[11px] opacity-80">2</span></button>
+          <button type="button" data-diff="epic" class="diff-pill flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-sm">Épica<span class="mono text-[11px] opacity-80">3</span></button>
         </div>
       </div>
       <div id="rowTaskDate">
@@ -682,6 +690,7 @@
           <option value="daily">Diario — cada jornada</option>
           <option value="free">Libre — sin frecuencia, múltiples veces/día</option>
           <option value="weekly">Semanal — elige días</option>
+          <option value="monthly">Mensual — elige días del mes</option>
           <option value="neg">Negativo — cada vez que caes, daña la nave</option>
         </select>
         <div id="dayPicker" class="hidden mt-2 grid grid-cols-7 gap-1">
@@ -692,6 +701,11 @@
           <button data-day="5" class="day-pill mono text-[11px] px-1 py-1.5 rounded-md bg-slate-800 border border-slate-700">Vie</button>
           <button data-day="6" class="day-pill mono text-[11px] px-1 py-1.5 rounded-md bg-slate-800 border border-slate-700">Sáb</button>
           <button data-day="0" class="day-pill mono text-[11px] px-1 py-1.5 rounded-md bg-slate-800 border border-slate-700">Dom</button>
+        </div>
+        <!-- Días del mes 1–31: los botones los pone modal.js -->
+        <div id="mdayBox" class="hidden mt-2">
+          <div id="mdayPicker" class="grid grid-cols-7 gap-1" role="group" aria-label="Días del mes"></div>
+          <p class="mono text-[11px] text-slate-400 mt-1.5">Si el mes no tiene ese día, toca el último del mes.</p>
         </div>
       </div>
       <label class="flex items-center gap-2 text-sm cursor-pointer select-none">

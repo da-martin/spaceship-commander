@@ -1,7 +1,7 @@
 /* Filas de las listas de Commander (tareas, hábitos, negativos), su menú ⚙ y
  * las piezas que comparten: insignias, plegado de completados, enlaces. */
 import { AREA_DOT, AREAS, EFFORT_NAME, RECENT_MS } from '../config.js';
-import { countToday, isDoneToday, isScheduledToday, streak } from '../core/habits.js';
+import { countToday, habitKind, isDoneToday, isScheduledToday, nextScheduled, streak } from '../core/habits.js';
 import { projBadge } from '../core/projects.js';
 import { cleanDays, revokeTask, untapFree, untapNeg } from '../core/rewards.js';
 import { thShow } from '../integrations/taskhero.js';
@@ -11,7 +11,7 @@ import { render } from './commander.js';
 import { openModal } from './modal.js';
 import { toast } from './toast.js';
 import { view } from './view.js';
-import { DOW_NAMES, escapeHtml, etaDays, fmtDate, uid } from '../util.js';
+import { escapeHtml, etaDays, fmtDate, uid } from '../util.js';
 
 export function areaBadges(areas,max=2){
   areas=(areas||[]).filter(a=>AREAS.includes(a));
@@ -20,7 +20,7 @@ export function areaBadges(areas,max=2){
   return shown+(areas.length>max?`<span class="mono text-[11px] text-slate-400">+${areas.length-max}</span>`:'');
 }
 // Solo lo que se sale de lo normal lleva etiqueta: hoy casi todo es normal.
-export const DIFF_TXT={easy:'text-emerald-300',hard:'text-red-300'};
+export const DIFF_TXT={micro:'text-sky-300',easy:'text-emerald-300',hard:'text-red-300',epic:'text-violet-300'};
 export const diffBadge=(x)=>DIFF_TXT[x?.diff]?`<span class="${DIFF_TXT[x.diff]}">${EFFORT_NAME[x.diff]}</span>`:'';
 export const matchAreas=(x,set)=> set.size===0 || (x.areas||[]).some(a=>set.has(a));
 
@@ -84,13 +84,13 @@ export function habitRowEl(h,size,t){
   if(h.type==='neg') return negRowEl(h,size,t);
   const c=countToday(h), d=isDoneToday(h), free=h.type==='free', sched=isScheduledToday(h), s=streak(h);
   const title=escapeHtml(h.title);
-  const kind=free?'Libre':h.type==='daily'?'Diario':'Semanal'+((h.days||[]).length?' · '+h.days.map(x=>DOW_NAMES[x]).join(' '):'');
+  const kind=habitKind(h), next=!sched&&h.type==='monthly'?nextScheduled(h,t):null;
   const meta=[
     `<span class="text-slate-400">${kind}</span>`,
     diffBadge(h),
     free?`<span class="text-slate-400">hoy ${c} ${c===1?'vez':'veces'}</span>`:'',
     (!free&&s>=2&&state.settings.showStreaks)?`<span class="text-emerald-300">🔥 racha ${s}</span>`:'',
-    sched?'':'<span class="text-slate-400">stand-by hoy</span>',
+    sched?'':`<span class="text-slate-400">stand-by hoy${next?' · próximo: '+fmtDate(next):''}</span>`,
     areaBadges(h.areas)
   ].filter(Boolean).join('');
   const at=h.g?.[t]?.at;

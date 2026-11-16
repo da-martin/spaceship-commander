@@ -10,11 +10,11 @@ import { LINK_SVG } from './rows.js';
 import { toast } from './toast.js';
 import { escapeHtml, uid } from '../util.js';
 
-export let modalMode=null, editingId=null, pickedDays=new Set(), pickedAreas=new Set(), pickedDiff='normal';
+export let modalMode=null, editingId=null, pickedDays=new Set(), pickedMdays=new Set(), pickedAreas=new Set(), pickedDiff='normal';
 
 /* ---------- modal ---------- */
 export function openModal(mode,id=null){
-  modalMode=mode; editingId=id; pickedDays=new Set(); pickedAreas=new Set(); pickedDiff='normal';
+  modalMode=mode; editingId=id; pickedDays=new Set(); pickedMdays=new Set(); pickedAreas=new Set(); pickedDiff='normal';
   const isEdit=!!id;
   document.getElementById('modal').classList.remove('hidden');
   document.getElementById('modalKicker').textContent=(isEdit?'EDITAR // ':'NUEVO // ')+(mode==='task'?'TASK':'HABIT');
@@ -32,7 +32,7 @@ export function openModal(mode,id=null){
     const it=(mode==='task'?state.tasks:state.habits).find(y=>y.id===id); pickedDiff=EFFORT[it?.diff]?it.diff:'normal'; syncDiffPicker();
     nt.value=it?.notes||'';
     if(mode==='task'){const x=state.tasks.find(y=>y.id===id); t.value=x.title; d.value=x.dueDate||''; p.checked=!!x.priority; pickedAreas=new Set(x.areas||[]); syncAreaPicker(); fillProjectSelect(x.projectId||'');}
-    else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
+    else{const h=state.habits.find(y=>y.id===id); t.value=h.title; p.checked=!!h.priority; ty.value=h.type; pickedDays=new Set(h.days||[]); pickedMdays=new Set(h.mdays||[]); syncDayPicker(); pickedAreas=new Set(h.areas||[]); syncAreaPicker();}
   }
   thModalLink=null; paintThModal();
   growNotes();
@@ -69,9 +69,11 @@ export function paintProjHint(){
   h.className='mono text-[11px] mt-1.5 '+m.cls;
 }
 export function syncDayPicker(){
-  const show=document.getElementById('fType').value==='weekly';
-  document.getElementById('dayPicker').classList.toggle('hidden',!show);
+  const type=document.getElementById('fType').value;
+  document.getElementById('dayPicker').classList.toggle('hidden',type!=='weekly');
+  document.getElementById('mdayBox').classList.toggle('hidden',type!=='monthly');
   document.querySelectorAll('.day-pill').forEach(b=>b.classList.toggle('on',pickedDays.has(Number(b.dataset.day))));
+  document.querySelectorAll('.mday-pill').forEach(b=>{ const on=pickedMdays.has(Number(b.dataset.mday)); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
 }
 export function syncDiffPicker(){
   document.querySelectorAll('#diffPicker .diff-pill').forEach(b=>{ const on=b.dataset.diff===pickedDiff; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
@@ -114,13 +116,16 @@ export function init(){
     } else {
       const type=document.getElementById('fType').value, pri=document.getElementById('fPriority').checked, areas=[...pickedAreas];
       if(type==='weekly'&&pickedDays.size===0){toast('Elige al menos un día');return;}
+      if(type==='monthly'&&pickedMdays.size===0){toast('Elige al menos un día del mes');return;}
+      const sched={days:type==='weekly'?[...pickedDays].sort():null, ...(type==='monthly'?{mdays:[...pickedMdays].sort((a,b)=>a-b)}:{})};
       if(editingId){
         const h=state.habits.find(y=>y.id===editingId);
         // El historial de uno se leería al revés en el otro: cumplimientos como caídas.
         if((h.type==='neg')!==(type==='neg')&&Object.values(h.log||{}).some(n=>n>0)){toast('Con historial, un hábito no puede pasar de positivo a negativo ni al revés');return;}
-        setThLink(setNotes(Object.assign(h,{title,priority:pri,diff:pickedDiff,type,days:type==='weekly'?[...pickedDays].sort():null,areas})));
+        setThLink(setNotes(Object.assign(h,{title,priority:pri,diff:pickedDiff,type,...sched,areas})));
+        if(type!=='monthly') delete h.mdays;
       }
-      else state.habits.push(setNotes({id:uid(),title,type,days:type==='weekly'?[...pickedDays].sort():null,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()}));
+      else state.habits.push(setNotes({id:uid(),title,type,...sched,priority:pri,diff:pickedDiff,areas,log:{},createdAt:Date.now()}));
     }
     save();closeModal();render();toast('Guardado ✓');
   };
@@ -130,6 +135,9 @@ export function init(){
   document.addEventListener('click',closeAllMenus);
   document.getElementById('fType').onchange=syncDayPicker;
   document.querySelectorAll('.day-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.day);pickedDays.has(d)?pickedDays.delete(d):pickedDays.add(d);syncDayPicker();});
+  const mp=document.getElementById('mdayPicker');
+  mp.innerHTML=Array.from({length:31},(_,i)=>`<button type="button" data-mday="${i+1}" aria-pressed="false" class="mday-pill mono text-[11px] px-1 py-1.5 rounded-md bg-slate-800 border border-slate-700">${i+1}</button>`).join('');
+  mp.querySelectorAll('.mday-pill').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.mday);pickedMdays.has(d)?pickedMdays.delete(d):pickedMdays.add(d);syncDayPicker();});
   document.querySelectorAll('#diffPicker .diff-pill').forEach(b=>b.onclick=()=>{pickedDiff=b.dataset.diff;syncDiffPicker();});
   document.querySelectorAll('#areaPicker .area-pill').forEach(b=>b.onclick=()=>{const a=b.dataset.area;pickedAreas.has(a)?pickedAreas.delete(a):pickedAreas.add(a);syncAreaPicker();});
 }

@@ -1,7 +1,7 @@
 /* Protocolo Forster (modo Focus, en memoria de Mark Forster). */
 import { EF_PROGRESS, XP_PROGRESS, XP_ROUND } from '../config.js';
 import { on } from '../core/events.js';
-import { countToday, isDoneToday, isScheduledToday } from '../core/habits.js';
+import { countToday, habitKind, isDoneToday, isScheduledToday } from '../core/habits.js';
 import { projBadge } from '../core/projects.js';
 import { addW, addXP, checkHabit, gainText, grantTask, perk, tapFree } from '../core/rewards.js';
 import { addEffort } from '../core/ship.js';
@@ -13,7 +13,7 @@ import { openModal } from '../ui/modal.js';
 import { setMode, uiMode } from '../ui/mode.js';
 import { areaBadges, diffBadge, LINK_ICON, linkify, NOTE_ICON } from '../ui/rows.js';
 import { toast } from '../ui/toast.js';
-import { DOW_NAMES, escapeHtml, etaDays, fDate, plural, todayStr, uid } from '../util.js';
+import { escapeHtml, etaDays, fDate, plural, todayStr, uid } from '../util.js';
 
 /* ---------- Protocolo Forster (modo focus, en memoria de Mark Forster) ---------- */
 export const FICON={
@@ -66,7 +66,7 @@ export function focusMeta(l){
   }
   if(l.kind==='habit'){
     const c=countToday(it);
-    const sc=it.type==='free'?`Libre · llevas ${c} ${c===1?'vez':'veces'}`:it.type==='daily'?'Diario':'Semanal ('+(it.days||[]).map(d=>DOW_NAMES[d]).join(' ')+')';
+    const sc=it.type==='free'?`Libre · llevas ${c} ${c===1?'vez':'veces'}`:habitKind(it);
     return {text:sc+' · hoy, '+fDate(todayStr()),cls:'text-slate-400'};
   }
   return {text:`Añadida a las ${fClock(l.added)} · sin vincular`,cls:'text-slate-400'};

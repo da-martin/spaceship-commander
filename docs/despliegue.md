@@ -193,6 +193,25 @@ directamente con la guardada. «Deshacer última carga», en Guardar / cargar
 partida, también deshace una importación. Lo importado lleva `src: 'taskhero:<id>'`: evita duplicar al volver a
 importar y deja el elemento enlazado.
 
+Qué se trae (la conversión vive en `public/js/lib/taskhero-map.js`):
+
+- **Dificultad**, en hábitos y tareas: micro → Micro, small → Fácil, normal →
+  Normal, hard → Difícil, epic → Épica. Una que no conozcamos queda en Normal y
+  se apunta en las notas.
+- **Tipo de hábito**, solo cuando tiene equivalente, todos con objetivo de una
+  vez al día: semanal con todos los días → Diario, con algunos → Semanal,
+  mensual → Mensual. Lo demás (varias veces al día, objetivo 0, anual, cada X
+  días) no lo tiene, y la API de TaskHero **no dice si un hábito es negativo**:
+  la vista previa pide elegir Libre o Negativo, con Libre marcado. Un negativo
+  no se sincroniza.
+- **Lo ya importado** no se duplica. Si la dificultad o la frecuencia han
+  cambiado (o se importó con una versión que aún no las traía), sale en «Ya
+  importados con cambios», sin marcar: se pone al día solo lo que se marque, y
+  nunca el nombre ni las notas. Con historial, un hábito no cambia de positivo a
+  negativo ni al revés.
+- Los días añadidos y quitados (`scheduleOverrides`), la lista y la frecuencia
+  original van a las notas.
+
 ### Sincronizar
 
 Con **Conectar** (o con la casilla del importador) se guarda la clave en la
@@ -203,8 +222,8 @@ cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
   por nombre se guarda en `src` la primera vez, así que sobrevive a cambios de
   nombre. Cada elemento se puede desenlazar (`thOff`). Un id de TaskHero se
   enlaza a un solo elemento; los hábitos negativos nunca.
-- **Lo demás:** su esfuerzo como tracker points (`POST /tracker-points`, Fácil
-  0,5 · Normal 1 · Difícil 2).
+- **Lo demás:** su esfuerzo como tracker points (`POST /tracker-points`, Micro
+  0,1 · Fácil 0,5 · Normal 1 · Difícil 2 · Épica 3).
 - **Cola con 30 s de margen,** en `localStorage['spaceship-commander:thq']` de cada
   dispositivo: marcar y desmarcar dentro del margen no envía nada. Desmarcar
   después descompleta lo enlazado (`/uncomplete`); los puntos ya enviados se

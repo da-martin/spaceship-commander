@@ -32,3 +32,5 @@ export const FDAY=['dom','lun','mar','mié','jue','vie','sáb'];
 export const fDate=(s)=>FDAY[dayParse(s).getDay()]+' '+fmtDate(s);
 
 export const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
+// «a, b y c»
+export const listY=(a)=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' y '+a[a.length-1];
