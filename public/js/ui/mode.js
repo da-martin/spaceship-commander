@@ -2,7 +2,7 @@
 import { on } from '../core/events.js';
 import { enterFocus, paintFocusClock, requestFocusExit } from '../features/focus.js';
 import { shipArrive } from '../features/log.js';
-import { enterAlliance } from './alliance-view.js';
+import { enterAlliance, renderAlliance } from './alliance-view.js';
 import { render } from './commander.js';
 import { renderShip } from './ship-view.js';
 import { view } from './view.js';
@@ -29,7 +29,8 @@ export function setMode(m){
   applyWeeks();
   if(ship) shipArrive();   // lo que pasó mientras estabas fuera
   render(); paintFocusClock(); scrollTo(0,0);
-  if(alliance) enterAlliance();   // lo que cambió en la alianza mientras estabas fuera
+  // Al entrar: lo que cambió mientras estabas fuera. Al salir: el punto de aviso vuelve a contar.
+  alliance?enterAlliance():renderAlliance();
 }
 
 /* ---------- wiring: lo llama main.js al arrancar ---------- */

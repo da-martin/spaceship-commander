@@ -10,11 +10,15 @@ export function resetAlly(){ ally.status='idle'; ally.data=null; ally.seq++; }
 
 const post=(path,body)=>api('/api/alliance'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
 
+// Lo que obliga a repintar la vista: quién está y quién está invitado. Los
+// contadores de lectura cambian con cada mensaje y solo mueven el punto de aviso.
+const shape=(d)=>JSON.stringify(d,(k,v)=>k==='unread'||k==='lastRead'?undefined:v);
+
 // Devuelve true si la foto cambió. Una respuesta que llega después de cerrar
 // sesión (o de otra petición más nueva) se descarta.
 function adopt(seq,data){
   if(seq!==ally.seq) return false;
-  const changed=ally.status!=='ready'||JSON.stringify(data)!==JSON.stringify(ally.data);
+  const changed=ally.status!=='ready'||shape(data)!==shape(ally.data);
   ally.status='ready'; ally.data=data;
   return changed;
 }
@@ -54,3 +58,17 @@ export async function searchPlayers(q){
     return {results:res.results||[]};
   }catch{ return {error:'network'}; }
 }
+
+/* ---------- chat ---------- */
+
+// Devuelven el JSON del servidor, o {error}. 'no_alliance': ya no estás dentro.
+async function chatCall(path,opts){
+  try{
+    const r=await api('/api/alliance'+path,opts), res=await r.json().catch(()=>({}));
+    return r.ok?res:{error:res.error||'network'};
+  }catch{ return {error:'network'}; }
+}
+// `q`: '' los últimos · '?after=id' lo nuevo · '?before=id' anteriores.
+export const fetchMessages=(q='')=>chatCall('/messages'+q);
+export const sendMessage=(body)=>chatCall('/messages',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body})});
+export const markRead=(id)=>chatCall('/read',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});

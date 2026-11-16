@@ -1,10 +1,11 @@
-/* Vista Alliance: tu alianza, sus miembros y las invitaciones.
+/* Vista Alliance: tu alianza, su chat, sus miembros y las invitaciones.
  * No cuelga de render(): se pinta sola cuando cambia lo suyo, para no borrar
  * lo que se está escribiendo en el buscador cada vez que el juego repinta. */
 import { ally, allyAct, loadAlly, searchPlayers } from '../sync/alliance.js';
 import { openAuthModal } from '../sync/auth.js';
 import { cloud } from '../sync/cloud.js';
 import { escapeHtml, plural } from '../util.js';
+import { chatPanel, initChat, syncChat } from './alliance-chat.js';
 import { uiMode } from './mode.js';
 import { toast } from './toast.js';
 
@@ -26,6 +27,7 @@ const ERR={
 // ('leave' | 'disband' | 'kick:<id>'), el buscador y sus resultados.
 // `known`: ya se sabe si hay sesión (al arrancar aún no).
 const ui={ known:false, confirm:null, busy:false, q:'', results:null, searchErr:null, searchTimer:null, searchSeq:0 };
+const BG_POLL_MS=60000;
 const resetSearch=()=>{ clearTimeout(ui.searchTimer); ui.q=''; ui.results=null; ui.searchErr=null; ui.searchSeq++; };
 
 const btn='px-3 h-11 rounded-lg text-sm bg-slate-800 border border-slate-700 text-slate-200 hover:border-cyan-600';
@@ -38,14 +40,25 @@ const confirmBtns=(key,label,ask)=>ui.confirm===key
   ? `<span class="flex flex-wrap items-center justify-end gap-2 ml-auto"><span class="text-sm text-red-300">${ask}</span><span class="flex gap-2 shrink-0"><button type="button" data-ally="yes" class="${btnDanger}">Sí</button><button type="button" data-ally="no" class="${btn}">No</button></span></span>`
   : `<button type="button" data-ally="ask" data-key="${key}" class="${btnDanger}">${label}</button>`;
 
+// El punto avisa de invitaciones o de mensajes sin leer. Dentro de la vista
+// sobra: lo estás viendo.
 function paintDots(){
-  const n=ally.data&&!ally.data.alliance?ally.data.invites.length:0;
-  document.querySelectorAll('[data-allydot]').forEach(d=>d.classList.toggle('hidden',!n));
+  const d=ally.data, n=!d?0:d.alliance?(uiMode==='alliance'?0:d.alliance.unread):d.invites.length;
+  document.querySelectorAll('[data-allydot]').forEach(e=>e.classList.toggle('hidden',!n));
 }
 
 export function renderAlliance(){
   paintDots();
-  if(uiMode!=='alliance') return;
+  if(uiMode!=='alliance'){ syncChat(); return; }   // sin vista solo se entera de si sigue habiendo alianza
+  // Repintar no debe sacarte del campo en el que estás escribiendo.
+  const focus=document.activeElement&&['chatInput','allySearch'].includes(document.activeElement.id)?document.activeElement.id:null;
+  paintBody();
+  syncChat();   // monta el chat si hay alianza a la vista; si no, lo para
+  paintDots();  // el chat acaba de marcar como leído lo que se ve
+  const f=focus&&document.getElementById(focus);
+  if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); }
+}
+function paintBody(){
   const body=document.getElementById('allianceBody');
   if(!cloud.user&&!ui.known){ body.innerHTML=note('Cargando…'); return; }
   if(!cloud.user){
@@ -114,9 +127,13 @@ function alliancePanel(a){
       <div class="sys-label">Alianza</div>
       <div class="flex flex-wrap items-end gap-x-3 gap-y-1 mt-1.5">
         <h2 class="text-2xl sm:text-3xl font-bold leading-none break-words min-w-0">${escapeHtml(a.name)}</h2>
-        <span class="mono text-sm text-slate-400">${a.members.length} / ${a.max}</span>
+        <span class="mono text-sm text-slate-400">${plural(a.members.length,'miembro','miembros')} de ${a.max}</span>
       </div>
-      <ul class="mt-4 space-y-2">${members}</ul>
+    </section>
+    ${chatPanel()}
+    <section class="panel p-4 sm:p-5">
+      <div class="sys-label">Miembros</div>
+      <ul class="mt-3 space-y-2">${members}</ul>
       ${pending}
     </section>
     <section class="panel p-4 sm:p-5">
@@ -177,7 +194,9 @@ export async function refreshAlliance(){
   if(!cloud.user){ ui.confirm=null; resetSearch(); renderAlliance(); return; }
   const pending=loadAlly();
   if(ally.status==='loading') renderAlliance();
-  if(await pending){
+  const changed=await pending;
+  paintDots();   // mensajes sin leer: cambian sin que cambie nada más
+  if(changed){
     renderAlliance();
     // Los resultados dicen quién está invitado o dentro: con la foto nueva ya no valen.
     const q=ui.q.trim(); if(q.length>=3&&document.getElementById('allySearch')) runSearch(q,++ui.searchSeq);
@@ -192,6 +211,12 @@ export function allianceBoot(){ ui.known=true; return refreshAlliance(); }
 /* ---------- wiring: lo llama main.js al arrancar ---------- */
 export function init(){
   const body=document.getElementById('allianceBody');
+  // Fuera de la vista se mira de vez en cuando, solo para el punto de aviso.
+  setInterval(()=>{ if(cloud.user&&uiMode!=='alliance'&&!document.hidden) refreshAlliance(); },BG_POLL_MS);
+  initChat(body,{
+    onGone:()=>{ toast('Ya no estás en esa alianza'); refreshAlliance(); },   // expulsado o disuelta
+    onRoster:refreshAlliance,                                                // alguien ha entrado o salido
+  });
   body.addEventListener('click',async e=>{
     const b=e.target.closest('[data-ally]'); if(!b) return;
     const a=b.dataset.ally, id=b.dataset.id;
