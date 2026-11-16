@@ -18,6 +18,7 @@ export function openThModal(m){
   $('thHelp').textContent=imp
     ? HELP_IMPORT+' '+(linked?'Usa la clave de la cuenta conectada.':'La clave solo se usa para esta lectura y no se guarda, salvo que marques «Conectar también».')
     : HELP_CONNECT;
+  $('thNegWarn').classList.toggle('hidden',!imp);
   $('thKey').value='';
   $('thLinkToo').checked=false;
   $('thLinkRow').classList.toggle('hidden',!imp||linked||!thc.ready);
