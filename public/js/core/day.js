@@ -1,7 +1,7 @@
 /* El cambio de día: desgaste de los días sin abrir, sueldos y tablón. */
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
 import { crewPayroll, genCandidates } from './crew.js';
-import { isDoneToday, isScheduledToday } from './habits.js';
+import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
 import { logShip } from './log.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
@@ -21,10 +21,10 @@ export function todayProgress(){
 // días pasados sin revisar: desgaste por hábitos fallados y tareas atrasadas
 // `miss` cuenta las causas para el aviso de desgaste
 export function decayDay(day,miss){
-  const start=dayParse(day).getTime(), end=start+864e5, dow=dayParse(day).getDay();
+  const start=dayParse(day).getTime(), end=start+864e5;
   for(const h of state.habits){
     if(h.type==='free'||h.type==='neg'||(h.createdAt||0)>=start) continue;
-    if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
+    if(!isScheduledOn(h,day)) continue;
     if((h.log?.[day]||0)<1){ wear(h,WEAR_HABIT*effOf(h)); miss.habits++; }
   }
   for(const x of state.tasks){

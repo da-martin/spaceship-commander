@@ -82,6 +82,12 @@ export function normState(s){
   const st={tasks:items(s?.tasks),habits:items(s?.habits)};
   [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.notes==='string'&&x.notes.trim()) x.notes=x.notes.slice(0,NOTES_MAX); else delete x.notes; });
   st.habits.forEach(h=>{ if(!HABIT_TYPES.includes(h.type)) h.type='daily'; });
+  // Mensuales: días del mes 1–31, sin repetir y en orden. Sin ninguno válido, pasa a diario.
+  st.habits.forEach(h=>{
+    if(h.type!=='monthly'){ delete h.mdays; return; }
+    const m=[...new Set((Array.isArray(h.mdays)?h.mdays:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=31))].sort((a,b)=>a-b);
+    if(m.length) h.mdays=m; else { h.type='daily'; delete h.mdays; }
+  });
   // origen de lo importado de otra app ('taskhero:<id>'): evita duplicar al volver a importar
   [...st.tasks,...st.habits].forEach(x=>{ if(typeof x.src!=='string'||!x.src||x.src.length>200) delete x.src; if(x.thOff!==true) delete x.thOff; });
   [...st.tasks,...st.habits].forEach(x=>{ if(!EFFORT[x.diff]) x.diff='normal'; if(!Array.isArray(x.areas)) x.areas=[]; x.areas=[...new Set(x.areas.map(a=>a==='Family'?'Social':a==='Work'?'Craft':a).filter(a=>AREAS.includes(a)))]; });

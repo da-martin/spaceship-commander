@@ -4,9 +4,17 @@ Cada tarea y cada hábito lleva una dificultad que vale **puntos de esfuerzo**. 
 
 | Dificultad | Puntos de esfuerzo |
 |---|---|
+| Micro | 0,1 |
 | Fácil | 0,5 |
 | Normal | 1 |
 | Difícil | 2 |
+| Épica | 3 |
+
+Micro y Épica llegaron después, con la importación de TaskHero (que tiene las
+cinco). Micro sigue la regla de redondeo de lo que vale menos de 1 punto: no
+llega a 1 ¢ ni a 1 mérito, y la caída de un negativo Micro no daña. Cuenta como
+hecho, da su material y suma 0,1 a la misión. Épica paga 15 ¢ y 15 méritos, y un
+hábito épico fallado desgasta un 15 %.
 
 - La base es el hábito de hoy: **1 punto = lo que da hoy un hábito normal sin prioridad**.
 - Las tareas, que hoy dan el doble que los hábitos, pasan a dar lo mismo.
@@ -14,8 +22,8 @@ Cada tarea y cada hábito lleva una dificultad que vale **puntos de esfuerzo**. 
 
 ## Datos
 
-- Campo nuevo `diff: 'easy' | 'normal' | 'hard'` en tareas y hábitos. `normState()` pone `'normal'` si falta o no es válido.
-- Constante nueva `EFFORT = {easy:0.5, normal:1, hard:2}`, separada de `DIFFS` (que es la dificultad de las misiones y tiene otros campos). Los nombres y colores de las etiquetas se reutilizan para que se lea igual.
+- Campo nuevo `diff: 'micro' | 'easy' | 'normal' | 'hard' | 'epic'` en tareas y hábitos. `normState()` pone `'normal'` si falta o no es válido.
+- Constante nueva `EFFORT = {micro:0.1, easy:0.5, normal:1, hard:2, epic:3}`, separada de `DIFFS` (que es la dificultad de las misiones y tiene otros campos). Los nombres y colores de las etiquetas se reutilizan para que se lea igual.
 - Cada recompensa guarda los puntos que dio (`g.ef`). Al desmarcar se resta lo guardado, así que cambiar la dificultad de algo ya completado no afecta a lo que ya se ganó: solo cuenta para lo próximo. Las recompensas antiguas sin `g.ef` cuentan como 1.
 
 ## Recompensas al completar

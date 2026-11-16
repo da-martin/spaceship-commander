@@ -1,5 +1,6 @@
 /* Repaso de ayer: marcar lo olvidado antes de procesar el día. */
 import { processDays } from '../core/day.js';
+import { habitKind, isScheduledOn } from '../core/habits.js';
 import { checkHabit, grantTask, tapFree } from '../core/rewards.js';
 import { save, state } from '../store.js';
 import { render } from '../ui/commander.js';
@@ -19,14 +20,14 @@ export function loadRvSel(){
 }
 export function clearRvSel(){ try{ localStorage.removeItem(RVKEY); }catch{} }
 export function yesterdayPending(){
-  const t=todayStr(), y=addDays(t,-1), start=dayParse(t).getTime(), dow=dayParse(y).getDay();
+  const t=todayStr(), y=addDays(t,-1), start=dayParse(t).getTime();
   const ord=(a,b)=>(b.priority-a.priority)||a.title.localeCompare(b.title,'es');
   const habits=[], free=[];
   for(const h of state.habits){
     if((h.createdAt||0)>=start||h.type==='neg') continue;   // creado hoy: ayer no existía; los negativos no se repasan
     const n=h.log?.[y]||0;
     if(h.type==='free'){ if(!n) free.push(h); continue; }
-    if(h.type==='weekly'&&!(h.days||[]).includes(dow)) continue;
+    if(!isScheduledOn(h,y)) continue;
     if(n<1) habits.push(h);
   }
   const tasks=state.tasks.filter(x=>!x.done&&x.dueDate&&x.dueDate<=y&&(x.createdAt||0)<start)
@@ -71,7 +72,7 @@ export function openReview(){
     </div>`; };
   const t=todayStr(), late=(x)=>x.dueDate===p.y?'vencía ayer':`vencía el ${fmtDate(x.dueDate)} · hace ${Math.round((dayParse(t)-dayParse(x.dueDate))/864e5)} días`;
   const list=document.getElementById('rvList');
-  list.innerHTML=sec('Hábitos',p.habits.map(h=>check(h,h.type==='weekly'?'Semanal':'')).join(''))
+  list.innerHTML=sec('Hábitos',p.habits.map(h=>check(h,h.type==='weekly'||h.type==='monthly'?habitKind(h):'')).join(''))
     +sec('Hábitos libres',p.free.map(step).join(''))
     +sec('Tareas atrasadas',p.tasks.map(x=>check(x,late(x))).join(''));
   list.querySelectorAll('[data-rv]').forEach(cb=>cb.onchange=()=>{ if(cb.checked) rv.sel[cb.dataset.rv]=true; else delete rv.sel[cb.dataset.rv]; saveRvSel(); paintReviewOk(); });

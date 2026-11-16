@@ -45,7 +45,7 @@ export const REPAIR_MC = 2, HEAL = 2, WEAR_HABIT = 5, WEAR_TASK = 2;
 // hábito diario: se puede caer varias veces el mismo día.
 export const WEAR_NEG = 3;
 export const NOTES_MAX = 4000;   // notas de tareas y hábitos (texto plano)
-export const HABIT_TYPES = ['daily','weekly','free','neg'];
+export const HABIT_TYPES = ['daily','weekly','monthly','free','neg'];
 // ventajas de los módulos de área, por nivel efectivo
 export const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
@@ -63,8 +63,10 @@ export const LOG_MAX = 60, LOG_DAYS = 30;
 // Dificultad de tareas y hábitos: vale puntos de esfuerzo, la unidad de todo lo
 // que se gana al completar y de las cuotas de misión. 1 punto = lo que daba un
 // hábito normal. Las acciones rápidas del Focus cuentan como tareas fáciles.
-export const EFFORT = {easy:0.5, normal:1, hard:2};
-export const EFFORT_NAME = {easy:'Fácil', normal:'Normal', hard:'Difícil'};
+// Micro (0,1) no llega a 1 ¢ ni a 1 mérito con el redondeo de abajo: cuenta
+// como hábito o tarea hecha, da material y suma 0,1 a la misión.
+export const EFFORT = {micro:0.1, easy:0.5, normal:1, hard:2, epic:3};
+export const EFFORT_NAME = {micro:'Micro', easy:'Fácil', normal:'Normal', hard:'Difícil', epic:'Épica'};
 export const EF_MC = 5, EF_XP = 5, FREE_MC = 2;   // ¢ y méritos por punto; ¢ por toque de hábito libre (× puntos)
 export const EF_PROGRESS = 0.1;                   // puntos de cada Progreso en el Protocolo Forster
 export const effOf = (x) => x?.kind==='acc' ? EFFORT.easy : (EFFORT[x?.diff]||1);

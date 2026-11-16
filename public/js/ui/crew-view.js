@@ -24,7 +24,7 @@ export function renderRank(){
       <span class="mono text-[11px] text-slate-300">${next?`${next[1]-xp} para ${next[0]}`:'rango máximo'}</span>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[11px] text-slate-400">${k}</div></div>`).join('')}</div>
-    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: +${EF_XP} por punto de esfuerzo (fácil +${payRound(EF_XP*EFFORT.easy,EFFORT.easy)} · normal +${EF_XP} · difícil +${EF_XP*EFFORT.hard}) · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
+    <p class="mono text-[11px] text-slate-400 mt-3">Méritos: +${EF_XP} por punto de esfuerzo (micro +${payRound(EF_XP*EFFORT.micro,EFFORT.micro)} · fácil +${payRound(EF_XP*EFFORT.easy,EFFORT.easy)} · normal +${EF_XP} · difícil +${EF_XP*EFFORT.hard} · épica +${EF_XP*EFFORT.epic}) · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
 }
 export function renderCrew(){
