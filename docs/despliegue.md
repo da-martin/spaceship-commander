@@ -224,7 +224,7 @@ cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
   enlaza a un solo elemento; los hábitos negativos nunca.
 - **Lo demás:** su esfuerzo como tracker points (`POST /tracker-points`, Micro
   0,1 · Fácil 0,5 · Normal 1 · Difícil 2 · Épica 3).
-- **Cola con 30 s de margen,** en `localStorage['spaceship-commander:thq']` de cada
+- **Cola con 15 s de margen,** en `localStorage['spaceship-commander:thq']` de cada
   dispositivo: marcar y desmarcar dentro del margen no envía nada. Desmarcar
   después descompleta lo enlazado (`/uncomplete`); los puntos ya enviados se
   quedan, porque la API no permite retirarlos. Cada dispositivo envía solo lo que

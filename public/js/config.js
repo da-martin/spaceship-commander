@@ -112,4 +112,4 @@ export const MISSION_BY_ID = Object.fromEntries(MISSIONS.map(m=>[m.id,m]));
 // salido. La hora va en la recompensa (g.at), y por eso vale también al recargar
 // o al marcar en otro dispositivo. Libres y negativos no se pliegan nunca: se
 // tocan varias veces al día.
-export const RECENT_MS = 30e3;
+export const RECENT_MS = 15e3;

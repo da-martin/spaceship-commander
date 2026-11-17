@@ -5,7 +5,7 @@ import { thMsg, thReset, thStartRead } from './taskhero-import.js';
 import { toast } from '../ui/toast.js';
 
 const HELP_IMPORT='Trae tus hábitos y tus tareas pendientes con su nombre, su frecuencia y su fecha. Lo demás (dificultad, lista, notas…) va a las notas de cada uno. Antes de importar ves la lista y eliges qué entra.';
-const HELP_CONNECT='Con TaskHero conectado, lo que completes aquí se completa también allí si está enlazado: lo importado de allí y lo que se llame igual (lleva el icono de enlace). Lo demás envía su esfuerzo como tracker points: Micro 0,1 · Fácil 0,5 · Normal 1 · Difícil 2 · Épica 3. Sale 30 s después de marcar; si lo desmarcas antes, no se envía nada. La clave se guarda en el servidor, en tu cuenta.';
+const HELP_CONNECT='Con TaskHero conectado, lo que completes aquí se completa también allí si está enlazado: lo importado de allí y lo que se llame igual (lleva el icono de enlace). Lo demás envía su esfuerzo como tracker points: Micro 0,1 · Fácil 0,5 · Normal 1 · Difícil 2 · Épica 3. Sale 15 s después de marcar; si lo desmarcas antes, no se envía nada. La clave se guarda en el servidor, en tu cuenta.';
 
 let mode=null;   // 'import' | 'connect' mientras está abierto
 const $=(id)=>document.getElementById(id);
