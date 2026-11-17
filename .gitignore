@@ -3,3 +3,6 @@ node_modules/
 .wrangler/
 .dev.vars
 .claude/
+
+# APK generado por npm run apk
+*.apk
