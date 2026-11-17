@@ -1,0 +1,12 @@
+{
+  "appId": "com.spaceshipcommander.app",
+  "appName": "Spaceship Commander",
+  "webDir": "public",
+  "server": {
+    "url": "https://spaceship-commander.damartin.workers.dev",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0a0f1a"
+  }
+}

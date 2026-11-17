@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Spaceship Commander</string>
+    <string name="title_activity_main">Spaceship Commander</string>
+    <string name="package_name">com.spaceshipcommander.app</string>
+    <string name="custom_url_scheme">com.spaceshipcommander.app</string>
+</resources>
