@@ -4,6 +4,7 @@ import { AREAS, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MOD
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
+import { normRpg } from './rpg/state.js';
 
 export const KEY = 'spaceship-commander:v1';
 export const SHIP_NAME_MAX = 20;
@@ -57,7 +58,7 @@ export function normLog(a){
     got:num(e.got), lost:num(e.lost), seen:!!e.seen, read:!!e.read
   })).slice(-LOG_MAX);
 }
-export function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)},settings:{...normSettings(null),areaNames:{}}}; }
+export function freshState(){ return {tasks:[],habits:[],projects:[],wallet:{mc:0,ecos:0,nexos:0,ale:0,bio:0},ship:normShip(null),focus:normFocus(null),cmd:{xp:0,stats:normStats(null)},settings:{...normSettings(null),areaNames:{}},rpg:normRpg(null)}; }
 // Protocolo Forster: lista larga persistente (líneas que apuntan a tareas/hábitos o acciones rápidas propias)
 export function normFocus(f){
   const lines=(Array.isArray(f?.lines)?f.lines:[]).filter(l=>l&&typeof l.id==='string'&&['task','habit','acc'].includes(l.kind)&&typeof l.ref==='string'&&(l.kind!=='acc'||typeof l.title==='string'))
@@ -68,7 +69,7 @@ export function normFocus(f){
 }
 // Ajustes: van en la partida para viajar con la cuenta y con los archivos.
 // Solo entran claves conocidas y del tipo de su valor por defecto.
-export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false,allyEvents:true,allyProgress:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
+export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false,allyEvents:true,allyProgress:true,showVR:false}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 // Nombres propios de las áreas: la clave interna (Spirit…) no cambia nunca; vacío = el de siempre.
 export const AREA_NAME_MAX = 24;
 export function normAreaNames(x){ const d={}; for(const a of AREAS){ const v=typeof x?.[a]==='string'?x[a].trim().slice(0,AREA_NAME_MAX):''; if(v&&v!==a) d[a]=v; } return d; }
@@ -104,6 +105,8 @@ export function normState(s){
   st.tasks.forEach(x=>{ x.projectId=(typeof x.projectId==='string'&&pids.has(x.projectId))?x.projectId:null; });
   st.wallet=normWallet(s?.wallet); st.ship=normShip(s?.ship); st.focus=normFocus(s?.focus); st.settings=normSettings(s?.settings); st.settings.areaNames=normAreaNames(s?.settings?.areaNames);
   // partidas sin rango: los méritos se calculan con el historial (tareas hechas y días de hábito cumplidos)
+  // VR Training: el minijuego guarda aquí todo lo suyo y no toca nada más.
+  st.rpg=normRpg(s?.rpg);
   st.cmd={xp:Number.isFinite(+s?.cmd?.xp)?Math.max(0,Math.floor(+s.cmd.xp)):retroXP(st),stats:normStats(s?.cmd?.stats)};
   return st;
 }

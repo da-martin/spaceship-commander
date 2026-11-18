@@ -26,6 +26,7 @@ import { init as initFeaturesReview } from './features/review.js';
 import { init as initFeaturesLog } from './features/log.js';
 import { init as initFeaturesFocus } from './features/focus.js';
 import { init as initUiMode } from './ui/mode.js';
+import { init as initUiVR } from './ui/vr-view.js';
 import { init as initIntegrationsCalendars } from './integrations/calendars.js';
 import { init as initSyncAuth } from './sync/auth.js';
 
@@ -54,6 +55,7 @@ initFeaturesLog();
 initFeaturesFocus();
 initUiMode();
 initUiAllianceView();
+initUiVR();
 initIntegrationsCalendars();
 initSyncAuth();
 
@@ -67,7 +69,7 @@ addEventListener('storage',e=>{
 });
 /* ---------- boot ---------- */
 dailyTick();
-{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'||m==='alliance'?m:'commander'); }
+{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'||m==='alliance'||m==='vr'?m:'commander'); }
 // El panel de semanas se anima a partir de aquí, no al pintar el estado guardado.
 requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('weeks-anim')));
 addEventListener('focus',()=>{

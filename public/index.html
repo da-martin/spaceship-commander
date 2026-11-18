@@ -147,6 +147,13 @@
   .stab{color:#94a3b8;border-bottom:2px solid transparent;margin-bottom:-1px}
   .stab:hover{color:#e2e8f0}
   .stab[aria-pressed="true"]{color:#fff;font-weight:600;border-bottom-color:#22d3ee}
+  /* VR Training: el dado gira al tirar y el resultado aparece justo después */
+  .vr-die{display:inline-block}
+  .vr-roll{animation:vr-roll .6s cubic-bezier(.2,.8,.3,1)}
+  .vr-reveal{animation:vr-fade .3s .5s both}
+  @keyframes vr-roll{0%{transform:rotate(-320deg) scale(.5);opacity:.2}70%{transform:rotate(15deg) scale(1.08);opacity:1}100%{transform:none}}
+  @keyframes vr-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.vr-roll,.vr-reveal{animation:none}}
   .ctab{min-height:44px;border-radius:10px;border:1px solid #334155;color:#cbd5e1}
   .ctab[aria-selected="true"]{background:#0e7490;border-color:#22d3ee;color:#fff;font-weight:600}
   /* Commander en una columna infinita obligaba a bajar 1.600 px para ver una
@@ -284,6 +291,7 @@
   <div class="flex border-b border-slate-800">
     <button type="button" data-stab="ship" aria-pressed="true" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Nave<span data-logdot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
     <button type="button" data-stab="alliance" aria-pressed="false" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Alianza<span data-allydot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
+    <button type="button" id="vrTab" data-stab="vr" aria-pressed="false" class="stab hidden relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">VR Training</button>
   </div>
 </nav>
 
@@ -496,6 +504,12 @@
      juego sigue igual; esto es el sitio donde darse apoyo. -->
 <main id="alliance-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-5">
   <div id="allianceBody" class="space-y-4"></div>
+</main>
+
+<!-- VR TRAINING: Entrenamiento en Holocubierta. Minijuego aparte (public/js/rpg/):
+     lee el esfuerzo del día y solo escribe en state.rpg. -->
+<main id="vr-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-5">
+  <div id="vrBody" class="space-y-4"></div>
 </main>
 
 <!-- FOCUS VIEW: PROTOCOLO FORSTER -->
@@ -902,6 +916,15 @@
         <div class="mono text-[11px] text-slate-400 mt-0.5">Ascensos de rango y misiones completadas</div>
       </div>
       <button id="setAllyEvents" type="button" role="switch" aria-checked="true" aria-labelledby="lblAllyEvents" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+
+    <div class="sys-label mt-6 mb-2">VR Training</div>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div id="lblVR" class="text-sm font-medium">Entrenamiento en Holocubierta</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Minijuego de rol en un simulador. No afecta a tu nave ni a tus recompensas. Aparece como pestaña en Spaceship</div>
+      </div>
+      <button id="setVR" type="button" role="switch" aria-checked="false" aria-labelledby="lblVR" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
     </div>
 
     <!-- Importar y conectar viven juntos; la clave se pide en #thModal. Al
