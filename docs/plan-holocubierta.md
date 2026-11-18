@@ -80,7 +80,7 @@ Duran solo esa simulación.
 
 - **Vida**: 3 por tripulante. A 0 queda **desconectado** y ya no puede hacer tiradas. Con los 3 desconectados, la simulación falla.
 - **Suministros**: se empieza con 3. Gastar 1 permite **repetir una tirada** o **curar 1 de vida** en la sala de descanso.
-- **Holoobjetos**: hasta 3 a la vez. Caen en algunos eventos. Unos 12 en total (p. ej. *Kit de parches*: +1 de vida; *Chip de cálculo*: +1 a una tirada; *Baliza*: repetir una tirada gratis).
+- **Holoobjetos**: hasta 3 a la vez. Caen en algunos eventos. Son 12; la lista está en [holocubierta-estacion.md](holocubierta-estacion.md).
 
 ### La tirada
 
@@ -144,7 +144,8 @@ En `public/js/rpg/events-data.js`:
 }
 ```
 
-- Efectos posibles: `hp` (al que tiró), `hpAll` (a todo el escuadrón), `sup`, `item`. Nada más en la fase 1.
+- Efectos posibles: `hp` (al que tiró), `hpAll` (a todo el escuadrón), `sup`, `item` (uno concreto o `'random'`). Nada más en la fase 1.
+- Los eventos de cada escenario se escriben primero en un documento para revisarlos (el de la fase 1a: [holocubierta-estacion.md](holocubierta-estacion.md)) y después se pasan a `events-data.js`.
 - 2 o 3 opciones por evento; como mucho una segura.
 
 ### Guía para escribirlos
