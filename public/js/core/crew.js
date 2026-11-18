@@ -1,7 +1,7 @@
 /* Tripulación: candidatos, contratos semanales y sueldos. */
-import { BERTHS, CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, RANKS, ROLES } from '../config.js';
+import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, RANKS, ROLES } from '../config.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
-import { mod } from './ship.js';
+import { berths, berthsUsable, mod } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { state } from '../store.js';
 import { addDays, pick, uid } from '../util.js';
@@ -17,7 +17,8 @@ export function genCandidates(){
 export function hireBlock(x){
   const L=CREW_LV[x.lv-1];
   if(rankIdx()<L.rank) return 'Requiere rango '+RANKS[L.rank][0];
-  if(state.ship.crew.length>=BERTHS) return 'Sin litera libre';
+  if(state.ship.crew.length>=berths()) return 'Sin litera libre';
+  if(state.ship.crew.length>=berthsUsable()) return 'Camarotes dañados · repáralos';
   if(state.wallet.mc<wageOf(L.wage)) return 'Recursos insuficientes';
   return null;
 }

@@ -32,11 +32,13 @@ export const MODS = {
   engines:{name:'Motores',      kind:'gen',  desc:'+1 día de duración máx. de misión por nivel'},
   cargo:  {name:'Bodega',       kind:'gen',  desc:'+10% ¢ en recompensas de misión por nivel'},
   comms:  {name:'Antena',       kind:'gen',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
+  quarters:{name:'Camarotes',   kind:'gen',  desc:'+1 litera para la tripulación por nivel'},
   spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+8% de méritos por nivel'},
   social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'−8% en los sueldos de la tripulación por nivel'},
   craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'−10% en el coste ¢ del astillero por nivel'},
   health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+1 punto de estado al día por nivel en el módulo más dañado'}
 };
+export const SHIP_LV_MAX = Object.keys(MODS).length*5;   // nivel total de la nave con todo al máximo
 // Sigue haciendo falta para repartir desgaste y reparación, no para ganar material.
 export const AREA_MOD = {Spirit:'spirit',Social:'social',Craft:'craft',Health:'health'};
 export const MOD_MC = [60,125,250,500,1000], MOD_MAT = [1,2,4,6,9];
@@ -79,6 +81,7 @@ export const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teni
   ['Capitán de navío',2400],['Comodoro',3700],['Contraalmirante',5500],['Vicealmirante',8000],['Almirante',11500]];
 
 /* ---------- tripulación: contratos semanales prepagados ---------- */
+// BERTHS: literas de serie; los Camarotes suman una más por nivel
 export const BERTHS = 2, CANDS_N = 4, CREW_DAYS = 7;
 // nivel del tripulante: salario semanal y rango mínimo del comandante para contratarlo
 export const CREW_LV = [{name:'Aprendiz',wage:45,rank:0},{name:'Oficial',wage:90,rank:2},{name:'Élite',wage:150,rank:4}];
