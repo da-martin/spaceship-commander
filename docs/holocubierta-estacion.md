@@ -19,11 +19,11 @@ Se llevan como mucho 3 a la vez y solo duran la simulación. Se usan cuando quie
 
 | Objeto | Efecto |
 |---|---|
-| Kit de parches | +1 vida a un tripulante |
+| Kit de parches | +1 vida al tripulante más herido |
 | Botiquín | +1 vida a todo el escuadrón |
 | Estimulante | Reconecta a un tripulante desconectado con 1 vida |
 | Raciones | +2 suministros |
-| Escudo personal | Anula la próxima pérdida de vida de quien lo lleve (salta solo) |
+| Escudo personal | Anula la próxima pérdida de vida, también si es «a todos» (salta solo) |
 | Chip de cálculo | +1 a una tirada |
 | Baliza | Repite una tirada gratis |
 | Dado trucado | La próxima tirada saca un 6 |
@@ -47,7 +47,7 @@ Un dron bloquea el pasillo. Su luz roja barre el suelo, cada vez más cerca, mie
   - ✅ Pasas por debajo sin que te vea.
   - ⚠️ Pasas, pero se te cae parte del equipo. · −1 suministro
   - ❌ Te roza un disparo. · −1 vida
-- 🛡️ **Retroceder y dar un rodeo** · −1 suministro
+- 🛡️ **Retroceder y dar un rodeo** · Das un rodeo largo. · −1 suministro
 
 ### est-02 · Esclusa atascada
 La puerta de la esclusa se ha quedado medio abierta y el aire se escapa con un silbido cada vez más agudo. Al otro lado está el camino que buscas.
@@ -72,7 +72,7 @@ Camillas volcadas, cajones abiertos y un cartel que dice «NO TOCAR LAS MUESTRAS
   - ✅ Al fondo de un armario, un botiquín intacto. · *Botiquín*
   - ⚠️ Solo vendas y algo de comida caducada, pero comestible. · +1 suministro
   - ❌ Tocas una muestra azul. Era por algo. · −1 vida
-- 🛡️ **Pasar de largo** · Sin efecto
+- 🛡️ **Pasar de largo** · Sigues adelante sin tocar nada. · Sin efecto
 
 ### est-04 · El camarero automático
 En la cafetería, un robot con pajarita se pone delante de ti. «¡Bienvenido! El menú del día es sopa de algas. Insisto». La sopa lleva hirviendo desde antes de que nacieras.
@@ -97,7 +97,7 @@ La gravedad artificial ha fallado en este tramo. Herramientas, tazas y algún za
   - ✅ Todo el escuadrón cruza en orden. Por el camino recoges cosas útiles. · +1 suministro
   - ⚠️ Cruzáis, pero la cuerda se queda allí. · −1 suministro
   - ❌ La cuerda se suelta y os dispersáis. · −1 vida a todos
-- 🛡️ **Volver y buscar otra ruta** · −1 suministro
+- 🛡️ **Volver y buscar otra ruta** · Encuentras otro camino, más largo. · −1 suministro
 
 ### est-06 · Fuga de refrigerante
 Una tubería rota escupe una nube helada que cubre todo el pasillo. Se ve una válvula al otro lado, medio cubierta de escarcha.
@@ -110,7 +110,7 @@ Una tubería rota escupe una nube helada que cubre todo el pasillo. Se ve una v�
   - ✅ Atraviesas la nube conteniendo la respiración.
   - ⚠️ Llegas tiritando. · −1 vida
   - ❌ Resbalas en la escarcha a medio camino. · −2 vida
-- 🛡️ **Dar un rodeo por mantenimiento** · −1 suministro
+- 🛡️ **Dar un rodeo por mantenimiento** · Los túneles de mantenimiento te llevan al otro lado. · −1 suministro
 
 ### est-07 · Técnico atrapado
 Un holograma de un técnico parpadea bajo unos escombros. «¡Eh! ¡Sacadme de aquí! Conozco esta estación como la palma de mi mano. Bueno, de mi mano holográfica».
@@ -163,7 +163,7 @@ Frascos que brillan en la oscuridad cubren las estanterías. Uno de los cultivos
   - ✅ Uno es un estimulante de primera. · *Estimulante*
   - ⚠️ Te llevas algo útil, pero la alfombra te muerde. · +1 suministro, −1 vida
   - ❌ La alfombra no quiere que analices nada. · −2 vida
-- 🛡️ **Sellar el laboratorio y seguir** · −1 suministro
+- 🛡️ **Sellar el laboratorio y seguir** · Sellas la puerta con lo que tienes a mano. · −1 suministro
 
 ### est-11 · El chatarrero
 Un tipo con un abrigo lleno de bolsillos ha montado un puesto en mitad del pasillo. «Todo original, todo de la estación, todo con garantía de que funciona. Más o menos».
@@ -176,7 +176,7 @@ Un tipo con un abrigo lleno de bolsillos ha montado un puesto en mitad del pasil
   - ✅ Le recuerdas quién manda aquí y te regala algo. · Holoobjeto al azar
   - ⚠️ Te da algo, de muy mala gana. · +1 suministro
   - ❌ Aparecen sus primos. Muchos primos. · −1 vida a todos
-- 🛡️ **Ignorarlo** · Sin efecto
+- 🛡️ **Ignorarlo** · Sigues tu camino. Él sigue a lo suyo. · Sin efecto
 
 ### est-12 · Conductos de ventilación
 La puerta principal está soldada. La única alternativa es un conducto estrecho que se ramifica en todas direcciones y huele a calcetín de hace dos siglos.
@@ -201,7 +201,7 @@ Las luces se apagan de golpe. En la oscuridad se oyen pasos metálicos que no so
   - ✅ Paso a paso, en silencio, llegáis a la salida.
   - ⚠️ Llegáis, con algún tropiezo. · −1 vida
   - ❌ El pánico se extiende por el escuadrón. · −1 vida a todos
-- 🛡️ **Encender bengalas** · −1 suministro
+- 🛡️ **Encender bengalas** · La luz roja de las bengalas os guía hasta la salida. · −1 suministro
 
 ### est-14 · Brazo de carga
 Un brazo robótico gigante mueve contenedores de un lado a otro de la bodega, sin parar y sin mirar. Su ritmo es casi, casi regular.
@@ -234,7 +234,7 @@ Una sala llena de terminales que todavía funcionan. En una pantalla se lee: «P
   - ✅ Te descargas los planos completos. · *Mapa parcial*
   - ⚠️ Solo consigues la mitad de los planos, que algo es. · +1 suministro
   - ❌ El sistema de seguridad te frena con una descarga. · −1 vida
-- 🛡️ **Pasar de largo** · Sin efecto
+- 🛡️ **Pasar de largo** · Dejas los terminales con sus secretos. · Sin efecto
 
 ### est-17 · Lanzadera en el hangar
 Una lanzadera vieja descansa en el hangar con la escotilla abierta. El otro lado del hangar, donde está la salida, queda muy lejos a pie.
@@ -259,7 +259,7 @@ Un perro robot con la batería en rojo empieza a seguirte. Mueve la cola con un 
   - ✅ «Tornillo, busca». Vuelve con un escáner en la boca. · *Escáner portátil*
   - ⚠️ Te trae un zapato. Algo es algo. · +1 suministro
   - ❌ Tornillo se come parte de tus suministros. · −1 suministro
-- 🛡️ **Dejarlo** · Sin efecto. Te mira con ojos de LED tristes.
+- 🛡️ **Dejarlo** · Te mira con ojos de LED tristes. · Sin efecto
 
 ### est-19 · Mensaje de socorro
 Por los altavoces se repite un mensaje grabado: «Aquí la tripulante Ibarra. Dejo provisiones en la sala 7-B para quien venga. No toques el botón rojo». No dice qué botón rojo.
@@ -268,7 +268,7 @@ Por los altavoces se repite un mensaje grabado: «Aquí la tripulante Ibarra. De
   - ✅ Encuentras el alijo de Ibarra. · +2 suministros
   - ⚠️ Lo encuentras, pero alguien ya se llevó la mitad. · +1 suministro
   - ❌ Encuentras el botón rojo. Con el codo. · −1 vida a todos
-- 🛡️ **Ignorar el mensaje** · Sin efecto
+- 🛡️ **Ignorar el mensaje** · El mensaje se pierde a tu espalda. · Sin efecto
 
 ### est-20 · Sala de entrenamiento
 Una sala de entrenamiento dentro de tu entrenamiento. En la puerta, un letrero: «Circuito de agilidad. Récord: 47 segundos. Instructor Maldonado». La taquilla del instructor está entreabierta.
@@ -288,7 +288,7 @@ Una sala de entrenamiento dentro de tu entrenamiento. En la puerta, un letrero: 
 
 > La IA de la estación te espera en el núcleo. Habla con una voz suave y tranquilizadora. «Hola. Antes de marcharte, ¿podrías responder a una breve encuesta de satisfacción? Son solo 4.000 preguntas. No hay salida hasta que termines».
 
-Tres tiradas seguidas, con dificultad 6. Hay que superar **2 de 3** y que el escuadrón siga en pie. En el jefe, un éxito con coste cuenta como éxito pero cuesta 1 de vida. Cada fallo cuesta 1 de vida a quien tira.
+Tres pasos, con dificultad 7. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
 
 1. **Cortarle el acceso a las puertas** (Ingeniería, Navegación)
    - ✅ Las puertas del núcleo dejan de obedecerle.
@@ -323,4 +323,4 @@ En cuántos de los 20 eventos aparece cada rol (sin contar el jefe):
 - Ingeniería domina a propósito: es el escenario de tecnología. Comercio sale poco aquí y tendrá su protagonismo en el Puerto franco.
 - Los 20 eventos tienen una opción para un rol de serie (Pilotaje, Ingeniería o Mantenimiento) o una opción segura.
 - Las tres tiradas del jefe se pueden hacer con roles de serie.
-- Los números (vida, suministros, dificultad) se ajustarán con el test de equilibrio.
+- Números ajustados con el test de equilibrio: dificultad 5/6/7 en las salas y 7 en el jefe, 3 de vida y 2 suministros al empezar. El jugador automático gana ~70 % de las simulaciones.

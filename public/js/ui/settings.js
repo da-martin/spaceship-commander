@@ -5,6 +5,7 @@ import { AREA_DOT, AREAS } from '../config.js';
 import { AREA_NAME_MAX, SHIP_NAME_DEFAULT, areaName, normAreaNames, normShipName, save, state } from '../store.js';
 import { escapeHtml } from '../util.js';
 import { render } from './commander.js';
+import { paintVRTab, setMode, uiMode } from './mode.js';
 import { view } from './view.js';
 
 // Ajustes: cada interruptor escribe en state.settings y se ve al momento
@@ -15,6 +16,7 @@ export function paintSettings(){
   document.getElementById('setBadgeEvents').setAttribute('aria-checked',String(state.settings.badgeEvents));
   document.getElementById('setAllyProgress').setAttribute('aria-checked',String(state.settings.allyProgress));
   document.getElementById('setAllyEvents').setAttribute('aria-checked',String(state.settings.allyEvents));
+  document.getElementById('setVR').setAttribute('aria-checked',String(state.settings.showVR));
   document.getElementById('setAreasSub').textContent=AREAS.map(areaName).join(' · ');
   paintCalendars(); paintTh();
 }
@@ -70,4 +72,9 @@ export function init(){
     state.ship.name=normShipName(document.getElementById('shipNameIn').value); save(); render(); closeShipName();
   });
   document.getElementById('setAllyEvents').onclick=()=>{ state.settings.allyEvents=!state.settings.allyEvents; save(); paintSettings(); };
+  // VR Training: al apagarlo desaparece la pestaña; lo jugado se queda guardado.
+  document.getElementById('setVR').onclick=()=>{
+    state.settings.showVR=!state.settings.showVR; save(); paintSettings(); paintVRTab();
+    if(!state.settings.showVR&&uiMode==='vr') setMode('ship');
+  };
 }

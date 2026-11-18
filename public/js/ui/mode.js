@@ -1,12 +1,15 @@
 /* Cambio de vista. Hay dos modos en la navegación: Commander (que incluye el
- * Protocolo Forster, 'focus') y Spaceship (con sus pestañas Nave, 'ship', y
- * Alianza, 'alliance'). uiMode sigue siendo la vista concreta. */
+ * Protocolo Forster, 'focus') y Spaceship (con sus pestañas Nave, 'ship',
+ * Alianza, 'alliance', y VR Training, 'vr', si está activado en Ajustes).
+ * uiMode sigue siendo la vista concreta. */
 import { on } from '../core/events.js';
 import { paintFocusClock, requestFocusExit } from '../features/focus.js';
 import { shipArrive } from '../features/log.js';
 import { enterAlliance, renderAlliance } from './alliance-view.js';
+import { state } from '../store.js';
 import { render } from './commander.js';
 import { view } from './view.js';
+import { enterVR } from './vr-view.js';
 import { applyWeeks, setWeeks } from './weeks.js';
 
 /* ---------- mode toggle ---------- */
@@ -15,14 +18,19 @@ export let uiMode = 'commander';
 // Pestaña de Spaceship a la que se vuelve al entrar en el modo.
 const STABKEY = 'spaceship-commander:stab';
 let shipTab = 'ship';
-try{ if(localStorage.getItem(STABKEY)==='alliance') shipTab='alliance'; }catch{}
-const navMode = (m) => m==='ship'||m==='alliance' ? 'ship' : 'commander';
+try{ const t=localStorage.getItem(STABKEY); if(t==='alliance'||t==='vr') shipTab=t; }catch{}
+const navMode = (m) => m==='ship'||m==='alliance'||m==='vr' ? 'ship' : 'commander';
+// La pestaña de VR Training solo existe con el ajuste activado.
+export function paintVRTab(){ document.getElementById('vrTab').classList.toggle('hidden',!state.settings.showVR); }
 export function setMode(m){
-  uiMode=m; const ship=m==='ship', focus=m==='focus', alliance=m==='alliance';
-  document.getElementById('commander-view').classList.toggle('hidden',ship||focus||alliance);
+  if(m==='vr'&&!state.settings.showVR) m='ship';
+  uiMode=m; const ship=m==='ship', focus=m==='focus', alliance=m==='alliance', vr=m==='vr';
+  document.getElementById('commander-view').classList.toggle('hidden',ship||focus||alliance||vr);
   document.getElementById('spaceship-view').classList.toggle('hidden',!ship);
   document.getElementById('focus-view').classList.toggle('hidden',!focus);
   document.getElementById('alliance-view').classList.toggle('hidden',!alliance);
+  document.getElementById('vr-view').classList.toggle('hidden',!vr);
+  paintVRTab();
   document.getElementById('navToggle').classList.toggle('nav-off',focus);
   const fn=document.getElementById('focusNav'); fn.classList.toggle('hidden',!focus); fn.classList.toggle('flex',focus);
   const modeBtn=(id,on)=>{ const b=document.getElementById(id);
@@ -41,6 +49,7 @@ export function setMode(m){
   render(); paintFocusClock(); scrollTo(0,0);
   // Al entrar: lo que cambió mientras estabas fuera. Al salir: el punto de aviso vuelve a contar.
   alliance?enterAlliance():renderAlliance();
+  if(vr) enterVR();
 }
 
 /* ---------- wiring: lo llama main.js al arrancar ---------- */

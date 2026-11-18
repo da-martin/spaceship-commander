@@ -79,7 +79,7 @@ Se puede salir en cualquier momento: la simulación se guarda y se retoma donde 
 Duran solo esa simulación.
 
 - **Vida**: 3 por tripulante. A 0 queda **desconectado** y ya no puede hacer tiradas. Con los 3 desconectados, la simulación falla.
-- **Suministros**: se empieza con 3. Gastar 1 permite **repetir una tirada** o **curar 1 de vida** en la sala de descanso.
+- **Suministros**: se empieza con 2. Gastar 1 permite **repetir una tirada** que haya salido mal. Las opciones seguras que cuestan suministros no se pueden elegir sin ellos.
 - **Holoobjetos**: hasta 3 a la vez. Caen en algunos eventos. Son 12; la lista está en [holocubierta-estacion.md](holocubierta-estacion.md).
 
 ### La tirada
@@ -91,7 +91,8 @@ Duran solo esa simulación.
   - **Éxito**: igual o mayor que la dificultad.
   - **Éxito con coste**: falla por 1. Se consigue, pero con el coste que diga el evento.
   - **Fallo**: lo demás.
-- Dificultad por sala: salas 1–3 → 4 · salas 4–6 → 5 · salas 7–9 → 6 · jefe → 6.
+- Dificultad por sala: salas 1–3 → 5 · salas 4–6 → 6 · salas 7–9 → 7 · jefe → 7. (Ajustada con el test de equilibrio; la primera propuesta, 4/5/6/6, salía demasiado fácil.)
+- Antes de tirar se ve la probabilidad de éxito de cada tripulante, y se pueden gastar holoobjetos de tirada.
 - Algunas opciones son **seguras**: no hay tirada y tienen un coste fijo (p. ej. «Retroceder: −1 suministro»).
 
 ### Sala de descanso
@@ -100,7 +101,9 @@ Elegir una: curar 1 de vida a todos, ganar 2 suministros o un holoobjeto al azar
 
 ### Jefe
 
-Tres tiradas encadenadas, cada una con su texto y sus roles. Cada fallo cuesta 1 de vida al tripulante que tiró. Hay que superar 2 de 3, y el escuadrón tiene que seguir en pie al final.
+Tres pasos, cada uno con su texto y sus roles. **Hay que superar los 3.** Un éxito con coste supera el paso pero cuesta 1 de vida; un fallo cuesta 1 de vida a quien tiró y **se repite el paso**. Si el escuadrón entero cae, la simulación falla.
+
+Así la vida con la que se llega al jefe es el margen para equivocarse, y lo que pasa en las salas cuenta. (La primera propuesta, «superar 2 de 3», hacía que las salas no importaran: todas las derrotas eran en el jefe y no dependían de cómo se llegaba.)
 
 ## Escenarios y eventos
 
@@ -122,7 +125,7 @@ Cada escenario se juega de una forma distinta y da protagonismo a roles distinto
 
 ### Formato
 
-En `public/js/rpg/events-data.js`:
+En `public/js/rpg/data.js`:
 
 ```js
 {
@@ -145,7 +148,7 @@ En `public/js/rpg/events-data.js`:
 ```
 
 - Efectos posibles: `hp` (al que tiró), `hpAll` (a todo el escuadrón), `sup`, `item` (uno concreto o `'random'`). Nada más en la fase 1.
-- Los eventos de cada escenario se escriben primero en un documento para revisarlos (el de la fase 1a: [holocubierta-estacion.md](holocubierta-estacion.md)) y después se pasan a `events-data.js`.
+- Los eventos de cada escenario se escriben primero en un documento para revisarlos (el de la fase 1a: [holocubierta-estacion.md](holocubierta-estacion.md)) y después se pasan a `data.js`.
 - 2 o 3 opciones por evento; como mucho una segura.
 
 ### Guía para escribirlos
@@ -181,11 +184,11 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 
 - `public/js/rpg/`: lógica pura, sin DOM, como `core/`.
   - `config.js`: números de energía, dificultades, vida y suministros.
-  - `events-data.js`: los 100 eventos, los 5 jefes y los holoobjetos.
+  - `data.js`: escenarios, eventos, jefes, holoobjetos y personajes de serie.
   - `energy.js`: cálculo de cargas a partir de `state.ship.activity`.
-  - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos y pasar de sala.
-  - `roster.js`: personajes de serie y holoperfiles.
+  - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos, objetos, descanso y jefe.
   - `state.js`: `normRpg()` para la partida y las partidas guardadas.
+- Ningún archivo de `rpg/` importa `store.js` ni `core/`: reciben `state.rpg` y lo que leen como argumentos. `test/architecture.test.js` lo comprueba.
 - `public/js/ui/vr-view.js`: las pantallas.
 - `store.js`: `st.rpg = normRpg(s?.rpg)` en `normState()` y en `freshState()`.
 - `ui/mode.js` e `index.html`: la pestaña `data-stab="vr"`.
@@ -212,12 +215,14 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
-- **Equilibrio**: 1.000 simulaciones con decisiones razonables por escenario; la tasa de victoria tiene que estar entre el 35 % y el 65 %. Con el escuadrón de serie, al menos el 25 % en todos.
+- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). La Estación, que es el primer escenario, tiene que ganarse entre el 60 % y el 80 % de las veces (ahora, ~70 %); una persona gana algo menos. Los escenarios siguientes irán bajando. Con el escuadrón de serie, al menos el 25 % en todos.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 
 ## Fases
 
 ### Fase 1a: lo mínimo jugable
+
+**Hecha.** Programada en `public/js/rpg/`, `public/js/ui/vr-view.js` y `test/rpg.test.js`.
 
 - Motor, energía, 3 personajes de serie, pantallas y tests.
 - Solo el escenario **Estación abandonada**: 20 eventos y su jefe.
