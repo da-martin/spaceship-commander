@@ -89,3 +89,12 @@ test('normAreaNames: solo áreas conocidas, recorta y descarta vacíos o el nomb
   assert.equal(normAreaNames({ Health: 'x'.repeat(50) }).Health.length, AREA_NAME_MAX);
   assert.deepEqual(normAreaNames(null), {});
 });
+
+test('el nombre de la nave se limpia y se recorta a 20 caracteres', () => {
+  const name = (n) => normState({ ship: { name: n } }).ship.name;
+  assert.equal(name('  Halcón   Milenario  '), 'Halcón Milenario');
+  assert.equal(name('x'.repeat(50)), 'x'.repeat(20));
+  assert.equal(name(''), '');
+  assert.equal(name(42), '');
+  assert.equal(freshState().ship.name, '');
+});

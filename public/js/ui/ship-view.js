@@ -7,7 +7,7 @@ import { agedMc, atHome, missionHint, missionsUnlocked, offerAge, sweepCost } fr
 import { perk } from '../core/rewards.js';
 import { baseSignal, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairQuote, sellOf } from '../core/shipyard.js';
-import { areaName, state } from '../store.js';
+import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
 import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
@@ -220,6 +220,8 @@ export function renderShip(){
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
+
+  const titleEl=document.getElementById('shipTitle'); titleEl.textContent=sh.name||SHIP_NAME_DEFAULT; titleEl.title=titleEl.textContent;
 
   renderRank();
   renderCrew();

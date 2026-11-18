@@ -414,7 +414,8 @@
   <section class="panel corner p-4 sm:p-5">
     <div class="sys-label">Esquema de la nave</div>
     <div class="flex flex-wrap items-center gap-2 mt-1 mb-3">
-      <h2 class="text-lg font-bold">Tu nave</h2>
+      <h2 id="shipTitle" class="text-lg font-bold min-w-0 max-w-full truncate">Tu nave</h2>
+      <button type="button" id="shipRename" aria-label="Cambiar el nombre de la nave" title="Cambiar el nombre de la nave" class="shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-md border border-slate-700 text-slate-400 hover:border-cyan-600 hover:text-cyan-300"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
       <span id="shipLevel" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
       <button type="button" id="shipStatus" class="ml-auto mono text-[11px] px-2 py-1 rounded-md border"></button>
     </div>
@@ -774,6 +775,28 @@
     <div id="undoRow" class="hidden mt-4 pt-3 border-t border-slate-800">
       <button id="btnUndoLoad" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-amber-500 text-sm text-amber-200"></button>
     </div>
+  </div>
+</div>
+
+<!-- NOMBRE DE LA NAVE -->
+<div id="shipNameModal" class="hidden fixed inset-0 z-[60] overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="shipNameTitle" class="panel w-full max-w-md p-5 mx-auto my-16">
+    <div class="flex items-start gap-2">
+      <div>
+        <div class="sys-label">Nave // Nombre</div>
+        <h3 id="shipNameTitle" class="text-lg font-bold mt-1">Nombre de la nave</h3>
+      </div>
+      <button id="shipNameClose" type="button" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <p class="mono text-[11px] text-slate-400 mt-2 leading-relaxed">Hasta 20 caracteres. Déjalo vacío para volver a «Tu nave».</p>
+    <form id="shipNameForm" class="mt-4" autocomplete="off">
+      <label for="shipNameIn" class="sr-only">Nombre de la nave</label>
+      <input id="shipNameIn" type="text" maxlength="20" placeholder="Tu nave" class="w-full h-11 px-3 rounded-lg bg-slate-900 border border-slate-700 text-sm outline-none focus:border-cyan-500">
+      <div class="flex gap-2 pt-4">
+        <button id="shipNameCancel" type="button" class="flex-1 h-11 rounded-lg bg-slate-800 border border-slate-700 text-sm">Cancelar</button>
+        <button type="submit" class="flex-1 btn-primary h-11 rounded-lg text-sm font-semibold">Guardar</button>
+      </div>
+    </form>
   </div>
 </div>
 

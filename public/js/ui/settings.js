@@ -2,7 +2,7 @@
 import { loadCalEvents, paintCalendars, showCalMsg } from '../integrations/calendars.js';
 import { paintTh, thc, thRefreshMap, thsMsg } from '../integrations/taskhero.js';
 import { AREA_DOT, AREAS } from '../config.js';
-import { AREA_NAME_MAX, areaName, normAreaNames, save, state } from '../store.js';
+import { AREA_NAME_MAX, SHIP_NAME_DEFAULT, areaName, normAreaNames, normShipName, save, state } from '../store.js';
 import { escapeHtml } from '../util.js';
 import { render } from './commander.js';
 import { view } from './view.js';
@@ -30,6 +30,12 @@ function openAreas(){
   document.querySelector('[data-area-in]').focus();
 }
 function closeAreas(){ document.getElementById('areasModal').classList.add('hidden'); document.getElementById('setAreas').focus(); }
+// Nombre de la nave: un campo, con tope de caracteres. Vacío = «Tu nave».
+function openShipName(){
+  const i=document.getElementById('shipNameIn'); i.value=state.ship.name||''; i.placeholder=SHIP_NAME_DEFAULT;
+  document.getElementById('shipNameModal').classList.remove('hidden'); i.focus(); i.select();
+}
+function closeShipName(){ document.getElementById('shipNameModal').classList.add('hidden'); document.getElementById('shipRename').focus(); }
 export function openSettings(){ view.calRemoving=null; thc.removing=false; showCalMsg(''); thsMsg(''); paintSettings(); document.getElementById('settingsModal').classList.remove('hidden'); loadCalEvents(); if(thc.connected) thRefreshMap().then(paintTh); }
 export function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
 
@@ -53,6 +59,15 @@ export function init(){
     e.preventDefault();
     const raw={}; document.querySelectorAll('[data-area-in]').forEach(i=>raw[i.dataset.areaIn]=i.value);
     state.settings.areaNames=normAreaNames(raw); save(); render(); paintSettings(); closeAreas();
+  });
+  document.getElementById('shipRename').onclick=openShipName;
+  document.getElementById('shipNameClose').onclick=closeShipName;
+  document.getElementById('shipNameCancel').onclick=closeShipName;
+  document.getElementById('shipNameModal').addEventListener('click',e=>{ if(e.target.id==='shipNameModal') closeShipName(); });
+  document.getElementById('shipNameModal').addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.stopPropagation(); closeShipName(); } });
+  document.getElementById('shipNameForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    state.ship.name=normShipName(document.getElementById('shipNameIn').value); save(); render(); closeShipName();
   });
   document.getElementById('setAllyEvents').onclick=()=>{ state.settings.allyEvents=!state.settings.allyEvents; save(); paintSettings(); };
 }
