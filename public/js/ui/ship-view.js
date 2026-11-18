@@ -1,11 +1,11 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del Sistema Madre. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, MATS, MODS, REP_DAYS, RES, SELFHEAL, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
 import { agedMc, atHome, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
 import { perk } from '../core/rewards.js';
-import { baseSignal, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
+import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairQuote, sellOf } from '../core/shipyard.js';
 import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
 import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
@@ -61,14 +61,14 @@ export const SHIP_SCALE = 0.65;
 export function shipArt(){
   const m=state.ship.modules, home=atHome();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
-  // Los ocho módulos existen desde el día uno: una nave necesita puente y
+  // Todos los módulos existen desde el día uno: una nave necesita puente y
   // motores para volar. El nivel solo decide cuánto crece cada pieza.
   // El estado solo atenúa; el dato exacto lo da el panel.
   const op=k=>(0.45+0.55*m[k].cond/100).toFixed(2);
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de 40, ${home?'en el Sistema Madre':'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${home?'en el Sistema Madre':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -93,12 +93,15 @@ export function shipArt(){
   s+=`<g opacity="${op('bridge')}"><path d="M138 62 L162 62 L168 88 L132 88 Z" fill="#0e3a4a" stroke="#7dd3fc" stroke-width="1.4"/><path d="M142 68 L158 68 L161 82 L139 82 Z" fill="#9fe7f5" fill-opacity=".3"/></g>`;
   // El mástil arranca bajo la cabina: si sube más, el plato se dibuja sobre el cristal.
   s+=`<g opacity="${op('comms')}"><line x1="150" y1="118" x2="150" y2="102" stroke="#4fd0e8" stroke-width="1.6"/><ellipse cx="150" cy="100" rx="${7+m.comms.lv}" ry="4" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.3"/></g>`;
+  // Camarotes: un ojo de buey por litera, las de serie incluidas
+  s+=`<g opacity="${op('quarters')}"><rect x="135" y="171" width="30" height="${10+6*Math.ceil(berths()/2)}" rx="4" fill="#16273f" stroke="#3f7f96" stroke-width="1.5"/>${
+    Array.from({length:berths()},(_,i)=>`<circle cx="${143+14*(i%2)}" cy="${178+6*Math.floor(i/2)}" r="2" fill="#9fe7f5" fill-opacity=".55"/>`).join('')}</g>`;
   s+=`<g opacity="${op('cargo')}"><rect x="131" y="124" width="38" height="${16+4*m.cargo.lv}" rx="4" fill="#16273f" stroke="#3f7f96" stroke-width="1.5"/><path d="M131 136 L169 136" stroke="#2a4c68" stroke-width="1.2"/></g>`;
 
   return s+pod('spirit',116,110)+pod('social',184,110)+pod('craft',117,166)+pod('health',183,166)+'</g></svg>';
 }
 
-export const SYS_ORDER=['bridge','engines','cargo','comms','spirit','social','craft','health'];
+export const SYS_ORDER=['bridge','engines','cargo','comms','quarters','spirit','social','craft','health'];
 export function shipSystems(){
   const m=state.ship.modules;
   // Siempre en el orden de la nave: el desgaste se lee en la barra de cada fila.
@@ -235,7 +238,7 @@ export function renderShip(){
 
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
   const tot=Object.values(sh.modules).reduce((a,m)=>a+m.lv,0);
-  document.getElementById('shipLevel').textContent=`Nv. total ${tot}/40`;
+  document.getElementById('shipLevel').textContent=`Nv. total ${tot}/${SHIP_LV_MAX}`;
   // Solo se repinta si cambia: rehacerla en cada render reiniciaría las estrellas.
   const art=shipArt();
   if(art!==lastShipArt){ document.getElementById('shipArt').innerHTML=art; lastShipArt=art; }
@@ -293,6 +296,7 @@ export function renderShip(){
   for(const [k,def] of Object.entries(MODS)){
     const m=mod(k), up=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k), q=repairQuote(k);
     const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`,
+      quarters:`${berths()} literas`+(berthsUsable()<berths()?` · ${berths()-berthsUsable()} dañada${berths()-berthsUsable()>1?'s':''}`:''),
       spirit:`+${Math.round(XP_BONUS*eff(k)*100)}% de méritos`,social:`−${Math.round(WAGE_CUT*eff(k)*100)}% en los sueldos`,
       craft:`−${Math.round(YARD_CUT*eff(k)*100)}% en el astillero`,health:`+${Math.round(SELFHEAL*eff(k))} de estado al día`}[k];
     const el=document.createElement('div'); el.id='mod-'+k;
