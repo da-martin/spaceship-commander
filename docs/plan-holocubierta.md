@@ -91,8 +91,9 @@ Duran solo esa simulación.
   - **Éxito**: igual o mayor que la dificultad.
   - **Éxito con coste**: falla por 1. Se consigue, pero con el coste que diga el evento.
   - **Fallo**: lo demás.
+- **Un 6 en el dado siempre es éxito**, aunque no llegue a la dificultad. Así ninguna tirada es imposible: sin esta regla, en las salas 7–9 (dificultad 7) un tripulante sin el rol tenía un 0 %.
 - Dificultad por sala: salas 1–3 → 5 · salas 4–6 → 6 · salas 7–9 → 7 · jefe → 7. (Ajustada con el test de equilibrio; la primera propuesta, 4/5/6/6, salía demasiado fácil.)
-- Antes de tirar se ve la probabilidad de éxito de cada tripulante, y se pueden gastar holoobjetos de tirada.
+- Antes de tirar se ve la probabilidad de éxito de cada tripulante (y la de éxito con coste), y si tiene a mano un holoobjeto que la mejora, con cuánto quedaría.
 - Algunas opciones son **seguras**: no hay tirada y tienen un coste fijo (p. ej. «Retroceder: −1 suministro»).
 
 ### Sala de descanso
@@ -215,7 +216,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
-- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). La Estación, que es el primer escenario, tiene que ganarse entre el 60 % y el 80 % de las veces (ahora, ~70 %); una persona gana algo menos. Los escenarios siguientes irán bajando. Con el escuadrón de serie, al menos el 25 % en todos.
+- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). La Estación, que es el primer escenario, tiene que ganarse entre el 60 % y el 80 % de las veces (ahora, ~75 %); una persona gana algo menos. Los escenarios siguientes irán bajando. Con el escuadrón de serie, al menos el 25 % en todos.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 
 ## Fases
