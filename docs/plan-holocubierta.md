@@ -2,7 +2,7 @@
 
 Un minijuego de rol dentro de Spaceship, aparte del juego principal. Es un simulador a bordo: lo que pasa dentro no tiene ninguna consecuencia en la nave, el monedero, el rango ni la tripulación. Se alimenta del esfuerzo del día y no devuelve nada.
 
-- **Fase 1: Pasillo de decisiones.** Salas con una situación y 2 o 3 opciones que se resuelven con un dado y el rol del tripulante. 60 eventos y 3 personajes de serie.
+- **Fase 1: Pasillo de decisiones.** Salas con una situación y 2 o 3 opciones que se resuelven con un dado y el rol del tripulante. 100 eventos en 5 escenarios y 3 personajes de serie.
 - **Fase 2: Dados de escuadrón.** Combates por turnos con dados por rol. Los eventos de la fase 1 pasan a ser las salas de evento del mapa.
 
 ## Nombres
@@ -104,15 +104,21 @@ Tres tiradas encadenadas, cada una con su texto y sus roles. Cada fallo cuesta 1
 
 ## Escenarios y eventos
 
-60 eventos: **3 escenarios × 20 eventos**, más 3 jefes aparte.
+100 eventos: **5 escenarios × 20 eventos**, más 5 jefes aparte.
 
-| Escenario | Tema | Se desbloquea |
-|---|---|---|
-| Estación abandonada | Sistemas averiados, drones, salas a oscuras | Desde el principio |
-| Mundo selvático | Fauna, clima, ruinas antiguas | Venciendo al jefe de la Estación |
-| Nave fantasma | Señales extrañas, tripulación desaparecida, IA | Venciendo al jefe del Mundo selvático |
+Cada escenario se juega de una forma distinta y da protagonismo a roles distintos:
 
-Al jugar 8 de 20 eventos por simulación, cada partida es distinta.
+| # | Escenario | Tema | Cómo se juega | Roles que más brillan |
+|---|---|---|---|---|
+| 1 | Estación abandonada | Sistemas averiados, drones, salas a oscuras | Tecnología: arreglar, hackear, desactivar | Ingeniería, Mantenimiento |
+| 2 | Mundo selvático | Fauna, clima, ruinas antiguas | Exploración: orientarse, descubrir, no perderse | Navegación, Prospección |
+| 3 | Puerto franco | Ciudad mercado en un asteroide: contrabandistas, subastas, sobornos, apuestas, una facción que te quiere engañar | Social: se resuelve hablando más que esquivando | Comercio, Instrucción, Intendencia |
+| 4 | Cinturón de asteroides | Persecución entre rocas, minería, piratas, averías en marcha | Acción y vehículos: reflejos y decisiones rápidas | Pilotaje, Navegación, Prospección |
+| 5 | Luna helada | Ventiscas, cuevas bajo el hielo, una base científica sepultada | Supervivencia: frío, rescates y, sobre todo, suministros | Intendencia, Mantenimiento |
+
+- Se desbloquean en ese orden: vencer al jefe de uno abre el siguiente. La Luna helada es la última y la más dura.
+- Para que la Luna helada no se parezca a la selva: en la selva se explora y se descubre; en la luna el peligro es quedarse sin nada. Más eventos que gastan o piden suministros, y más opciones seguras con coste alto.
+- Al jugar 8 de 20 eventos por simulación, cada partida es distinta.
 
 ### Formato
 
@@ -145,7 +151,8 @@ En `public/js/rpg/events-data.js`:
 
 - Texto de la situación: 280 caracteres como mucho. Textos de resultado: 160.
 - Tono: ciencia ficción con algo de humor, en segunda persona y en el mismo español que el resto de la app.
-- **Cada rol aparece en al menos 12 de los 60 eventos**, para que ningún tripulante sobre. Los de serie (Pilotaje, Ingeniería, Mantenimiento) no pueden ser los únicos que sirven en ningún escenario.
+- **Cada rol aparece en al menos 20 de los 100 eventos**, para que ningún tripulante sobre. Los de serie (Pilotaje, Ingeniería, Mantenimiento) no pueden ser los únicos que sirven en ningún escenario.
+- Al revés también: **con solo los 3 de serie se tiene que poder ganar cualquier escenario**, aunque cueste más. Importa sobre todo en el Puerto franco, que es de roles que ellos no tienen. Por eso todo evento tiene al menos una opción con un rol de serie o una opción segura.
 - Equilibrio: en cada escenario, la suma de lo que se puede perder en un fallo tiene que dejar ganar la simulación con algo de suerte y buenas decisiones. Se comprueba con un test que simula partidas.
 
 ## Registro de simulación
@@ -172,7 +179,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 
 - `public/js/rpg/`: lógica pura, sin DOM, como `core/`.
   - `config.js`: números de energía, dificultades, vida y suministros.
-  - `events-data.js`: los 60 eventos, los 3 jefes y los holoobjetos.
+  - `events-data.js`: los 100 eventos, los 5 jefes y los holoobjetos.
   - `energy.js`: cálculo de cargas a partir de `state.ship.activity`.
   - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos y pasar de sala.
   - `roster.js`: personajes de serie y holoperfiles.
@@ -202,8 +209,8 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Arquitectura**: `rpg/` no toca el DOM ni importa de `ui/`. `core/` no importa nada de `rpg/`. `rpg/` no usa `addW`, `subW`, `addXP` ni escribe en `state.wallet`, `state.ship` ni `state.cmd`.
 - **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
-- **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 12; ids únicos; 20 por escenario.
-- **Equilibrio**: 1.000 simulaciones con decisiones razonables por escenario; la tasa de victoria tiene que estar entre el 35 % y el 65 %.
+- **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
+- **Equilibrio**: 1.000 simulaciones con decisiones razonables por escenario; la tasa de victoria tiene que estar entre el 35 % y el 65 %. Con el escuadrón de serie, al menos el 25 % en todos.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 
 ## Fases
@@ -215,11 +222,15 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - Interruptor en Ajustes (desactivado por defecto).
 - Objetivo: que tu amigo lo pruebe y ajustar números.
 
-### Fase 1b: completar
+### Fase 1b: más escenarios y holoperfiles
 
-- **Mundo selvático** y **Nave fantasma** (40 eventos y 2 jefes).
-- Holoperfiles de la tripulación (`crewJoined`).
+- **Mundo selvático** y **Puerto franco** (40 eventos y 2 jefes).
+- Holoperfiles de la tripulación (`crewJoined`): el Puerto franco los pide, porque es donde más se nota tener Comercio o Instrucción.
 - Registro de simulación y medallas.
+
+### Fase 1c: completar
+
+- **Cinturón de asteroides** y **Luna helada** (40 eventos y 2 jefes).
 
 ### Fase 2: Dados de escuadrón
 
@@ -235,7 +246,7 @@ Solo esbozo; se planifica aparte.
 - Personajes de serie: Vega Ortiz, Kofi Brandt y Ada Marín.
 - VR Training viene desactivado por defecto.
 - Hasta 3 simulaciones al día (3 cargas diarias, 3 guardadas como máximo).
-- Escenarios: Estación abandonada, Mundo selvático y Nave fantasma.
+- Escenarios (5, 100 eventos): Estación abandonada, Mundo selvático, Puerto franco, Cinturón de asteroides y Luna helada. Nave fantasma se descarta por parecerse demasiado a la Estación.
 
 ## Por decidir
 
