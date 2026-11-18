@@ -6,6 +6,9 @@ import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
 
 export const KEY = 'spaceship-commander:v1';
+export const SHIP_NAME_MAX = 20;
+export const SHIP_NAME_DEFAULT = 'Tu nave';
+export function normShipName(x){ return typeof x==='string'?x.replace(/\s+/g,' ').trim().slice(0,SHIP_NAME_MAX).trim():''; }
 export function normShip(s){
   const modules={};
   for(const k of Object.keys(MODS)){ const m=s?.modules?.[k]; modules[k]={lv:clampInt(m?.lv,0,5,0),cond:clampInt(m?.cond,0,100,100)}; }
@@ -19,6 +22,7 @@ export function normShip(s){
   const timed=(c)=>Number.isFinite(+c.endsAt)&&+c.endsAt>0?c:{...c,endsAt:at(c.endsOn,1),acceptedAt:at(c.acceptedOn||c.endsOn)};
   return {
     modules,
+    name:normShipName(s?.name),
     contract:(c&&c.id&&c.endsOn&&c.quota>0)?timed(unCargo(c,c.acceptedOn||t)):null,
     board:{
       offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(o=>o.days<2?{...o,days:2}:o),   // mínimo 2 días
