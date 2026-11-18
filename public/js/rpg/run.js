@@ -14,7 +14,8 @@ export const bossOf = (run) => BOSSES[run.esc];
 export const dcNow = (run) => dcOf(run.i);
 // La opción en juego: la del evento, o el paso del jefe.
 export const optionOf = (run, idx) => run.i === BOSS_AT ? bossOf(run).steps[run.boss.step] : eventOf(run)?.opts[idx];
-export const kindOf = (total, dc) => total >= dc ? 'ok' : total === dc - 1 ? 'part' : 'ko';
+// Un 6 en el dado siempre es éxito: ninguna tirada es imposible.
+export const kindOf = (total, dc, d = 0) => d === 6 || total >= dc ? 'ok' : total === dc - 1 ? 'part' : 'ko';
 
 /* ---------- empezar y terminar ---------- */
 export function startRun(r, esc, squadIds, rng = Math.random) {
@@ -70,8 +71,13 @@ export function bonusFor(r, memberId, roles, itemIds = []) {
   for (const k of itemIds) if (ok.includes(k)) { bonus += ITEMS[k].bonus || 0; if (ITEMS[k].six) six = true; }
   return { bonus, six };
 }
-// Probabilidad de éxito (sin contar el éxito con coste).
-export const chance = (bonus, dc, six = false) => six ? 1 : Math.max(0, Math.min(6, 7 - (dc - bonus))) / 6;
+// Probabilidades de cada resultado, para enseñarlas antes de tirar.
+export function odds(bonus, dc, six = false) {
+  const p = { ok: 0, part: 0, ko: 0 };
+  if (six) { p.ok = 1; return p; }
+  for (let d = 1; d <= 6; d++) p[kindOf(d + bonus, dc, d)] += 1 / 6;
+  return p;
+}
 
 // Elegir una opción del evento (o tirar en el jefe). Las seguras no llevan tirada.
 export function choose(r, optIdx, memberId, itemIds = [], rng = Math.random) {
@@ -90,7 +96,7 @@ export function choose(r, optIdx, memberId, itemIds = [], rng = Math.random) {
   const { bonus, six } = bonusFor(r, memberId, opt.roles, use);
   for (const k of use) run.items.splice(run.items.indexOf(k), 1);
   const d = six ? 6 : die(rng), dc = dcNow(run), total = d + bonus;
-  run.res = { kind: six ? 'ok' : kindOf(total, dc), opt: boss ? run.boss.step : optIdx, member: memberId, die: d, bonus, total: six ? Math.max(total, dc) : total, dc, boss, mods: use, rerolls: 0 };
+  run.res = { kind: six ? 'ok' : kindOf(total, dc, d), opt: boss ? run.boss.step : optIdx, member: memberId, die: d, bonus, total: six ? Math.max(total, dc) : total, dc, boss, mods: use, rerolls: 0 };
   run.stage = 'result';
   return null;
 }
@@ -103,7 +109,7 @@ export function reroll(r, how, rng = Math.random) {
   if (how === 'baliza') { const i = run.items.indexOf('baliza'); if (i < 0) return 'No tienes baliza'; run.items.splice(i, 1); }
   else { if (run.sup < 1) return 'Sin suministros'; run.sup--; }
   const res = run.res;
-  res.die = die(rng); res.total = res.die + res.bonus; res.kind = kindOf(res.total, res.dc); res.rerolls++;
+  res.die = die(rng); res.total = res.die + res.bonus; res.kind = kindOf(res.total, res.dc, res.die); res.rerolls++;
   return null;
 }
 

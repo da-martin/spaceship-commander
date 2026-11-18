@@ -3,7 +3,7 @@
 // repite las tiradas malas si le sobran suministros y descansa según le falte.
 import { HP_MAX, ITEMS_MAX } from '../public/js/rpg/config.js';
 import { ITEMS } from '../public/js/rpg/data.js';
-import { alive, bonusFor, canReroll, canUse, choose, dcNow, eventOf, kindOf, optionOf, rest, reroll, resolve, rollItemsFor, startRun, useItem } from '../public/js/rpg/run.js';
+import { alive, bonusFor, canReroll, canUse, choose, dcNow, eventOf, odds, optionOf, rest, reroll, resolve, rollItemsFor, startRun, useItem } from '../public/js/rpg/run.js';
 
 // Perder vida pesa más cuanto menos queda.
 const hpW = (hp) => hp <= 1 ? 6 : hp === 2 ? 3.5 : 2.5;
@@ -14,11 +14,6 @@ function value(run, fx, m) {
   if (fx.sup) v += fx.sup;
   if (fx.item) v += run.items.length < ITEMS_MAX ? 1.5 : 0;
   return v;
-}
-function probs(bonus, dc) {
-  const p = { ok: 0, part: 0, ko: 0 };
-  for (let d = 1; d <= 6; d++) p[kindOf(d + bonus, dc)] += 1 / 6;
-  return p;
 }
 
 function bestPlay(r) {
@@ -37,7 +32,7 @@ function bestPlay(r) {
       const base = bonusFor(r, m.id, o.roles).bonus, hard = dc - base >= 5;
       const items = hard ? rollItemsFor(r, m.id).filter((k) => !ITEMS[k].six || dc - base >= 6).slice(0, 1) : [];
       const { bonus, six } = bonusFor(r, m.id, o.roles, items);
-      const p = six ? { ok: 1, part: 0, ko: 0 } : probs(bonus, dc);
+      const p = odds(bonus, dc, six);
       const v = boss
         ? p.ok * 10 + p.part * (10 + value(run, { hp: -1 }, m)) + p.ko * value(run, { hp: -1 }, m)
         : p.ok * value(run, o.ok, m) + p.part * value(run, o.part, m) + p.ko * value(run, o.ko, m);

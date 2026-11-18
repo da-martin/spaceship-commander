@@ -9,7 +9,7 @@ import { HP_MAX, ITEMS_MAX, ROOMS, SQUAD } from '../rpg/config.js';
 import { EVENT_BY_ID, ITEMS, SCENARIO_BY_ID, SCENARIOS } from '../rpg/data.js';
 import { canStart, isFree, nextCharge, syncEnergy } from '../rpg/energy.js';
 import { normRpg } from '../rpg/state.js';
-import { abandon, alive, bonusFor, bossOf, canReroll, canUse, chance, choose, dcNow, eventOf, fxOf, memberInfo, REST_OPTS, rest, reroll, resolve, rollItemsFor, startRun, useItem } from '../rpg/run.js';
+import { abandon, alive, bonusFor, bossOf, canReroll, canUse, choose, dcNow, eventOf, fxOf, memberInfo, odds, REST_OPTS, rest, reroll, resolve, rollItemsFor, startRun, useItem } from '../rpg/run.js';
 import { uiMode } from './mode.js';
 import { toast } from './toast.js';
 
@@ -191,17 +191,27 @@ function optionButton(o, i, sel) {
 
 // Quién tira, con su bono y su probabilidad, y los objetos que puede gastar.
 // En el jefe el éxito con coste también supera el paso: se enseña la probabilidad de pasar.
+const pct = (p) => `${Math.round(p * 100)} %`;
 function rollPanel(r, opt) {
-  const run = r.run, dc = dcNow(run), boss = run.stage === 'boss', pass = boss ? dc - 1 : dc;
+  const run = r.run, dc = dcNow(run), boss = run.stage === 'boss';
+  const sayOdds = (o) => boss ? `superar ${pct(o.ok + o.part)}` : `éxito ${pct(o.ok)}`;
+  const score = (o) => boss ? o.ok + o.part : o.ok + o.part / 2;
+  // El mejor objeto de tirada que tiene a mano cada tripulante, para avisar antes de elegir.
+  const bestItem = (id) => rollItemsFor(r, id).map((k) => {
+    const b = bonusFor(r, id, opt.roles, [k]);
+    return { k, o: odds(b.bonus, dc, b.six) };
+  }).sort((a, b) => score(b.o) - score(a.o))[0];
   if (!ui.member || !alive(run).some((m) => m.id === ui.member)) {
-    ui.member = alive(run).map((m) => m.id).sort((a, b) => bonusFor(r, b, opt.roles).bonus - bonusFor(r, a, opt.roles).bonus)[0];
+    ui.member = alive(run).map((m) => m.id).sort((a, b) => bonusFor(r, b, opt.roles).bonus - bonusFor(r, a, opt.roles).bonus || rollItemsFor(r, b).length - rollItemsFor(r, a).length)[0];
     ui.items = [];
   }
   const who = alive(run).map((m) => {
-    const { bonus } = bonusFor(r, m.id, opt.roles), on = ui.member === m.id;
+    const { bonus } = bonusFor(r, m.id, opt.roles), on = ui.member === m.id, o = odds(bonus, dc), best = bestItem(m.id);
+    const hint = best && score(best.o) > score(o) ? `<span class="block mono text-[11px] text-violet-300">con ${ITEMS[best.k].name}: ${sayOdds(best.o).replace(/^\S+ /, '')}</span>` : '';
     return `<button type="button" data-vr="member" data-id="${m.id}" aria-pressed="${on}" class="flex-1 min-w-[96px] min-h-[52px] px-2 py-1.5 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : 'border-slate-700 hover:border-violet-600'}">
       <span class="block text-sm font-medium">${first(m.id)}</span>
-      <span class="block mono text-[11px] text-slate-400">+${bonus} · ${Math.round(chance(bonus, pass) * 100)} %</span>
+      <span class="block mono text-[11px] text-slate-400">+${bonus} · ${sayOdds(o)}</span>
+      ${hint}
     </button>`;
   }).join('');
   ui.items = ui.items.filter((k) => rollItemsFor(r, ui.member).includes(k));
@@ -210,15 +220,17 @@ function rollPanel(r, opt) {
     const on = ui.items.includes(k);
     return `<button type="button" data-vr="item" data-id="${k}" aria-pressed="${on}" title="${ITEMS[k].desc}" class="mono text-[11px] min-h-[32px] px-2 rounded border ${on ? 'border-violet-300 bg-violet-800 text-white' : 'border-slate-600 text-slate-300'}">${ITEMS[k].name}</button>`;
   }).join('')}</div>` : '';
-  const { bonus, six } = bonusFor(r, ui.member, opt.roles, ui.items);
+  const { bonus, six } = bonusFor(r, ui.member, opt.roles, ui.items), o = odds(bonus, dc, six);
+  const sum = boss ? `superar el paso ${pct(o.ok + o.part)}` : `éxito ${pct(o.ok)}${o.part ? ` · con coste ${pct(o.part)}` : ''}`;
   return `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
     <div class="text-sm font-medium mb-2">¿Quién lo intenta?</div>
     <div class="flex flex-wrap gap-2">${who}</div>
     ${items}
     <div class="flex flex-wrap items-center gap-3 mt-3">
       <button type="button" data-vr="roll" class="${btnMain}">Tirar el dado</button>
-      <span class="mono text-[11px] text-slate-400">d6 + ${bonus} contra ${dc} · ${boss ? 'superar el paso' : 'éxito'} ${Math.round(chance(bonus, pass, six) * 100)} %</span>
+      <span class="mono text-[11px] text-slate-400">d6 + ${bonus} contra ${dc} · ${sum}</span>
     </div>
+    <p class="mono text-[10px] text-slate-500 mt-2">Un 6 siempre es éxito.</p>
   </div>`;
 }
 
@@ -264,7 +276,7 @@ function resultView(r) {
   const dice = res.kind === 'safe' ? '' : `<div class="flex items-center gap-4 mt-3">
     <span class="vr-die ${ui.rolled ? 'vr-roll' : ''} text-6xl leading-none text-violet-200" aria-hidden="true">${FACES[res.die - 1]}</span>
     <div class="${ui.rolled ? 'vr-reveal' : ''}">
-      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.die} + ${res.bonus} = ${res.total} contra ${res.dc}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
+      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.die} + ${res.bonus} = ${res.total} contra ${res.dc}${res.die === 6 && res.total < res.dc ? ' · un 6 siempre es éxito' : ''}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
       <span class="inline-block mt-1 text-sm font-semibold px-2 py-0.5 rounded border ${KIND[res.kind][1]}">${KIND[res.kind][0]}</span>
     </div>
   </div>`;

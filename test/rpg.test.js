@@ -7,7 +7,8 @@ import { normState } from '../public/js/store.js';
 import { BANK_MAX, BOSS_AT, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, SUP_START } from '../public/js/rpg/config.js';
 import { BOSSES, EVENTS, ITEMS, SCENARIOS, STARTERS } from '../public/js/rpg/data.js';
 import { canStart, nextCharge, syncEnergy } from '../public/js/rpg/energy.js';
-import { abandon, applyFx, bonusFor, canReroll, canUse, chance, choose, eventOf, reroll, resolve, rest, startRun, useItem } from '../public/js/rpg/run.js';
+import { abandon, applyFx, bonusFor, canReroll, canUse, choose, eventOf, reroll, resolve, rest, startRun, useItem } from '../public/js/rpg/run.js';
+import { odds } from '../public/js/rpg/run.js';
 import { normRpg } from '../public/js/rpg/state.js';
 import { clock, clone, fresh, restore } from './helpers.js';
 import { playRun } from './rpg-policy.js';
@@ -110,9 +111,8 @@ test('bono: +2 si el rol encaja, +1 por nivel por encima de 1 y lo que sumen los
   assert.equal(bonusFor(r, 'c1', ['engineer']).bonus, 4);
   r.run.items = ['chip', 'ganzua', 'mapa'];
   assert.equal(bonusFor(r, 's-kofi', ['engineer'], ['chip', 'ganzua', 'mapa']).bonus, 5);   // el mapa no es de Ingeniería
-  assert.equal(chance(2, 5), 4 / 6);
-  assert.equal(chance(0, 7), 0);
-  assert.equal(chance(0, 7, true), 1);
+  assert.deepEqual(odds(2, 5), { ok: 4 / 6, part: 1 / 6, ko: 1 / 6 });
+  assert.deepEqual(odds(0, 7, true), { ok: 1, part: 0, ko: 0 });
 });
 
 test('éxito, éxito con coste y fallo en los límites', () => {
@@ -124,6 +124,16 @@ test('éxito, éxito con coste y fallo en los límites', () => {
     assert.equal(r.run.res.kind, kind, `dado ${die}`);
     assert.equal(r.run.res.total, die + 2);
   }
+});
+
+test('un 6 siempre es éxito: ninguna tirada es imposible', () => {
+  assert.equal(odds(0, 7).ok, 1 / 6);
+  assert.equal(odds(0, 9).ok, 1 / 6);
+  const r = started();
+  r.run.i = 6; r.run.rooms[6] = 'est-19';   // sala 7, dificultad 7; nadie del escuadrón de serie tiene el rol
+  choose(r, 0, 's-kofi', [], fixed(6));
+  assert.equal(r.run.res.kind, 'ok');
+  assert.equal(r.run.res.total, 6);
 });
 
 test('un tripulante desconectado no tira; con todos desconectados se pierde', () => {
