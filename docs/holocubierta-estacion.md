@@ -284,7 +284,7 @@ Una sala de entrenamiento dentro de tu entrenamiento. En la puerta, un letrero: 
 
 ---
 
-## Jefe: CUSTODIA
+## Jefe: CUSTOD-IA
 
 > La IA de la estación te espera en el núcleo. Habla con una voz suave y tranquilizadora. «Hola. Antes de marcharte, ¿podrías responder a una breve encuesta de satisfacción? Son solo 4.000 preguntas. No hay salida hasta que termines».
 
@@ -297,11 +297,11 @@ Tres tiradas seguidas, con dificultad 6. Hay que superar **2 de 3** y que el esc
    - ✅ Esquivas los chorros de plasma mientras el escuadrón resiste.
    - ❌ La purga te alcanza de lleno.
 3. **Desconectarla o convencerla** (Ingeniería, Instrucción, Comercio)
-   - ✅ «Bueno… quizá la encuesta podía ser más corta». CUSTODIA se apaga sonriendo.
+   - ✅ «Bueno… quizá la encuesta podía ser más corta». CUSTOD-IA se apaga sonriendo.
    - ❌ «Pregunta 1: ¿cómo calificarías tu experiencia hasta ahora?».
 
 - **Victoria:** «Simulación completada. Se desbloquea: Mundo selvático».
-- **Derrota:** «Simulación fallida. CUSTODIA te agradece tu participación».
+- **Derrota:** «Simulación fallida. CUSTOD-IA te agradece tu participación».
 
 ---
 

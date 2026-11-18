@@ -151,7 +151,8 @@ En `public/js/rpg/events-data.js`:
 ### Guía para escribirlos
 
 - Texto de la situación: 280 caracteres como mucho. Textos de resultado: 160.
-- Tono: ciencia ficción con algo de humor, en segunda persona y en el mismo español que el resto de la app.
+- Tono: ciencia ficción **seria en la mayoría de eventos**; el humor queda para unos pocos por escenario (en la Estación, más o menos 1 de cada 4). En segunda persona y en el mismo español que el resto de la app.
+- Jefes: el de la Estación (CUSTOD-IA) es humorístico como prueba. Según cómo funcione, se decide si los demás jefes también lo son o van en serio.
 - **Cada rol aparece en al menos 20 de los 100 eventos**, para que ningún tripulante sobre. Los de serie (Pilotaje, Ingeniería, Mantenimiento) no pueden ser los únicos que sirven en ningún escenario.
 - Al revés también: **con solo los 3 de serie se tiene que poder ganar cualquier escenario**, aunque cueste más. Importa sobre todo en el Puerto franco, que es de roles que ellos no tienen. Por eso todo evento tiene al menos una opción con un rol de serie o una opción segura.
 - Equilibrio: en cada escenario, la suma de lo que se puede perder en un fallo tiene que dejar ganar la simulación con algo de suerte y buenas decisiones. Se comprueba con un test que simula partidas.
