@@ -165,18 +165,18 @@ Frascos que brillan en la oscuridad cubren las estanterías. Uno de los cultivos
   - ❌ La alfombra no quiere que analices nada. · −2 vida
 - 🛡️ **Sellar el laboratorio y seguir** · Sellas la puerta con lo que tienes a mano. · −1 suministro
 
-### est-11 · El chatarrero
-Un tipo con un abrigo lleno de bolsillos ha montado un puesto en mitad del pasillo. «Todo original, todo de la estación, todo con garantía de que funciona. Más o menos».
+### est-11 · Terminal del economato
+En el antiguo economato, una terminal se enciende al detectaros. «Bienvenidos. Su saldo es de 0 créditos estelares». Esa moneda dejó de existir hace casi dos siglos. Detrás del cristal blindado, las estanterías siguen llenas.
 
-- **Regatear** (Comercio)
-  - ✅ Le sacas una pieza buena por cuatro tornillos. · Holoobjeto al azar
-  - ⚠️ Te la llevas, pero pagas de más. · −1 suministro, holoobjeto al azar
-  - ❌ Te vende un objeto que es una piedra pintada. · −2 suministros
-- **Imponerte** (Instrucción)
-  - ✅ Le recuerdas quién manda aquí y te regala algo. · Holoobjeto al azar
-  - ⚠️ Te da algo, de muy mala gana. · +1 suministro
-  - ❌ Aparecen sus primos. Muchos primos. · −1 vida a todos
-- 🛡️ **Ignorarlo** · Sigues tu camino. Él sigue a lo suyo. · Sin efecto
+- **Negociar con la terminal** (Comercio, Instrucción)
+  - ✅ La convences de que el seguro de la estación cubre vuestra compra. El cristal se abre. · Holoobjeto al azar
+  - ⚠️ Acepta un pago parcial en material y abre un cajón. · −1 suministro, holoobjeto al azar
+  - ❌ Te registra como cliente moroso. Una descarga recorre el mostrador. · −1 vida
+- **Forzar la terminal** (Ingeniería)
+  - ✅ La terminal se reinicia y abre todos los cajones a la vez. · +1 suministro, holoobjeto al azar
+  - ⚠️ Abres un cajón antes de que salte el bloqueo. · +1 suministro
+  - ❌ El cristal blindado aguanta. Tu mano, no tanto. · −2 vida
+- 🛡️ **Pagar con material** · La terminal acepta tu material como pago y te abre un cajón. · −1 suministro, holoobjeto al azar
 
 ### est-12 · Conductos de ventilación
 La puerta principal está soldada. La única alternativa es un conducto estrecho que se ramifica en todas direcciones y huele a calcetín de hace dos siglos.
@@ -311,7 +311,7 @@ En cuántos de los 20 eventos aparece cada rol (sin contar el jefe):
 
 | Rol | Eventos |
 |---|---|
-| Ingeniería | 14 |
+| Ingeniería | 15 |
 | Pilotaje | 8 |
 | Instrucción | 8 |
 | Mantenimiento | 7 |
