@@ -4,10 +4,11 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { ROLES } from '../public/js/config.js';
 import { normState } from '../public/js/store.js';
-import { BANK_MAX, BOSS_AT, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, SUP_START } from '../public/js/rpg/config.js';
-import { BOSSES, EVENTS, ITEMS, SCENARIOS, STARTERS } from '../public/js/rpg/data.js';
+import { BANK_MAX, BOSS_AT, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, ROSTER_MAX, SUP_START } from '../public/js/rpg/config.js';
+import { BOSSES, EVENTS, ITEMS, MEDALS, SCENARIOS, STARTERS } from '../public/js/rpg/data.js';
+import { addProfile, syncCrew } from '../public/js/rpg/roster.js';
 import { canStart, nextCharge, syncEnergy } from '../public/js/rpg/energy.js';
-import { abandon, applyFx, bonusFor, canReroll, canUse, choose, eventOf, reroll, resolve, rest, startRun, useItem } from '../public/js/rpg/run.js';
+import { abandon, alive, applyFx, bonusFor, canReroll, canUse, choose, eventOf, reroll, resolve, rest, startRun, useItem } from '../public/js/rpg/run.js';
 import { odds } from '../public/js/rpg/run.js';
 import { normRpg } from '../public/js/rpg/state.js';
 import { clock, clone, fresh, restore } from './helpers.js';
@@ -295,14 +296,95 @@ test('eventos: con los de serie siempre hay algo que hacer, y cada rol sale a me
   for (const k of Object.keys(ROLES)) assert.ok((count[k] || 0) >= 3 * EVENTS.length / 20, `${k}: ${count[k] || 0}`);
 });
 
+/* ---------- holoperfiles ---------- */
+test('holoperfiles: cada contratación deja uno; si vuelve con más nivel, se guarda el más alto', () => {
+  const r = normRpg(null);
+  assert.equal(addProfile(r, { id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 1 }), true);
+  assert.equal(addProfile(r, { id: 'm9', name: 'Lina Sol', role: 'engineer', lv: 1 }), false);
+  assert.equal(addProfile(r, { id: 'm9', name: 'Lina Sol', role: 'engineer', lv: 3 }), true);
+  assert.equal(addProfile(r, { id: 'm2', name: 'Raro', role: 'nope', lv: 2 }), false);
+  const crew = r.roster.filter((m) => m.src === 'crew');
+  assert.deepEqual(crew, [{ id: 'c-m1', name: 'Lina Sol', role: 'engineer', lv: 3, src: 'crew' }]);
+  assert.equal(syncCrew(r, [{ id: 'm3', name: 'Omar Gil', role: 'pilot', lv: 2 }, { id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 2 }]), 1);
+  assert.equal(r.roster.length, STARTERS.length + 2);
+  assert.deepEqual(normRpg(clone(r)).roster, r.roster);
+});
+
+test('holoperfiles: con el plantel lleno se va el más antiguo que no esté jugando', () => {
+  const r = normRpg(null);
+  for (let i = 0; i < ROSTER_MAX; i++) addProfile(r, { id: 'm' + i, name: 'Tripulante ' + i, role: 'pilot', lv: 1 });
+  r.energy.bank = 1;
+  assert.equal(startRun(r, 'estacion', ['c-m0', 's-vega', 's-ada'], rngOf()), null);
+  addProfile(r, { id: 'nuevo', name: 'Nueva', role: 'medic', lv: 2 });
+  const ids = r.roster.map((m) => m.id);
+  assert.ok(ids.includes('c-m0'), 'el que está jugando se queda');
+  assert.ok(!ids.includes('c-m1'));
+  assert.ok(ids.includes('c-nuevo'));
+});
+
+test('el último escuadrón se recuerda', () => {
+  const r = started();
+  assert.deepEqual(r.lastSquad, SQUAD);
+  assert.deepEqual(normRpg(clone(r)).lastSquad, SQUAD);
+});
+
+/* ---------- desbloqueos y medallas ---------- */
+// Lleva la simulación en curso hasta el final del jefe, con dados de 6.
+function winBoss(r) {
+  r.run.i = BOSS_AT; r.run.stage = 'boss'; r.run.boss = { step: 0, wins: 0, fails: 0 };
+  for (let k = 0; r.run.stage !== 'end'; k++) {
+    assert.ok(k < 10, 'el jefe no termina');
+    assert.equal(choose(r, 0, alive(r.run)[0].id, [], fixed(6)), null);
+    resolve(r);
+  }
+}
+test('desbloqueos: Estación → Selva → Puerto; el Cinturón aún no existe', () => {
+  const r = started();
+  winBoss(r);
+  assert.equal(r.run.unlocked, 'selva');
+  abandon(r); r.energy.bank = 2;
+  startRun(r, 'selva', SQUAD, rngOf());
+  winBoss(r);
+  assert.equal(r.run.unlocked, 'puerto');
+  abandon(r);
+  startRun(r, 'puerto', SQUAD, rngOf());
+  winBoss(r);
+  assert.equal(r.run.unlocked, null);
+  assert.deepEqual(r.unlocked, ['estacion', 'selva', 'puerto']);
+});
+
+test('medallas: primera victoria, sin bajas, sin red, jefe y cartógrafo, una sola vez cada una', () => {
+  const r = started();
+  winBoss(r);
+  assert.deepEqual(r.run.medals, ['primera', 'sin-bajas', 'sin-red', 'jefe-estacion']);
+  abandon(r); r.energy.bank = 1;
+  startRun(r, 'estacion', SQUAD, rngOf());
+  for (const e of EVENTS.filter((x) => x.esc === 'estacion')) r.seen[e.id] = 1;
+  r.run.squad[0].hp = 1;
+  r.run.rooms[0] = 'est-01'; choose(r, 0, r.run.squad[0].id, [], fixed(1)); reroll(r, 'sup', fixed(1)); resolve(r);   // se desconecta y repite
+  r.run.i = 3; r.run.stage = 'room';
+  winBoss(r);
+  assert.deepEqual(r.run.medals, ['cartografo']);
+  assert.deepEqual(normRpg(clone(r)).run.medals, ['cartografo']);
+});
+
+test('medallas: tripulación propia, solo sin personajes de serie', () => {
+  const r = normRpg(null);
+  for (const [i, role] of ['pilot', 'engineer', 'medic'].entries()) addProfile(r, { id: 'm' + i, name: 'T' + i, role, lv: 1 });
+  startRun(r, 'estacion', ['c-m0', 'c-m1', 'c-m2'], rngOf());
+  winBoss(r);
+  assert.ok(r.run.medals.includes('tripulacion'));
+  assert.equal(MEDALS.length, new Set(MEDALS.map((m) => m.id)).size);
+});
+
 /* ---------- partidas guardadas ---------- */
 test('normRpg: partidas sin VR Training, con basura y con una simulación a medias', () => {
   const empty = normRpg(undefined);
   assert.deepEqual(empty.roster.map((m) => m.id), SQUAD);
   assert.deepEqual(empty.unlocked, ['estacion']);
   assert.equal(empty.run, null);
-  assert.deepEqual(normRpg({ energy: { bank: 99, credited: -3 }, roster: [null, { id: 'x', name: 'Ana', role: 'nope' }], unlocked: ['selva', 'nada'], seen: { 'est-01': 1, zzz: 1 }, run: { esc: 'estacion' } }),
-    { ...empty, energy: { ...empty.energy, bank: BANK_MAX }, seen: { 'est-01': 1 } });
+  assert.deepEqual(normRpg({ energy: { bank: 99, credited: -3 }, roster: [null, { id: 'x', name: 'Ana', role: 'nope' }], unlocked: ['selva', 'nada', 'luna'], seen: { 'est-01': 1, zzz: 1 }, medals: ['primera', 'nope', 'primera'], lastSquad: ['s-vega', 'x', 's-ada'], run: { esc: 'estacion' } }),
+    { ...empty, energy: { ...empty.energy, bank: BANK_MAX }, unlocked: ['estacion', 'selva'], seen: { 'est-01': 1 }, medals: ['primera'] });
   const r = started();
   choose(r, 0, 's-kofi', [], fixed(1));
   const back = normRpg(JSON.parse(JSON.stringify(r)));
@@ -319,12 +401,24 @@ test('normState: añade VR Training desactivado a las partidas de antes', () => 
 });
 
 /* ---------- equilibrio ---------- */
-test('equilibrio: el primer escenario se gana a menudo, pero no siempre', () => {
-  const rng = rngOf(7), N = 1000;
+// Con el escuadrón de serie: cada escenario, algo más difícil que el anterior, y ninguno imposible.
+const winRate = (esc, squad = SQUAD, N = 1000, seedN = 7) => {
+  const rng = rngOf(seedN);
   let wins = 0;
-  for (let i = 0; i < N; i++) if (playRun(normRpg(null), 'estacion', SQUAD, rng) === 'win') wins++;
-  const rate = wins / N;
-  assert.ok(rate >= 0.6 && rate <= 0.8, `victorias: ${(rate * 100).toFixed(1)} %`);
+  for (let i = 0; i < N; i++) if (playRun(normRpg({ unlocked: ['selva', 'puerto'], roster: CREW }), esc, squad, rng) === 'win') wins++;
+  return wins / N;
+};
+const CREW = [{ id: 'c-1', name: 'Noor Vidal', role: 'trader', lv: 2 }, { id: 'c-2', name: 'Iker Sol', role: 'instructor', lv: 2 }];
+test('equilibrio: cada escenario es algo más difícil que el anterior, y ninguno es imposible', () => {
+  const est = winRate('estacion'), sel = winRate('selva'), pue = winRate('puerto');
+  const txt = `estación ${(est * 100).toFixed(1)} %, selva ${(sel * 100).toFixed(1)} %, puerto ${(pue * 100).toFixed(1)} %`;
+  assert.ok(est >= 0.65 && est <= 0.85, txt);
+  assert.ok(sel >= 0.55 && sel <= 0.75, txt);
+  assert.ok(pue >= 0.4 && pue <= 0.62, txt);
+  assert.ok(est > sel && sel > pue, txt);
+});
+test('equilibrio: en el Puerto, tripulantes de Comercio e Instrucción ayudan', () => {
+  assert.ok(winRate('puerto', ['c-1', 'c-2', 's-kofi']) > winRate('puerto') + 0.03);
 });
 
 /* ---------- cortafuegos ---------- */

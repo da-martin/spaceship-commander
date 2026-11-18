@@ -9,7 +9,7 @@ Un minijuego de rol dentro de Spaceship, aparte del juego principal. Es un simul
 
 - Pestaña nueva en Spaceship: **Nave · Alianza · VR Training**.
 - Título de la pantalla: **Entrenamiento en Holocubierta**.
-- **Viene desactivado.** Se activa en Ajustes con el interruptor **VR Training** (`showVR`, por defecto `false`). Desactivado no hay pestaña ni se calcula nada; al volver a activarlo todo sigue donde estaba.
+- **Viene desactivado.** Se activa en Ajustes con el interruptor **VR Training** (`showVR`, por defecto `false`). Desactivado no hay pestaña ni se calculan cargas; solo se apuntan los holoperfiles de quien contrates. Al volver a activarlo todo sigue donde estaba.
 - El interruptor lleva una línea que explica qué es: «Minijuego de rol en un simulador. No afecta a tu nave ni a tus recompensas.»
 
 ## Cortafuegos
@@ -49,8 +49,10 @@ Cada simulación cuesta **1 carga**.
 | Ada Marín | Mantenimiento | Curar, soporte vital |
 
 - Son nivel 1 y siempre están disponibles, también para quien no juega a la nave.
-- **Cada tripulante que se contrata en la nave deja un holoperfil** con su nombre, rol y nivel. Si alguien con el mismo nombre vuelve a subir de nivel, se guarda el más alto. Los holoperfiles no se pierden cuando el tripulante se va de la nave.
-- Para enterarse de las contrataciones: un aviso nuevo `crewJoined(m)` en `core/events.js`, emitido al contratar. La Holocubierta lo escucha y apunta el perfil. La primera vez que se abre VR Training, también se copian los tripulantes que ya estén a bordo.
+- **Cada tripulante que se contrata en la nave deja un holoperfil** con su nombre, rol y nivel. Si vuelve alguien con el mismo nombre y rol pero más nivel, se guarda el más alto. Los holoperfiles no se pierden cuando el tripulante se va de la nave.
+- Para enterarse de las contrataciones: el aviso `crewJoined(m)` de `core/events.js`, que emite la contratación (`ui/actions.js`). `main.js` lo escucha y apunta el perfil, también con VR Training desactivado, para que al activarlo esté tu tripulación. Al abrir VR Training se copian además los tripulantes que estén a bordo.
+- Como mucho 30 holoperfiles de tripulación; con el plantel lleno se va el más antiguo que no esté jugando.
+- Al elegir escuadrón se propone el último que se usó.
 
 ### Qué significa cada rol en la simulación
 
@@ -123,6 +125,15 @@ Cada escenario se juega de una forma distinta y da protagonismo a roles distinto
 - Se desbloquean en ese orden: vencer al jefe de uno abre el siguiente. La Luna helada es la última y la más dura.
 - Para que la Luna helada no se parezca a la selva: en la selva se explora y se descubre; en la luna el peligro es quedarse sin nada. Más eventos que gastan o piden suministros, y más opciones seguras con coste alto.
 - Al jugar 8 de 20 eventos por simulación, cada partida es distinta.
+- **Cada escenario tiene su dificultad** (salas 1–3 · 4–6 · 7–9 · jefe), para que cada uno sea algo más difícil que el anterior:
+
+| Escenario | Dificultad | Victorias del jugador automático con el escuadrón de serie |
+|---|---|---|
+| Estación abandonada | 5 · 6 · 7 · 7 | ~76 % |
+| Mundo selvático | 6 · 6 · 7 · 7 | ~66 % |
+| Puerto franco | 6 · 7 · 7 · 8 | ~51 % (~61 % con un tripulante de Comercio y otro de Instrucción de nivel 2) |
+
+- Contenido de cada escenario: [Estación](holocubierta-estacion.md) · [Selva](holocubierta-selva.md) · [Puerto](holocubierta-puerto.md).
 
 ### Formato
 
@@ -168,7 +179,18 @@ En la pantalla de entrada:
 - Simulaciones jugadas, completadas y mejor sala alcanzada.
 - Eventos descubiertos por escenario (p. ej. «Estación: 14/20»).
 - Jefes vencidos.
-- **Medallas** solo de la Holocubierta (p. ej. «Completar la Estación sin perder a nadie», «Ganar con un escuadrón sin personajes de serie»). Son de adorno y no salen de aquí.
+- **Medallas** solo de la Holocubierta. Son de adorno y no salen de aquí. Se miran al acabar cada simulación y salen en la pantalla final:
+
+| Medalla | Cómo se gana |
+|---|---|
+| Primera victoria | Completa una simulación. |
+| Sin bajas | Completa una simulación sin que nadie se desconecte. |
+| Sin red | Completa una simulación sin repetir ninguna tirada. |
+| Tripulación propia | Completa una simulación sin personajes de serie. |
+| Cartógrafo | Descubre los 20 eventos de un escenario. |
+| Encuesta cancelada | Vence a CUSTOD-IA. |
+| Extracción en el valle | Vence a la Madre del Valle. |
+| Salvoconducto | Vence a la Síndica. |
 
 ## Pantallas
 
@@ -188,6 +210,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
   - `data.js`: escenarios, eventos, jefes, holoobjetos y personajes de serie.
   - `energy.js`: cálculo de cargas a partir de `state.ship.activity`.
   - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos, objetos, descanso y jefe.
+  - `roster.js`: holoperfiles de la tripulación.
   - `state.js`: `normRpg()` para la partida y las partidas guardadas.
 - Ningún archivo de `rpg/` importa `store.js` ni `core/`: reciben `state.rpg` y lo que leen como argumentos. `test/architecture.test.js` lo comprueba.
 - `public/js/ui/vr-view.js`: las pantallas.
@@ -205,7 +228,8 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
   run: null | { esc, squad: [{ id, hp }], sup, items: [], rooms: [...ids], i, pending },
   seen: { 'est-01': true, ... },
   stats: { runs: 0, wins: 0, best: 0, bosses: {} },
-  medals: []
+  medals: ['primera', ...],
+  lastSquad: ['s-vega', 's-kofi', 's-ada']
 }
 ```
 
@@ -216,7 +240,8 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
-- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). La Estación, que es el primer escenario, tiene que ganarse entre el 60 % y el 80 % de las veces (ahora, ~75 %); una persona gana algo menos. Los escenarios siguientes irán bajando. Con el escuadrón de serie, al menos el 25 % en todos.
+- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). Con el escuadrón de serie: Estación entre el 65 % y el 85 %, Selva entre el 55 % y el 75 %, Puerto entre el 40 % y el 62 %, y cada uno por debajo del anterior. En el Puerto, un escuadrón con Comercio e Instrucción tiene que ganar más que el de serie. Una persona gana algo menos que el jugador automático.
+- **Holoperfiles y medallas**: contratación, nivel más alto, tope del plantel, último escuadrón, desbloqueos en cadena y cada medalla una sola vez.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 
 ## Fases
@@ -231,6 +256,8 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - Objetivo: que tu amigo lo pruebe y ajustar números.
 
 ### Fase 1b: más escenarios y holoperfiles
+
+**Hecha.** Contenido en [holocubierta-selva.md](holocubierta-selva.md) y [holocubierta-puerto.md](holocubierta-puerto.md).
 
 - **Mundo selvático** y **Puerto franco** (40 eventos y 2 jefes).
 - Holoperfiles de la tripulación (`crewJoined`): el Puerto franco los pide, porque es donde más se nota tener Comercio o Instrucción.

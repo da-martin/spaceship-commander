@@ -4,7 +4,7 @@
 import { ROLES } from '../config.js';
 import { clampInt } from '../util.js';
 import { BANK_MAX, BOSS_AT, BOSS_STEPS, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, SQUAD } from './config.js';
-import { EVENT_BY_ID, ITEMS, SCENARIO_BY_ID, SCENARIOS, STARTERS } from './data.js';
+import { EVENT_BY_ID, ITEMS, MEDAL_BY_ID, SCENARIO_BY_ID, SCENARIOS, STARTERS } from './data.js';
 
 export const STAGES = ['room', 'result', 'rest', 'boss', 'end'];
 const KINDS = ['ok', 'part', 'ko', 'safe'];
@@ -36,6 +36,9 @@ export function normRpg(x) {
     unlocked,
     seen,
     stats: { runs: clampInt(s?.runs, 0, 1e6, 0), wins: clampInt(s?.wins, 0, 1e6, 0), best: clampInt(s?.best, 0, ROOMS, 0), bosses },
+    medals: medalList(x?.medals),
+    // El último escuadrón, para proponerlo otra vez.
+    lastSquad: Array.isArray(x?.lastSquad) && x.lastSquad.length === SQUAD && x.lastSquad.every((id) => ids.has(id)) && new Set(x.lastSquad).size === SQUAD ? [...x.lastSquad] : [],
     run: normRun(x?.run, ids),
   };
 }
@@ -62,9 +65,14 @@ export function normRun(r, rosterIds) {
     res: stage === 'result' ? res : null,
     outcome: stage === 'end' ? (r.outcome === 'win' ? 'win' : 'lose') : null,
     found: clampInt(r.found, 0, 1e3, 0),
+    downs: clampInt(r.downs, 0, 99, 0),         // veces que alguien se ha desconectado
+    rerolled: clampInt(r.rerolled, 0, 999, 0),  // tiradas repetidas
     unlocked: stage === 'end' && playable(r.unlocked) ? r.unlocked : null,
+    medals: stage === 'end' ? medalList(r.medals) : [],
   };
 }
+
+const medalList = (a) => [...new Set(Array.isArray(a) ? a : [])].filter((id) => MEDAL_BY_ID[id]);
 
 function normRes(x, squad) {
   if (!x || typeof x !== 'object' || !KINDS.includes(x.kind)) return null;
