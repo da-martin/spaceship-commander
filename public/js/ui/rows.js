@@ -53,7 +53,9 @@ export function rowHTML(o){
   const mark=['row-mark',o.kind,o.tone||'',o.on?'on':'',o.off?'off':''].filter(Boolean).join(' ');
   // Recién marcado: la mecha se consume durante el margen y dice cuándo se irá.
   // El retraso negativo la retoma por donde iba aunque la fila se repinte.
-  const fuse=o.until?`<span class="row-fuse" aria-hidden="true" style="animation-duration:${RECENT_MS}ms;animation-delay:${Math.min(0,o.until-RECENT_MS-Date.now())}ms"></span>`:'';
+  // `fuseUntil`: mecha sin plegado (hábitos libres): solo marca cuándo se sincroniza.
+  const burn=o.until||o.fuseUntil;
+  const fuse=burn?`<span class="row-fuse" aria-hidden="true" style="animation-duration:${RECENT_MS}ms;animation-delay:${Math.min(0,burn-RECENT_MS-Date.now())}ms"></span>`:'';
   return `<div class="${cls}"${o.until?` data-until="${o.until}"`:''}>${fuse}
     <button type="button" data-act="done" class="row-hit" aria-pressed="${!!o.on}" aria-label="${o.markLabel}"><span class="${mark}" aria-hidden="true">${o.markText||''}</span></button>
     <button type="button" data-act="body" class="row-body" aria-label="Opciones de ${o.title}">
@@ -97,6 +99,7 @@ export function habitRowEl(h,size,t){
   const el=rowEl({
     kind:'habit', size, title, pri:h.priority, notes:!!h.notes, linked:thShow(h),
     until:(!free&&d&&recentAt(at))?at+RECENT_MS:0,
+    fuseUntil:(free&&c>0&&Number.isFinite(at)&&at+RECENT_MS>Date.now())?at+RECENT_MS:0,
     done:d&&!free, on:!free&&d, off:!d&&((free&&c===0)||!sched), dim:!sched&&!d,
     markText:free?String(c):(d?'✓':''),
     markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
