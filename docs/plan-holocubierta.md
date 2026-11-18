@@ -9,7 +9,8 @@ Un minijuego de rol dentro de Spaceship, aparte del juego principal. Es un simul
 
 - Pestaña nueva en Spaceship: **Nave · Alianza · VR Training**.
 - Título de la pantalla: **Entrenamiento en Holocubierta**.
-- Se puede ocultar desde Ajustes con el interruptor **VR Training**. Si se oculta, desaparece la pestaña y no se calcula nada; al volver a activarlo todo sigue donde estaba.
+- **Viene desactivado.** Se activa en Ajustes con el interruptor **VR Training** (`showVR`, por defecto `false`). Desactivado no hay pestaña ni se calcula nada; al volver a activarlo todo sigue donde estaba.
+- El interruptor lleva una línea que explica qué es: «Minijuego de rol en un simulador. No afecta a tu nave ni a tus recompensas.»
 
 ## Cortafuegos
 
@@ -28,18 +29,18 @@ Cada simulación cuesta **1 carga**.
 | | Valor inicial |
 |---|---|
 | Puntos de esfuerzo por carga | 3 (≈ 3 tareas normales) |
-| Cargas que se pueden ganar al día | 2 |
+| Cargas que se pueden ganar al día | 3 |
 | Cargas guardadas como máximo | 3 |
 | Primera simulación | Gratis (tutorial) |
 
-- Las cargas del día se calculan con `state.ship.activity[hoy]`: `min(2, floor(puntos / 3))`. Como ese contador ya resta lo desmarcado, no hace falta escuchar marcas ni desmarcas.
+- Las cargas del día se calculan con `state.ship.activity[hoy]`: `min(3, floor(puntos / 3))`. Como ese contador ya resta lo desmarcado, no hace falta escuchar marcas ni desmarcas.
 - Se guarda cuántas se han abonado hoy (`credited`). Si el cálculo sube, la diferencia pasa al banco (hasta el máximo). Si baja porque se desmarcó algo, no se quita nada del banco, pero tampoco se vuelve a abonar al marcar de nuevo: el tope del día ya está contado.
 - El tope diario es a propósito: la app sigue siendo de productividad con un juego al lado. No compensa inventarse tareas para jugar más.
 - Todos los números van en una constante de configuración para ajustarlos tras probar.
 
 ## Plantel: holoperfiles
 
-**3 personajes de serie** (los nombres son una propuesta):
+**3 personajes de serie**:
 
 | Nombre | Rol | Papel en la simulación |
 |---|---|---|
@@ -199,7 +200,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 
 - **Cortafuegos**: se juega una simulación completa con azar fijo y todo el estado salvo `state.rpg` queda idéntico (`deepEqual` con una copia de antes).
 - **Arquitectura**: `rpg/` no toca el DOM ni importa de `ui/`. `core/` no importa nada de `rpg/`. `rpg/` no usa `addW`, `subW`, `addXP` ni escribe en `state.wallet`, `state.ship` ni `state.cmd`.
-- **Energía**: cargas con 0, 2,9, 3, 6 y 9 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
+- **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 12; ids únicos; 20 por escenario.
 - **Equilibrio**: 1.000 simulaciones con decisiones razonables por escenario; la tasa de victoria tiene que estar entre el 35 % y el 65 %.
@@ -211,7 +212,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 
 - Motor, energía, 3 personajes de serie, pantallas y tests.
 - Solo el escenario **Estación abandonada**: 20 eventos y su jefe.
-- Interruptor en Ajustes.
+- Interruptor en Ajustes (desactivado por defecto).
 - Objetivo: que tu amigo lo pruebe y ajustar números.
 
 ### Fase 1b: completar
@@ -229,10 +230,14 @@ Solo esbozo; se planifica aparte.
 - Mapa ramificado: combate, evento (los de la fase 1), descanso y taller.
 - Entre partidas: caras de dado mejoradas y reliquias de holocubierta.
 
+## Decidido
+
+- Personajes de serie: Vega Ortiz, Kofi Brandt y Ada Marín.
+- VR Training viene desactivado por defecto.
+- Hasta 3 simulaciones al día (3 cargas diarias, 3 guardadas como máximo).
+- Escenarios: Estación abandonada, Mundo selvático y Nave fantasma.
+
 ## Por decidir
 
-- Nombres de los 3 personajes de serie.
-- Si **VR Training** viene activado por defecto o hay que activarlo.
-- Números de energía (3 puntos por carga, 2 al día, 3 de banco) tras probarlo.
-- Temas de los escenarios 2 y 3.
+- Ajustar los puntos de esfuerzo por carga (3) después de probarlo.
 - Si más adelante habrá un ajuste general **Nivel de juego** (solo productividad / nave / nave + VR Training). Si existe, VR Training se oculta junto con Spaceship.
