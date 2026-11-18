@@ -165,18 +165,20 @@ Frascos que brillan en la oscuridad cubren las estanterías. Uno de los cultivos
   - ❌ La alfombra no quiere que analices nada. · −2 vida
 - 🛡️ **Sellar el laboratorio y seguir** · Sellas la puerta con lo que tienes a mano. · −1 suministro
 
-### est-11 · Terminal del economato
-En el antiguo economato, una terminal se enciende al detectaros. «Bienvenidos. Su saldo es de 0 créditos estelares». Esa moneda dejó de existir hace casi dos siglos. Detrás del cristal blindado, las estanterías siguen llenas.
+### est-11 · El chatarrero atrapado
+Junto a un muelle sellado, un hombre con un traje de salvamento remendado os deslumbra con su linterna. «Llegué hace tres días a por chatarra. La IA de la estación cerró el muelle con mi nave fuera y no me deja salir». Lleva la mochila llena.
 
-- **Negociar con la terminal** (Comercio, Instrucción)
-  - ✅ La convences de que el seguro de la estación cubre vuestra compra. El cristal se abre. · Holoobjeto al azar
-  - ⚠️ Acepta un pago parcial en material y abre un cajón. · −1 suministro, holoobjeto al azar
-  - ❌ Te registra como cliente moroso. Una descarga recorre el mostrador. · −1 vida
-- **Forzar la terminal** (Ingeniería)
-  - ✅ La terminal se reinicia y abre todos los cajones a la vez. · +1 suministro, holoobjeto al azar
-  - ⚠️ Abres un cajón antes de que salte el bloqueo. · +1 suministro
-  - ❌ El cristal blindado aguanta. Tu mano, no tanto. · −2 vida
-- 🛡️ **Pagar con material** · La terminal acepta tu material como pago y te abre un cajón. · −1 suministro, holoobjeto al azar
+- **Comerciar con él** (Comercio)
+  - ✅ Te cambia lo mejor de su mochila por la promesa de sacarlo de aquí. · Holoobjeto al azar
+  - ⚠️ Regatea como si fuera el último trato de su vida. Quizá lo sea. · −1 suministro, holoobjeto al azar
+  - ❌ Desconfía y se larga con tu material mientras discutís. · −2 suministros
+- **Preguntarle por la IA** (Instrucción, Navegación)
+  - ✅ Lleva tres días estudiándola. Te da sus cálculos sobre el núcleo. · *Chip de cálculo*
+  - ⚠️ Habla mucho y dice poco, pero comparte su comida. · +1 suministro
+  - ❌ Los nervios le pueden y grita. Algo en la estación os ha oído. · −1 vida a todos
+- 🛡️ **Dejarlo con lo suyo** · Le deseas suerte. Él no te la desea a ti. · Sin efecto
+
+Este evento anuncia al jefe: CUSTOD-IA no deja salir a nadie.
 
 ### est-12 · Conductos de ventilación
 La puerta principal está soldada. La única alternativa es un conducto estrecho que se ramifica en todas direcciones y huele a calcetín de hace dos siglos.
@@ -311,12 +313,12 @@ En cuántos de los 20 eventos aparece cada rol (sin contar el jefe):
 
 | Rol | Eventos |
 |---|---|
-| Ingeniería | 15 |
+| Ingeniería | 14 |
 | Pilotaje | 8 |
 | Instrucción | 8 |
 | Mantenimiento | 7 |
 | Prospección | 7 |
-| Navegación | 6 |
+| Navegación | 7 |
 | Intendencia | 6 |
 | Comercio | 4 |
 
