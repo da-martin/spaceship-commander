@@ -66,6 +66,7 @@ export function tapFree(h,k){
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
   if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
+  if(h.g?.[k]) h.g[k].at=Date.now();   // último toque: la mecha de la fila marca cuándo se sincroniza
   emit('track',h,'habit','+',k,first?effOf(h):0);   // con pareja, cada toque es una repetición allí
   return g;
 }
@@ -96,5 +97,6 @@ export function untapFree(h,k){
   h.log=h.log||{}; if(h.log[k]>0) emit('track',h,'habit','-',k);
   h.log[k]=Math.max(0,(h.log[k]||0)-1);
   subW('mc',freeTap(h,k));
+  if(h.log[k]>0&&h.g?.[k]) h.g[k].at=Date.now();
   if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
