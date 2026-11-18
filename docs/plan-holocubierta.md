@@ -1,0 +1,238 @@
+# VR Training: Entrenamiento en Holocubierta
+
+Un minijuego de rol dentro de Spaceship, aparte del juego principal. Es un simulador a bordo: lo que pasa dentro no tiene ninguna consecuencia en la nave, el monedero, el rango ni la tripulación. Se alimenta del esfuerzo del día y no devuelve nada.
+
+- **Fase 1: Pasillo de decisiones.** Salas con una situación y 2 o 3 opciones que se resuelven con un dado y el rol del tripulante. 60 eventos y 3 personajes de serie.
+- **Fase 2: Dados de escuadrón.** Combates por turnos con dados por rol. Los eventos de la fase 1 pasan a ser las salas de evento del mapa.
+
+## Nombres
+
+- Pestaña nueva en Spaceship: **Nave · Alianza · VR Training**.
+- Título de la pantalla: **Entrenamiento en Holocubierta**.
+- Se puede ocultar desde Ajustes con el interruptor **VR Training**. Si se oculta, desaparece la pestaña y no se calcula nada; al volver a activarlo todo sigue donde estaba.
+
+## Cortafuegos
+
+La regla de oro: **la Holocubierta lee, nunca escribe** fuera de lo suyo.
+
+- Todo su estado va en `state.rpg`. Nada de lo que hace toca `wallet`, `ship`, `cmd`, `tasks`, `habits`, `projects` ni `focus`.
+- Lo único que lee: los puntos de esfuerzo del día (`state.ship.activity`) para la energía, y la tripulación para los holoperfiles.
+- Borrar la partida de VR Training (botón en su propia pantalla, con confirmación) solo vacía `state.rpg`.
+- Viaja con la partida: archivos guardados y nube, como los ajustes.
+- Nada de lo que se gana dentro sale fuera: ni ¢, ni méritos, ni materiales, ni mensajes a la alianza. Compartir logros con la alianza queda como idea para más adelante.
+
+## Energía: cargas holo
+
+Cada simulación cuesta **1 carga**.
+
+| | Valor inicial |
+|---|---|
+| Puntos de esfuerzo por carga | 3 (≈ 3 tareas normales) |
+| Cargas que se pueden ganar al día | 2 |
+| Cargas guardadas como máximo | 3 |
+| Primera simulación | Gratis (tutorial) |
+
+- Las cargas del día se calculan con `state.ship.activity[hoy]`: `min(2, floor(puntos / 3))`. Como ese contador ya resta lo desmarcado, no hace falta escuchar marcas ni desmarcas.
+- Se guarda cuántas se han abonado hoy (`credited`). Si el cálculo sube, la diferencia pasa al banco (hasta el máximo). Si baja porque se desmarcó algo, no se quita nada del banco, pero tampoco se vuelve a abonar al marcar de nuevo: el tope del día ya está contado.
+- El tope diario es a propósito: la app sigue siendo de productividad con un juego al lado. No compensa inventarse tareas para jugar más.
+- Todos los números van en una constante de configuración para ajustarlos tras probar.
+
+## Plantel: holoperfiles
+
+**3 personajes de serie** (los nombres son una propuesta):
+
+| Nombre | Rol | Papel en la simulación |
+|---|---|---|
+| Vega Ortiz | Pilotaje | Reflejos, esquivar, vehículos |
+| Kofi Brandt | Ingeniería | Sistemas, hackear, reparar |
+| Ada Marín | Mantenimiento | Curar, soporte vital |
+
+- Son nivel 1 y siempre están disponibles, también para quien no juega a la nave.
+- **Cada tripulante que se contrata en la nave deja un holoperfil** con su nombre, rol y nivel. Si alguien con el mismo nombre vuelve a subir de nivel, se guarda el más alto. Los holoperfiles no se pierden cuando el tripulante se va de la nave.
+- Para enterarse de las contrataciones: un aviso nuevo `crewJoined(m)` en `core/events.js`, emitido al contratar. La Holocubierta lo escucha y apunta el perfil. La primera vez que se abre VR Training, también se copian los tripulantes que ya estén a bordo.
+
+### Qué significa cada rol en la simulación
+
+| Rol | Se usa para |
+|---|---|
+| Ingeniería | Hackear, reparar, desactivar |
+| Mantenimiento | Curar, soporte vital, estabilizar |
+| Navegación | Orientarse, elegir rutas, evitar trampas |
+| Pilotaje | Esquivar, reflejos, manejar vehículos |
+| Comercio | Negociar, regatear, convencer |
+| Prospección | Escanear, detectar, encontrar botín |
+| Intendencia | Gestionar suministros, improvisar |
+| Instrucción | Liderar, calmar, inspirar al escuadrón |
+
+## Una simulación
+
+1. Se elige **escenario** (los bloqueados salen con candado).
+2. Se elige **escuadrón**: 3 holoperfiles.
+3. Se juegan **10 salas**: 8 eventos al azar del escenario (sin repetir), 1 sala de descanso fija (la 5) y 1 jefe (la 10).
+4. Al final, resumen y desbloqueos.
+
+Se puede salir en cualquier momento: la simulación se guarda y se retoma donde estaba. **Abandonarla** la termina sin devolver la carga.
+
+### Recursos de la partida
+
+Duran solo esa simulación.
+
+- **Vida**: 3 por tripulante. A 0 queda **desconectado** y ya no puede hacer tiradas. Con los 3 desconectados, la simulación falla.
+- **Suministros**: se empieza con 3. Gastar 1 permite **repetir una tirada** o **curar 1 de vida** en la sala de descanso.
+- **Holoobjetos**: hasta 3 a la vez. Caen en algunos eventos. Unos 12 en total (p. ej. *Kit de parches*: +1 de vida; *Chip de cálculo*: +1 a una tirada; *Baliza*: repetir una tirada gratis).
+
+### La tirada
+
+- Al elegir una opción con tirada, se elige qué tripulante la hace. Viene marcado el que más bono tiene.
+- **d6 + bono** contra la dificultad de la sala.
+- Bono: **+2** si el rol del tripulante es uno de los de la opción, **+0/+1/+2** según el nivel del holoperfil (1/2/3).
+- Resultado:
+  - **Éxito**: igual o mayor que la dificultad.
+  - **Éxito con coste**: falla por 1. Se consigue, pero con el coste que diga el evento.
+  - **Fallo**: lo demás.
+- Dificultad por sala: salas 1–3 → 4 · salas 4–6 → 5 · salas 7–9 → 6 · jefe → 6.
+- Algunas opciones son **seguras**: no hay tirada y tienen un coste fijo (p. ej. «Retroceder: −1 suministro»).
+
+### Sala de descanso
+
+Elegir una: curar 1 de vida a todos, ganar 2 suministros o un holoobjeto al azar.
+
+### Jefe
+
+Tres tiradas encadenadas, cada una con su texto y sus roles. Cada fallo cuesta 1 de vida al tripulante que tiró. Hay que superar 2 de 3, y el escuadrón tiene que seguir en pie al final.
+
+## Escenarios y eventos
+
+60 eventos: **3 escenarios × 20 eventos**, más 3 jefes aparte.
+
+| Escenario | Tema | Se desbloquea |
+|---|---|---|
+| Estación abandonada | Sistemas averiados, drones, salas a oscuras | Desde el principio |
+| Mundo selvático | Fauna, clima, ruinas antiguas | Venciendo al jefe de la Estación |
+| Nave fantasma | Señales extrañas, tripulación desaparecida, IA | Venciendo al jefe del Mundo selvático |
+
+Al jugar 8 de 20 eventos por simulación, cada partida es distinta.
+
+### Formato
+
+En `public/js/rpg/events-data.js`:
+
+```js
+{
+  id: 'est-01', esc: 'estacion',
+  title: 'Dron de seguridad',
+  text: 'Un dron bloquea el pasillo. Su luz roja barre el suelo, cada vez más cerca.',
+  opts: [
+    { label: 'Hackearlo', roles: ['engineer'],
+      ok:   { text: 'El dron se apaga y te abre paso.', item: 'chip' },
+      part: { text: 'Se apaga, pero suelta una descarga.', hp: -1 },
+      ko:   { text: 'Te detecta y dispara.', hp: -2 } },
+    { label: 'Esquivarlo', roles: ['pilot', 'navigator'],
+      ok:   { text: 'Pasas por debajo sin que te vea.' },
+      part: { text: 'Pasas, pero pierdes material.', sup: -1 },
+      ko:   { text: 'Te roza un disparo.', hp: -1 } },
+    { label: 'Retroceder', safe: true,
+      res:  { text: 'Das un rodeo largo.', sup: -1 } }
+  ]
+}
+```
+
+- Efectos posibles: `hp` (al que tiró), `hpAll` (a todo el escuadrón), `sup`, `item`. Nada más en la fase 1.
+- 2 o 3 opciones por evento; como mucho una segura.
+
+### Guía para escribirlos
+
+- Texto de la situación: 280 caracteres como mucho. Textos de resultado: 160.
+- Tono: ciencia ficción con algo de humor, en segunda persona y en el mismo español que el resto de la app.
+- **Cada rol aparece en al menos 12 de los 60 eventos**, para que ningún tripulante sobre. Los de serie (Pilotaje, Ingeniería, Mantenimiento) no pueden ser los únicos que sirven en ningún escenario.
+- Equilibrio: en cada escenario, la suma de lo que se puede perder en un fallo tiene que dejar ganar la simulación con algo de suerte y buenas decisiones. Se comprueba con un test que simula partidas.
+
+## Registro de simulación
+
+En la pantalla de entrada:
+
+- Simulaciones jugadas, completadas y mejor sala alcanzada.
+- Eventos descubiertos por escenario (p. ej. «Estación: 14/20»).
+- Jefes vencidos.
+- **Medallas** solo de la Holocubierta (p. ej. «Completar la Estación sin perder a nadie», «Ganar con un escuadrón sin personajes de serie»). Son de adorno y no salen de aquí.
+
+## Pantallas
+
+Pensadas para el móvil y para jugar con una mano.
+
+1. **Entrada (VR Training)**: título «Entrenamiento en Holocubierta», cargas (●●○), escenarios, botón **Iniciar simulación** (o **Continuar** si hay una a medias) y registro.
+2. **Escuadrón**: lista de holoperfiles con nombre, rol y nivel. Se eligen 3.
+3. **Sala**: arriba, sala n/10, vida de cada tripulante, suministros y holoobjetos. En medio, la tarjeta del evento. Abajo, las opciones como botones, con los roles que dan bono. Al elegir: quién tira → dado animado (corto) → texto del resultado y sus efectos → **Continuar**.
+4. **Fin**: completada o fallida, salas superadas, eventos nuevos, medallas y desbloqueos.
+
+Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: «Te faltan 1,5 puntos de esfuerzo para la próxima carga».
+
+## Código
+
+- `public/js/rpg/`: lógica pura, sin DOM, como `core/`.
+  - `config.js`: números de energía, dificultades, vida y suministros.
+  - `events-data.js`: los 60 eventos, los 3 jefes y los holoobjetos.
+  - `energy.js`: cálculo de cargas a partir de `state.ship.activity`.
+  - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos y pasar de sala.
+  - `roster.js`: personajes de serie y holoperfiles.
+  - `state.js`: `normRpg()` para la partida y las partidas guardadas.
+- `public/js/ui/vr-view.js`: las pantallas.
+- `store.js`: `st.rpg = normRpg(s?.rpg)` en `normState()` y en `freshState()`.
+- `ui/mode.js` e `index.html`: la pestaña `data-stab="vr"`.
+- `ui/settings.js`: el interruptor `showVR` en `normSettings()`.
+
+### `state.rpg`
+
+```js
+{
+  energy: { bank: 1, day: '2026-11-18', credited: 0, freeUsed: false },
+  roster: [ { id, name, role, lv, src: 'serie' | 'crew' } ],
+  unlocked: ['estacion'],
+  run: null | { esc, squad: [{ id, hp }], sup, items: [], rooms: [...ids], i, pending },
+  seen: { 'est-01': true, ... },
+  stats: { runs: 0, wins: 0, best: 0, bosses: {} },
+  medals: []
+}
+```
+
+## Tests
+
+- **Cortafuegos**: se juega una simulación completa con azar fijo y todo el estado salvo `state.rpg` queda idéntico (`deepEqual` con una copia de antes).
+- **Arquitectura**: `rpg/` no toca el DOM ni importa de `ui/`. `core/` no importa nada de `rpg/`. `rpg/` no usa `addW`, `subW`, `addXP` ni escribe en `state.wallet`, `state.ship` ni `state.cmd`.
+- **Energía**: cargas con 0, 2,9, 3, 6 y 9 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
+- **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
+- **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 12; ids únicos; 20 por escenario.
+- **Equilibrio**: 1.000 simulaciones con decisiones razonables por escenario; la tasa de victoria tiene que estar entre el 35 % y el 65 %.
+- **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
+
+## Fases
+
+### Fase 1a: lo mínimo jugable
+
+- Motor, energía, 3 personajes de serie, pantallas y tests.
+- Solo el escenario **Estación abandonada**: 20 eventos y su jefe.
+- Interruptor en Ajustes.
+- Objetivo: que tu amigo lo pruebe y ajustar números.
+
+### Fase 1b: completar
+
+- **Mundo selvático** y **Nave fantasma** (40 eventos y 2 jefes).
+- Holoperfiles de la tripulación (`crewJoined`).
+- Registro de simulación y medallas.
+
+### Fase 2: Dados de escuadrón
+
+Solo esbozo; se planifica aparte.
+
+- Cada holoperfil aporta 2 dados cuyas caras dependen de su rol.
+- Combates por turnos: se tiran los dados del escuadrón y se asignan a acciones. Los enemigos anuncian lo que harán el turno siguiente.
+- Mapa ramificado: combate, evento (los de la fase 1), descanso y taller.
+- Entre partidas: caras de dado mejoradas y reliquias de holocubierta.
+
+## Por decidir
+
+- Nombres de los 3 personajes de serie.
+- Si **VR Training** viene activado por defecto o hay que activarlo.
+- Números de energía (3 puntos por carga, 2 al día, 3 de banco) tras probarlo.
+- Temas de los escenarios 2 y 3.
+- Si más adelante habrá un ajuste general **Nivel de juego** (solo productividad / nave / nave + VR Training). Si existe, VR Training se oculta junto con Spaceship.
