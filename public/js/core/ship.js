@@ -1,5 +1,5 @@
 /* Nave: nivel efectivo de los módulos, desgaste y reparación, esfuerzo del día. */
-import { AREA_MOD, BOARD_BASE, DIFFS, EF_XP, HEAL, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
+import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, HEAL, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
 import { returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
@@ -13,6 +13,11 @@ export const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonu
 export const boardCap=()=>BOARD_BASE+Math.floor(eff('bridge'));
 export const maxDays=()=>Math.min(7,3+Math.floor(eff('engines')));   // las misiones duran de 2 a este máximo
 export const cargoMult=()=>1+0.1*eff('cargo');
+// Literas: las hay según el nivel de los Camarotes, así que el desgaste nunca
+// echa a nadie de la nave. Lo que sí hace es dejar inservibles las que pasan
+// del nivel efectivo: con los Camarotes dañados no se contrata en ellas.
+export const berths=()=>BERTHS+mod('quarters').lv;
+export const berthsUsable=()=>BERTHS+Math.floor(eff('quarters'));
 export const repDamaged=(day=todayStr())=>!!state.ship.board.repUntil&&day<=state.ship.board.repUntil;
 export const baseSignal=()=>SIGNAL_DAY+SIGNAL_LV*eff('comms');                      // misiones al día
 export const signalRate=(day)=>baseSignal()*(repDamaged(day)?0.5:1);              // con mala reputación, a la mitad

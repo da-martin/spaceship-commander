@@ -1,4 +1,5 @@
 /* Exportar e importar la partida (archivo o código) y deshacer la carga. */
+import { SHIP_LV_MAX } from '../config.js';
 import { dailyTick } from './review.js';
 import { normState, save, setState, state } from '../store.js';
 import { render } from '../ui/commander.js';
@@ -42,7 +43,7 @@ export async function parseSave(text){
 export function readBackup(){ try{ const b=JSON.parse(localStorage.getItem(BACKUPKEY)); return b?.data?b:null; }catch{ return null; } }
 export const relDays=(ms)=>{ const d=Math.floor((Date.now()-ms)/864e5); return d<=0?'hoy':d===1?'ayer':`hace ${d} días`; };
 export const fmtStamp=(ms)=>new Date(ms).toLocaleString('es-ES',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-export const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ¢ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/40`;
+export const summary=(st)=>`${plural(st.tasks.length,'tarea','tareas')} · ${plural(st.habits.length,'hábito','hábitos')} · ¢ ${st.wallet.mc} · nave Nv. ${Object.values(st.ship.modules).reduce((a,m)=>a+m.lv,0)}/${SHIP_LV_MAX}`;
 export function markExport(){ try{ localStorage.setItem(EXPKEY,String(Date.now())); }catch{} paintSaveModal(); }
 
 export function exportFile(){
