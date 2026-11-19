@@ -4,9 +4,9 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { ROLES } from '../public/js/config.js';
 import { normState } from '../public/js/store.js';
-import { BANK_MAX, BOSS_AT, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, ROSTER_MAX, SUP_START } from '../public/js/rpg/config.js';
+import { BANK_MAX, BOSS_AT, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, SUP_START } from '../public/js/rpg/config.js';
 import { BOSSES, EVENTS, ITEMS, MEDALS, SCENARIOS, STARTERS } from '../public/js/rpg/data.js';
-import { addProfile, syncCrew } from '../public/js/rpg/roster.js';
+import { syncCrew } from '../public/js/rpg/roster.js';
 import { canStart, nextCharge, syncEnergy } from '../public/js/rpg/energy.js';
 import { abandon, alive, applyFx, bonusFor, canReroll, canUse, choose, eventOf, reroll, resolve, rest, startRun, useItem } from '../public/js/rpg/run.js';
 import { odds } from '../public/js/rpg/run.js';
@@ -301,29 +301,32 @@ test('eventos: con los de serie siempre hay algo que hacer, y cada rol sale a me
 });
 
 /* ---------- holoperfiles ---------- */
-test('holoperfiles: cada contratación deja uno; si vuelve con más nivel, se guarda el más alto', () => {
+test('holoperfiles: el plantel es la tripulación a bordo, con su nivel', () => {
   const r = normRpg(null);
-  assert.equal(addProfile(r, { id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 1 }), true);
-  assert.equal(addProfile(r, { id: 'm9', name: 'Lina Sol', role: 'engineer', lv: 1 }), false);
-  assert.equal(addProfile(r, { id: 'm9', name: 'Lina Sol', role: 'engineer', lv: 3 }), true);
-  assert.equal(addProfile(r, { id: 'm2', name: 'Raro', role: 'nope', lv: 2 }), false);
-  const crew = r.roster.filter((m) => m.src === 'crew');
-  assert.deepEqual(crew, [{ id: 'c-m1', name: 'Lina Sol', role: 'engineer', lv: 3, src: 'crew' }]);
-  assert.equal(syncCrew(r, [{ id: 'm3', name: 'Omar Gil', role: 'pilot', lv: 2 }, { id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 2 }]), 1);
+  assert.equal(syncCrew(r, [{ id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 1 }, { id: 'm2', name: 'Raro', role: 'nope', lv: 2 }]), true);
+  assert.deepEqual(r.roster.filter((m) => m.src === 'crew'), [{ id: 'c-m1', name: 'Lina Sol', role: 'engineer', lv: 1, src: 'crew' }]);
+  assert.equal(syncCrew(r, [{ id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 1 }]), false);
+  syncCrew(r, [{ id: 'm1', name: 'Lina Sol', role: 'engineer', lv: 4 }, { id: 'm3', name: 'Omar Gil', role: 'pilot', lv: 2 }]);   // asciende y llega otro
+  assert.deepEqual(r.roster.filter((m) => m.src === 'crew').map((m) => [m.id, m.lv]), [['c-m1', 4], ['c-m3', 2]]);
   assert.equal(r.roster.length, STARTERS.length + 2);
   assert.deepEqual(normRpg(clone(r)).roster, r.roster);
+  // Quien se va deja el plantel; si vuelve alguien con el mismo nombre, es otro tripulante.
+  syncCrew(r, [{ id: 'm9', name: 'Lina Sol', role: 'engineer', lv: 1 }]);
+  assert.deepEqual(r.roster.filter((m) => m.src === 'crew').map((m) => [m.id, m.lv]), [['c-m9', 1]]);
+  assert.deepEqual(r.roster.filter((m) => m.src === 'serie').map((m) => m.id), STARTERS.map((m) => m.id));
 });
 
-test('holoperfiles: con el plantel lleno se va el más antiguo que no esté jugando', () => {
+test('holoperfiles: quien se marcha a media simulación sigue en ella hasta el final', () => {
   const r = normRpg(null);
-  for (let i = 0; i < ROSTER_MAX; i++) addProfile(r, { id: 'm' + i, name: 'Tripulante ' + i, role: 'pilot', lv: 1 });
+  syncCrew(r, [{ id: 'm0', name: 'Lina Sol', role: 'pilot', lv: 1 }]);
   r.energy.bank = 1;
   assert.equal(startRun(r, 'estacion', ['c-m0', 's-vega', 's-ada'], rngOf()), null);
-  addProfile(r, { id: 'nuevo', name: 'Nueva', role: 'medic', lv: 2 });
-  const ids = r.roster.map((m) => m.id);
-  assert.ok(ids.includes('c-m0'), 'el que está jugando se queda');
-  assert.ok(!ids.includes('c-m1'));
-  assert.ok(ids.includes('c-nuevo'));
+  syncCrew(r, []);
+  assert.ok(r.roster.some((m) => m.id === 'c-m0'), 'el que está jugando se queda');
+  abandon(r);
+  syncCrew(r, []);
+  assert.ok(!r.roster.some((m) => m.id === 'c-m0'));
+  assert.deepEqual(r.lastSquad, [], 'no se propone un escuadrón con quien ya no está');
 });
 
 test('el último escuadrón se recuerda', () => {
@@ -374,7 +377,7 @@ test('medallas: primera victoria, sin bajas, sin red, jefe y cartógrafo, una so
 
 test('medallas: tripulación propia, solo sin personajes de serie', () => {
   const r = normRpg(null);
-  for (const [i, role] of ['pilot', 'engineer', 'medic'].entries()) addProfile(r, { id: 'm' + i, name: 'T' + i, role, lv: 1 });
+  syncCrew(r, ['pilot', 'engineer', 'medic'].map((role, i) => ({ id: 'm' + i, name: 'T' + i, role, lv: 1 })));
   startRun(r, 'estacion', ['c-m0', 'c-m1', 'c-m2'], rngOf());
   winBoss(r);
   assert.ok(r.run.medals.includes('tripulacion'));

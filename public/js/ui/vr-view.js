@@ -143,13 +143,12 @@ const rolesBox = (esc) => `<div class="mt-4 p-3 rounded-xl border border-violet-
 
 function squadView(r) {
   const s = SCENARIO_BY_ID[ui.esc];
-  // Tres grupos: la tripulación a bordo (la única que gana experiencia de verdad),
-  // los holoperfiles de quienes ya se fueron y los de serie. En cada uno, de más a menos nivel.
+  // Dos grupos: la tripulación a bordo (la única que gana experiencia) y los
+  // holoperfiles de serie. En cada uno, de más a menos nivel.
   const aboard = new Map(state.ship.crew.map((m) => [profileId(m), m]));
   const byLv = (a, b) => b.lv - a.lv || a.name.localeCompare(b.name, 'es');
   const groups = [
     ['A bordo de la nave', `con el sueldo al día ganan +${CREW_XP_RUN} XP de tripulación al terminar la simulación`, r.roster.filter((m) => m.src === 'crew' && aboard.has(m.id))],
-    ['Antiguos tripulantes', 'holoperfiles: ya no están a bordo y no ganan experiencia', r.roster.filter((m) => m.src === 'crew' && !aboard.has(m.id))],
     ['De serie', 'holoperfiles de entrenamiento: no ganan experiencia', r.roster.filter((m) => m.src === 'serie')],
   ].filter((g) => g[2].length);
   const card = (m) => {
@@ -172,7 +171,7 @@ function squadView(r) {
     <h2 class="text-lg font-bold mt-1">Elige tu escuadrón <span class="text-slate-400 font-medium text-sm">${ui.pick.length}/${SQUAD}</span></h2>
     <p class="text-sm text-slate-300 mt-2 leading-relaxed">${s.intro}</p>
     ${rolesBox(ui.esc)}
-    ${aboard.size ? '' : '<p class="mono text-[11px] text-slate-400 mt-3">Cuando contrates tripulantes en la nave, aparecerán aquí. Solo los que estén a bordo ganan experiencia al entrenar.</p>'}
+    ${aboard.size ? '' : '<p class="mono text-[11px] text-slate-400 mt-3">Cuando contrates tripulantes en la nave, entrenarán aquí mientras sigan a bordo y ganarán experiencia.</p>'}
     ${cards}
     <div class="flex flex-wrap gap-2 mt-4">
       <button type="button" data-vr="start" ${ui.pick.length === SQUAD && canStart(r) ? '' : 'disabled'} class="${btnMain}">Iniciar simulación${isFree(r) ? ' (gratis)' : ' · 1 carga'}</button>
@@ -414,13 +413,13 @@ export function init() {
       case 'rest': { let notes; act(() => { notes = rest(r, id); }); notify(notes); break; }
       case 'use': { let msg; act(() => { msg = useItem(r, id); }); if (msg) toast(msg); break; }
       case 'quit': ui.confirm = 'quit'; renderVR(); break;
-      case 'quit-yes': resetPick(); act(() => abandon(r)); break;
-      case 'leave': resetPick(); ui.screen = 'lobby'; act(() => abandon(r)); scrollTo(0, 0); break;
+      case 'quit-yes': resetPick(); act(() => { abandon(r); syncCrew(r, state.ship.crew); }); break;
+      case 'leave': resetPick(); ui.screen = 'lobby'; act(() => { abandon(r); syncCrew(r, state.ship.crew); }); scrollTo(0, 0); break;
       case 'wipe': ui.confirm = 'wipe'; renderVR(); break;
       case 'wipe-yes': {
-        // Solo se vacía lo de VR Training; la energía ganada hoy se respeta.
+        // Solo se vacía lo de VR Training; la energía ganada hoy y la tripulación a bordo se respetan.
         const energy = r.energy;
-        act(() => { Object.assign(r, { ...normRpg(null), energy }); });
+        act(() => { Object.assign(r, { ...normRpg(null), energy }); syncCrew(r, state.ship.crew); });
         toast('Progreso de VR Training borrado'); break;
       }
       case 'no': renderVR(); break;
