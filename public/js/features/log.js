@@ -21,7 +21,7 @@ export const LOG_TONE={
         icon:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'},
   info:{label:'text-slate-300', edge:'border-slate-600'}
 };
-export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN'};
+export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN',books:'CONTABILIDAD'};
 export const logDay=(d)=>d===todayStr()?'Hoy':d===addDays(todayStr(),-1)?'Ayer':fDate(d);
 export const rewChips=(r)=>!r?'':[chip(`+${r.mc} ¢`,RES.mc.chip),...Object.entries(r.mats||{}).filter(([k])=>RES[k]).map(([k,n])=>chip(`+${n} ${RES[k].sym} ${RES[k].name}`,RES[k].chip)),
   ...(r.xp?[chip(`+${r.xp} méritos`,'border-slate-600 text-slate-300')]:[])].join('');
