@@ -3,7 +3,7 @@
 import { AGE_BONUS, AREA_COLORS, DIFFS, hasDeadline, isAway, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
-import { agedMc, docked, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
+import { agedMc, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
@@ -23,11 +23,31 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 // La nave no lleva ni una etiqueta encima: todo el texto vive en el panel de al
 // lado. Por eso esta función se puede cambiar por un <img> el día que haya una
 // ilustración de verdad, sin tocar nada más.
-// Fondo según dónde esté la nave. En el Sistema Madre asoma el planeta por la
-// esquina inferior izquierda; en misión no hay planeta y las estrellas pasan
-// hacia abajo, como si la nave avanzara.
-export function shipBackdrop(home){
-  if(home){
+// Fondo según dónde esté la nave (`scene`):
+//   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
+//   'orbit' — misión sin plazo: el planeta, de cerca, ocupa todo el lateral izquierdo.
+//   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
+export function shipBackdrop(scene){
+  if(scene==='orbit'){
+    // Borde derecho en x=88, a un palmo de la nave. No se corre con --planet-x:
+    // en el recuadro alto taparía los módulos de babor.
+    const C='cx="-340" cy="150"', R=428;
+    return `<defs>
+      <radialGradient id="bigG" cx="54" cy="90" r="492" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a8db0"/><stop offset=".22" stop-color="#1d5878"/><stop offset=".55" stop-color="#0f2f49"/><stop offset="1" stop-color="#081422"/></radialGradient>
+      <radialGradient id="bigAtmo" ${C} r="${R+22}" gradientUnits="userSpaceOnUse"><stop offset=".94" stop-color="#38bdf8" stop-opacity="0"/><stop offset=".954" stop-color="#38bdf8" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+      <clipPath id="bigC"><circle ${C} r="${R}"/></clipPath>
+    </defs>
+    <circle cx="236" cy="86" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="212" cy="238" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="262" cy="160" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="150" cy="26" r="1.3" fill="#7dd3fc" opacity=".5"/>
+    <circle cx="280" cy="40" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="196" cy="276" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="250" cy="12" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="290" cy="210" r="1.3" fill="#7dd3fc" opacity=".5"/>
+    <circle ${C} r="${R+22}" fill="url(#bigAtmo)"/>
+    <circle ${C} r="${R}" fill="url(#bigG)"/>
+    <g clip-path="url(#bigC)">
+      <g fill="#2f8f7a" opacity=".45"><path d="M18 40 q22 -14 44 -4 q14 10 2 22 q-20 10 -38 2 q-16 -6 -8 -20Z"/><path d="M-4 128 q26 -12 52 -2 q12 12 -4 22 q-26 10 -44 -2Z"/><path d="M30 196 q18 -8 30 4 q2 12 -14 14 q-18 0 -16 -18Z"/><path d="M-10 250 q30 -10 60 4 q8 12 -10 18 q-30 6 -50 -6Z"/></g>
+      <g fill="none" stroke="#e0f2fe" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"><path d="M-20 84 q50 -10 104 6"/><path d="M-20 176 q50 -8 108 4"/><path d="M-20 232 q40 -6 96 2"/></g>
+    </g>
+    <circle ${C} r="${R}" fill="none" stroke="#7dd3fc" stroke-opacity=".5" stroke-width="1.3"/>`;
+  }
+  if(scene==='home'){
     // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
     const P='cx="-20" cy="330" r="120"';
     return `<defs>
@@ -58,8 +78,10 @@ export function shipBackdrop(home){
 // La nave ocupa solo parte del dibujo: deja espacio alrededor (y margen para
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
+// Dónde está la nave para el dibujo: en el sistema, en órbita (misión sin plazo) o en misión.
+export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':isAway(c)?'away':'orbit'; };
 export function shipArt(){
-  const m=state.ship.modules, home=docked();
+  const m=state.ship.modules, scene=shipScene();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
   // Todos los módulos existen desde el día uno: una nave necesita puente y
   // motores para volar. El nivel solo decide cuánto crece cada pieza.
@@ -68,20 +90,22 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${home?herePrep('en'):'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='orbit'?'en órbita, '+herePrep('en'):'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
     <radialGradient id="skyG"><stop offset="0" stop-color="#1b3a52" stop-opacity=".45"/><stop offset="1" stop-color="#1b3a52" stop-opacity="0"/></radialGradient>
   </defs>
-  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>${shipBackdrop(home)}
+  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>${shipBackdrop(scene)}
   <g transform="translate(150 150) scale(${SHIP_SCALE}) translate(-150 -150)">`;
 
   // Cada sistema construido añade una pieza visible. Eso sí se nota, a
   // diferencia del 12 % de escala que crecía el casco antes.
   {
     const r=8+2*m.engines.lv;
-    s+=`<g opacity="${op('engines')}"><ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>
+    // En el sistema los motores están apagados: la nave espera a que hagas algo.
+    const exh=scene==='home'?'':`<ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>`;
+    s+=`<g opacity="${op('engines')}">${exh}
     <path d="M104 206 L90 214 L90 246 L104 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/>
     <path d="M196 206 L210 214 L210 246 L196 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/></g>`;
   }
