@@ -80,7 +80,7 @@ function rollMats(days,D){
   return mats;
 }
 // Misión sin plazo: te saca del sistema como cualquier otra y termina al reunir la cuota (o al abandonarla).
-// Cuota de 6 a 9 días al ritmo medio; la paga por punto es la de una misión de 1 día
+// Cuota de 4 a 7 días al ritmo medio; la paga por punto es la de una misión de 1 día
 // (sin plazo no hay prisa que pagar) y no sube con la espera. Nunca es urgente.
 export function genOpenOffer(day){
   if(!openCatalog().length) return genOffer(day);   // sistema sin misiones sin plazo: una normal
