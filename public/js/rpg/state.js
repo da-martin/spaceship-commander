@@ -80,6 +80,6 @@ function normRes(x, squad) {
   if (x.kind === 'safe') return { kind: 'safe', opt };
   if (!squad.some((m) => m.id === x.member)) return null;
   const n = (v) => clampInt(v, -99, 99, 0);
-  return { kind: x.kind, opt, member: x.member, die: clampInt(x.die, 1, 6, 1), bonus: n(x.bonus), total: n(x.total), dc: n(x.dc), boss: !!x.boss,
+  return { kind: x.kind, opt, member: x.member, dice: Array.isArray(x.dice) && x.dice.length === 2 ? x.dice.map((d) => clampInt(d, 1, 6, 1)) : [1, 2], bonus: n(x.bonus), total: n(x.total), dc: n(x.dc), boss: !!x.boss,
     mods: (Array.isArray(x.mods) ? x.mods : []).filter((k) => ITEMS[k]), rerolls: clampInt(x.rerolls, 0, 99, 0) };
 }

@@ -7,10 +7,10 @@ Contenido de la fase 1b: 20 eventos y el jefe. Las reglas están en [plan-holocu
 ## Cómo leerlo
 
 - Cada evento tiene 2 o 3 opciones. Entre paréntesis, los roles que dan **+2** a la tirada.
-- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo. Un 6 en el dado siempre es éxito.
+- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo. Se tiran dos dados; los dobles siempre son éxito.
 - 🛡️ opción segura: no hay tirada y el resultado es siempre el mismo.
 - La vida que se pierde o se gana es la del tripulante que tira, salvo que diga «a todos».
-- Dificultad: salas 1–3 → 6 · salas 4–6 → 6 · salas 7–9 → 7 · jefe → 7.
+- Dificultad: salas 1–3 → 10 · salas 4–6 → 12 · salas 7–9 → 12 · jefe → 11.
 
 El evento sel-12 (El nido) y sel-20 (Estampida) anuncian al jefe: algo enorme vive en el valle.
 
@@ -267,15 +267,15 @@ La tierra empieza a temblar. Una manada de bestias del tamaño de un camión baj
 
 > El suelo tiembla bajo vuestros pies. Entre los árboles aparece la criatura más grande que habéis visto nunca, con escamas del color del musgo. Se interpone entre vosotros y la baliza de extracción, y no piensa apartarse.
 
-Tres pasos, con dificultad 7. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
+Tres pasos, con dificultad 11. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
 
 1. **Despistarla entre la maleza** (Navegación, Prospección, Pilotaje)
    - ✅ La criatura pierde vuestro rastro y busca en la dirección equivocada.
    - ❌ Os encuentra. Su cola barre el claro.
-2. **Aguantar su embestida** (Mantenimiento, Instrucción)
-   - ✅ Os mantenéis juntos y os curáis sobre la marcha. Seguís en pie.
+2. **Ponerse a cubierto de su embestida** (Mantenimiento, Navegación, Instrucción)
+   - ✅ Encontráis unas rocas a tiempo y os curáis sobre la marcha. Seguís en pie.
    - ❌ La embestida os lanza contra los árboles.
-3. **Activar la baliza de extracción** (Ingeniería, Intendencia)
+3. **Localizar y activar la baliza de extracción** (Ingeniería, Prospección, Intendencia)
    - ✅ La baliza se enciende con un fogonazo. La criatura retrocede ante la luz.
    - ❌ La baliza no arranca. La criatura vuelve a por vosotros.
 

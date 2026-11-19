@@ -7,7 +7,8 @@ Contenido de la fase 1a: 20 eventos, el jefe y los holoobjetos. Las reglas está
 ## Cómo leerlo
 
 - Cada evento tiene 2 o 3 opciones. Entre paréntesis, los roles que dan **+2** a la tirada.
-- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo.
+- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo. Se tiran dos dados; los dobles siempre son éxito.
+- Dificultad: salas 1–3 → 10 · salas 4–6 → 10 · salas 7–9 → 11 · jefe → 11.
 - 🛡️ opción segura: no hay tirada y el resultado es siempre el mismo.
 - La vida que se pierde o se gana es la del tripulante que tira, salvo que diga «a todos».
 
@@ -26,7 +27,7 @@ Se llevan como mucho 3 a la vez y solo duran la simulación. Se usan cuando quie
 | Escudo personal | Anula la próxima pérdida de vida, también si es «a todos» (salta solo) |
 | Chip de cálculo | +1 a una tirada |
 | Baliza | Repite una tirada gratis |
-| Dado trucado | La próxima tirada saca un 6 |
+| Dado trucado | La próxima tirada saca dobles: éxito seguro |
 | Ganzúa electrónica | +2 a una tirada de Ingeniería |
 | Mapa parcial | +2 a una tirada de Navegación o Pilotaje |
 | Escáner portátil | +2 a una tirada de Prospección o Mantenimiento |
@@ -290,7 +291,7 @@ Una sala de entrenamiento dentro de tu entrenamiento. En la puerta, un letrero: 
 
 > La IA de la estación te espera en el núcleo. Habla con una voz suave y tranquilizadora. «Hola. Antes de marcharte, ¿podrías responder a una breve encuesta de satisfacción? Son solo 4.000 preguntas. No hay salida hasta que termines».
 
-Tres pasos, con dificultad 7. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
+Tres pasos, con dificultad 11. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
 
 1. **Cortarle el acceso a las puertas** (Ingeniería, Navegación)
    - ✅ Las puertas del núcleo dejan de obedecerle.
@@ -325,4 +326,4 @@ En cuántos de los 20 eventos aparece cada rol (sin contar el jefe):
 - Ingeniería domina a propósito: es el escenario de tecnología. Comercio sale poco aquí y tendrá su protagonismo en el Puerto franco.
 - Los 20 eventos tienen una opción para un rol de serie (Pilotaje, Ingeniería o Mantenimiento) o una opción segura.
 - Las tres tiradas del jefe se pueden hacer con roles de serie.
-- Números ajustados con el test de equilibrio: dificultad 5/6/7 en las salas y 7 en el jefe, 3 de vida y 2 suministros al empezar. El jugador automático gana ~70 % de las simulaciones.
+- Números ajustados con el test de equilibrio: dos dados, dificultad 10/10/11 en las salas y 11 en el jefe, 3 de vida y 2 suministros al empezar. El jugador automático gana ~78 % de las simulaciones con el escuadrón de serie.

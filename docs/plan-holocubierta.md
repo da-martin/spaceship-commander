@@ -87,14 +87,14 @@ Duran solo esa simulación.
 ### La tirada
 
 - Al elegir una opción con tirada, se elige qué tripulante la hace. Viene marcado el que más bono tiene.
-- **d6 + bono** contra la dificultad de la sala.
+- **Dos dados de 6 caras (2d6) + bono** contra la dificultad de la sala. Con un solo dado, cada punto de bono valía siempre un 17 %, un +1 a veces no servía de nada y un +6 ganaba siempre; con dos dados los resultados se agrupan alrededor del 7, cada bono se nota y hay recorrido hasta +5 o +6 sin llegar al 100 %.
 - Bono: **+2** si el rol del tripulante es uno de los de la opción, **+0/+1/+2** según el nivel del holoperfil (1/2/3).
 - Resultado:
   - **Éxito**: igual o mayor que la dificultad.
   - **Éxito con coste**: falla por 1. Se consigue, pero con el coste que diga el evento.
   - **Fallo**: lo demás.
-- **Un 6 en el dado siempre es éxito**, aunque no llegue a la dificultad. Así ninguna tirada es imposible: sin esta regla, en las salas 7–9 (dificultad 7) un tripulante sin el rol tenía un 0 %.
-- Dificultad por sala: salas 1–3 → 5 · salas 4–6 → 6 · salas 7–9 → 7 · jefe → 7. (Ajustada con el test de equilibrio; la primera propuesta, 4/5/6/6, salía demasiado fácil.)
+- **Los dobles siempre son éxito** (1-1, 2-2… 6-6), aunque no lleguen a la dificultad: 1 de cada 6 tiradas. Así ninguna tirada es imposible. El dado trucado saca dobles.
+- La dificultad depende del escenario y del tramo de salas (ver *Escenarios y eventos*). Se ajusta con el test de equilibrio.
 - Antes de tirar se ve la probabilidad de éxito de cada tripulante (y la de éxito con coste), y si tiene a mano un holoobjeto que la mejora, con cuánto quedaría.
 - Algunas opciones son **seguras**: no hay tirada y tienen un coste fijo (p. ej. «Retroceder: −1 suministro»).
 
@@ -129,9 +129,12 @@ Cada escenario se juega de una forma distinta y da protagonismo a roles distinto
 
 | Escenario | Dificultad | Victorias del jugador automático con el escuadrón de serie |
 |---|---|---|
-| Estación abandonada | 5 · 6 · 7 · 7 | ~76 % |
-| Mundo selvático | 6 · 6 · 7 · 7 | ~66 % |
-| Puerto franco | 6 · 7 · 7 · 8 | ~51 % (~61 % con un tripulante de Comercio y otro de Instrucción de nivel 2) |
+| Estación abandonada | 10 · 10 · 11 · 11 | ~78 % |
+| Mundo selvático | 10 · 12 · 12 · 11 | ~68 % (~72 % con Navegación y Prospección; ~54 % con un escuadrón mal elegido) |
+| Puerto franco | 11 · 12 · 13 · 12 | ~61 % (~64 % con Comercio, Instrucción e Intendencia; ~54 % con uno mal elegido) |
+
+- Cada paso de cada jefe pide un rol de serie y alguno de los protagonistas de su escenario: así el escuadrón temático puede en los 3 pasos y rinde al menos como el de serie.
+- Con dos dados el jefe pesa mucho: subirle un punto al del Puerto lo baja al ~42 %. Por eso la progresión es algo más suave que con un dado.
 
 - Contenido de cada escenario: [Estación](holocubierta-estacion.md) · [Selva](holocubierta-selva.md) · [Puerto](holocubierta-puerto.md).
 
@@ -197,7 +200,7 @@ En la pantalla de entrada:
 Pensadas para el móvil y para jugar con una mano.
 
 1. **Entrada (VR Training)**: título «Entrenamiento en Holocubierta», cargas (●●○), escenarios, botón **Iniciar simulación** (o **Continuar** si hay una a medias) y registro.
-2. **Escuadrón**: lista de holoperfiles con nombre, rol y nivel. Se eligen 3.
+2. **Escuadrón**: un recuadro «Lo que se pide aquí» con los roles de los 3 pasos del jefe y los roles que más salen en los eventos. Debajo, los holoperfiles con nombre, rol, nivel y dónde ayuda cada uno («Jefe: paso 1 · eventos 11/20»). Se eligen 3.
 3. **Sala**: arriba, sala n/10, vida de cada tripulante, suministros y holoobjetos. En medio, la tarjeta del evento. Abajo, las opciones como botones, con los roles que dan bono. Al elegir: quién tira → dado animado (corto) → texto del resultado y sus efectos → **Continuar**.
 4. **Fin**: completada o fallida, salas superadas, eventos nuevos, medallas y desbloqueos.
 
@@ -240,7 +243,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Energía**: cargas con 0, 2,9, 3, 6, 9 y 12 puntos; tope diario; tope del banco; desmarcar y volver a marcar no da cargas extra; cambio de día.
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
-- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). Con el escuadrón de serie: Estación entre el 65 % y el 85 %, Selva entre el 55 % y el 75 %, Puerto entre el 40 % y el 62 %, y cada uno por debajo del anterior. En el Puerto, un escuadrón con Comercio e Instrucción tiene que ganar más que el de serie. Una persona gana algo menos que el jugador automático.
+- **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). Con el escuadrón de serie: Estación entre el 67 % y el 87 %, Selva entre el 58 % y el 78 %, Puerto entre el 50 % y el 70 %, y cada uno por debajo del anterior. En la Selva y el Puerto, con todos los tripulantes a nivel 1, el escuadrón temático gana al menos como el de serie y uno mal elegido gana claramente menos. Una persona gana algo menos que el jugador automático.
 - **Holoperfiles y medallas**: contratación, nivel más alto, tope del plantel, último escuadrón, desbloqueos en cadena y cada medalla una sola vez.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 

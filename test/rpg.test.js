@@ -23,7 +23,9 @@ function rngOf(n = 1) {
   let s = n;
   return () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const fixed = (die) => () => (die - 1) / 6 + 0.01;   // un dado que saca siempre `die`
+// Dos dados que sacan `a` y `b` (en ese orden, y luego vuelta a empezar).
+const dice = (a, b) => { let n = 0; return () => ((n++ % 2 ? b : a) - 1) / 6 + 0.01; };
+const near = (x, y) => Math.abs(x - y) < 1e-9;
 // Una simulación recién empezada (gratis: la primera no gasta carga).
 function started(seedN = 1) {
   const r = normRpg(null);
@@ -112,39 +114,41 @@ test('bono: +2 si el rol encaja, +1 por nivel por encima de 1 y lo que sumen los
   assert.equal(bonusFor(r, 'c1', ['engineer']).bonus, 4);
   r.run.items = ['chip', 'ganzua', 'mapa'];
   assert.equal(bonusFor(r, 's-kofi', ['engineer'], ['chip', 'ganzua', 'mapa']).bonus, 5);   // el mapa no es de Ingeniería
-  assert.deepEqual(odds(2, 5), { ok: 4 / 6, part: 1 / 6, ko: 1 / 6 });
+  // 2d6 + 2 contra 10: suma ≥ 8 (15 de 36) o dobles por debajo (3 de 36) = 18; con coste, suma 7 (6 de 36).
+  const o = odds(2, 10);
+  assert.ok(near(o.ok, 18 / 36) && near(o.part, 6 / 36) && near(o.ko, 12 / 36), JSON.stringify(o));
   assert.deepEqual(odds(0, 7, true), { ok: 1, part: 0, ko: 0 });
 });
 
 test('éxito, éxito con coste y fallo en los límites', () => {
   const r = started();
-  r.run.rooms[0] = 'est-01';   // dificultad 5; Kofi hackea con +2
-  for (const [die, kind] of [[3, 'ok'], [2, 'part'], [1, 'ko']]) {
+  r.run.rooms[0] = 'est-01';   // dificultad 10; Kofi hackea con +2
+  for (const [a, b, kind] of [[3, 5, 'ok'], [3, 4, 'part'], [1, 2, 'ko']]) {
     r.run.stage = 'room';
-    assert.equal(choose(r, 0, 's-kofi', [], fixed(die)), null);
-    assert.equal(r.run.res.kind, kind, `dado ${die}`);
-    assert.equal(r.run.res.total, die + 2);
+    assert.equal(choose(r, 0, 's-kofi', [], dice(a, b)), null);
+    assert.equal(r.run.res.kind, kind, `dados ${a}-${b}`);
+    assert.deepEqual(r.run.res.dice, [a, b]);
+    assert.equal(r.run.res.total, a + b + 2);
   }
 });
 
-test('un 6 siempre es éxito: ninguna tirada es imposible', () => {
-  assert.equal(odds(0, 7).ok, 1 / 6);
-  assert.equal(odds(0, 9).ok, 1 / 6);
+test('los dobles siempre son éxito: ninguna tirada es imposible', () => {
+  assert.ok(near(odds(0, 20).ok, 1 / 6));
   const r = started();
-  r.run.i = 6; r.run.rooms[6] = 'est-19';   // sala 7, dificultad 7; nadie del escuadrón de serie tiene el rol
-  choose(r, 0, 's-kofi', [], fixed(6));
+  r.run.i = 6; r.run.rooms[6] = 'est-19';   // sala 7, dificultad 11; nadie del escuadrón de serie tiene el rol
+  choose(r, 0, 's-kofi', [], dice(1, 1));
   assert.equal(r.run.res.kind, 'ok');
-  assert.equal(r.run.res.total, 6);
+  assert.equal(r.run.res.total, 2);
 });
 
 test('un tripulante desconectado no tira; con todos desconectados se pierde', () => {
   const r = started();
   r.run.rooms[0] = 'est-01';
   r.run.squad[0].hp = 0;
-  assert.match(choose(r, 0, r.run.squad[0].id, [], fixed(6)), /no puede tirar/);
+  assert.match(choose(r, 0, r.run.squad[0].id, [], dice(6, 6)), /no puede tirar/);
   r.run.squad.forEach((m) => { m.hp = 1; });
   r.run.rooms[0] = 'est-04';   // el camarero: si falla la negociación, −1 vida a todos
-  choose(r, 0, 's-ada', [], fixed(1));
+  choose(r, 0, 's-ada', [], dice(1, 2));
   resolve(r);
   assert.equal(r.run.stage, 'end');
   assert.equal(r.run.outcome, 'lose');
@@ -154,13 +158,13 @@ test('repetir una tirada cuesta un suministro o una baliza; con éxito no se rep
   const r = started();
   r.run.rooms[0] = 'est-01';
   r.run.items = ['baliza'];
-  choose(r, 0, 's-kofi', [], fixed(1));
+  choose(r, 0, 's-kofi', [], dice(1, 2));
   assert.ok(canReroll(r.run));
-  assert.equal(reroll(r, 'baliza', fixed(2)), null);
+  assert.equal(reroll(r, 'baliza', dice(3, 4)), null);
   assert.equal(r.run.res.kind, 'part');
   assert.deepEqual(r.run.items, []);
   const sup = r.run.sup;
-  assert.equal(reroll(r, 'sup', fixed(6)), null);
+  assert.equal(reroll(r, 'sup', dice(6, 6)), null);
   assert.equal(r.run.res.kind, 'ok');
   assert.equal(r.run.sup, sup - 1);
   assert.equal(canReroll(r.run), false);
@@ -179,13 +183,13 @@ test('las opciones seguras no tiran y piden los suministros que cuestan', () => 
   assert.equal(r.run.i, 1);
 });
 
-test('el dado trucado saca un 6 y se gasta', () => {
+test('el dado trucado saca dobles y se gasta', () => {
   const r = started();
   r.run.rooms[0] = 'est-01';
   r.run.items = ['dado'];
-  choose(r, 1, 's-ada', ['dado'], fixed(1));   // Ada no tiene el rol: solo cuenta el dado
+  choose(r, 1, 's-ada', ['dado'], dice(1, 2));   // Ada no tiene el rol: solo cuenta el dado
   assert.equal(r.run.res.kind, 'ok');
-  assert.equal(r.run.res.die, 6);
+  assert.deepEqual(r.run.res.dice, [6, 6]);
   assert.deepEqual(r.run.items, []);
 });
 
@@ -239,14 +243,14 @@ test('jefe: cada fallo cuesta 1 de vida y se repite el paso; superar los 3 gana 
   r.run.rooms[BOSS_AT - 1] = 'est-03';
   choose(r, 1, null); resolve(r);   // pasa de largo → jefe
   assert.equal(r.run.stage, 'boss');
-  choose(r, 0, 's-kofi', [], fixed(1)); resolve(r);
+  choose(r, 0, 's-kofi', [], dice(1, 2)); resolve(r);
   assert.deepEqual(r.run.boss, { step: 0, wins: 0, fails: 1 });
   assert.equal(r.run.squad[1].hp, HP_MAX - 1);
-  choose(r, 0, 's-kofi', [], fixed(4)); resolve(r);   // 4 + 2 = 6: éxito con coste, pasa
+  choose(r, 0, 's-kofi', [], dice(3, 5)); resolve(r);   // 3 + 5 + 2 = 10 contra 11: éxito con coste, pasa
   assert.equal(r.run.boss.step, 1);
   assert.equal(r.run.squad[1].hp, HP_MAX - 2);
-  choose(r, 0, 's-vega', [], fixed(6)); resolve(r);
-  choose(r, 0, 's-kofi', [], fixed(6)); resolve(r);
+  choose(r, 0, 's-vega', [], dice(6, 6)); resolve(r);
+  choose(r, 0, 's-kofi', [], dice(6, 6)); resolve(r);
   assert.equal(r.run.outcome, 'win');
   assert.equal(r.stats.wins, 1);
   assert.equal(r.stats.bosses.estacion, 1);
@@ -334,7 +338,7 @@ function winBoss(r) {
   r.run.i = BOSS_AT; r.run.stage = 'boss'; r.run.boss = { step: 0, wins: 0, fails: 0 };
   for (let k = 0; r.run.stage !== 'end'; k++) {
     assert.ok(k < 10, 'el jefe no termina');
-    assert.equal(choose(r, 0, alive(r.run)[0].id, [], fixed(6)), null);
+    assert.equal(choose(r, 0, alive(r.run)[0].id, [], dice(6, 6)), null);
     resolve(r);
   }
 }
@@ -361,7 +365,7 @@ test('medallas: primera victoria, sin bajas, sin red, jefe y cartógrafo, una so
   startRun(r, 'estacion', SQUAD, rngOf());
   for (const e of EVENTS.filter((x) => x.esc === 'estacion')) r.seen[e.id] = 1;
   r.run.squad[0].hp = 1;
-  r.run.rooms[0] = 'est-01'; choose(r, 0, r.run.squad[0].id, [], fixed(1)); reroll(r, 'sup', fixed(1)); resolve(r);   // se desconecta y repite
+  r.run.rooms[0] = 'est-01'; choose(r, 0, r.run.squad[0].id, [], dice(1, 2)); reroll(r, 'sup', dice(1, 2)); resolve(r);   // se desconecta y repite
   r.run.i = 3; r.run.stage = 'room';
   winBoss(r);
   assert.deepEqual(r.run.medals, ['cartografo']);
@@ -386,7 +390,7 @@ test('normRpg: partidas sin VR Training, con basura y con una simulación a medi
   assert.deepEqual(normRpg({ energy: { bank: 99, credited: -3 }, roster: [null, { id: 'x', name: 'Ana', role: 'nope' }], unlocked: ['selva', 'nada', 'luna'], seen: { 'est-01': 1, zzz: 1 }, medals: ['primera', 'nope', 'primera'], lastSquad: ['s-vega', 'x', 's-ada'], run: { esc: 'estacion' } }),
     { ...empty, energy: { ...empty.energy, bank: BANK_MAX }, unlocked: ['estacion', 'selva'], seen: { 'est-01': 1 }, medals: ['primera'] });
   const r = started();
-  choose(r, 0, 's-kofi', [], fixed(1));
+  choose(r, 0, 's-kofi', [], dice(1, 2));
   const back = normRpg(JSON.parse(JSON.stringify(r)));
   assert.deepEqual(back, r);
   // si la sala ya no casa (catálogo cambiado), la simulación se pierde
@@ -402,23 +406,30 @@ test('normState: añade VR Training desactivado a las partidas de antes', () => 
 
 /* ---------- equilibrio ---------- */
 // Con el escuadrón de serie: cada escenario, algo más difícil que el anterior, y ninguno imposible.
-const winRate = (esc, squad = SQUAD, N = 1000, seedN = 7) => {
+// Los holoperfiles de nivel 1, para comparar escuadrones sin que pese el nivel.
+const CREW = ['trader', 'instructor', 'navigator', 'prospector', 'quarter', 'engineer'].map((role, i) => ({ id: 'c' + i, name: 'T' + i, role, lv: 1 }));
+const winRate = (esc, squad = SQUAD, N = 1500, seedN = 7) => {
   const rng = rngOf(seedN);
   let wins = 0;
   for (let i = 0; i < N; i++) if (playRun(normRpg({ unlocked: ['selva', 'puerto'], roster: CREW }), esc, squad, rng) === 'win') wins++;
   return wins / N;
 };
-const CREW = [{ id: 'c-1', name: 'Noor Vidal', role: 'trader', lv: 2 }, { id: 'c-2', name: 'Iker Sol', role: 'instructor', lv: 2 }];
+const pc = (x) => `${(x * 100).toFixed(1)} %`;
 test('equilibrio: cada escenario es algo más difícil que el anterior, y ninguno es imposible', () => {
   const est = winRate('estacion'), sel = winRate('selva'), pue = winRate('puerto');
-  const txt = `estación ${(est * 100).toFixed(1)} %, selva ${(sel * 100).toFixed(1)} %, puerto ${(pue * 100).toFixed(1)} %`;
-  assert.ok(est >= 0.65 && est <= 0.85, txt);
-  assert.ok(sel >= 0.55 && sel <= 0.75, txt);
-  assert.ok(pue >= 0.4 && pue <= 0.62, txt);
+  const txt = `estación ${pc(est)}, selva ${pc(sel)}, puerto ${pc(pue)}`;
+  assert.ok(est >= 0.67 && est <= 0.87, txt);
+  assert.ok(sel >= 0.58 && sel <= 0.78, txt);
+  assert.ok(pue >= 0.5 && pue <= 0.7, txt);
   assert.ok(est > sel && sel > pue, txt);
 });
-test('equilibrio: en el Puerto, tripulantes de Comercio e Instrucción ayudan', () => {
-  assert.ok(winRate('puerto', ['c-1', 'c-2', 's-kofi']) > winRate('puerto') + 0.03);
+test('equilibrio: el escuadrón temático rinde al menos como el de serie, y uno mal elegido, peor', () => {
+  for (const [esc, tema, malo] of [['selva', ['c2', 'c3', 's-vega'], ['c0', 'c1', 'c5']], ['puerto', ['c0', 'c1', 'c4'], ['c2', 'c3', 's-vega']]]) {
+    const serie = winRate(esc), t = winRate(esc, tema), m = winRate(esc, malo);
+    const txt = `${esc}: serie ${pc(serie)}, temático ${pc(t)}, mal elegido ${pc(m)}`;
+    assert.ok(t >= serie, txt);
+    assert.ok(m < serie - 0.04, txt);
+  }
 });
 
 /* ---------- cortafuegos ---------- */

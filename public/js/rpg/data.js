@@ -8,9 +8,9 @@
  * Roles: las claves de ROLES de ../config.js. */
 
 export const SCENARIOS = [
-  { id: 'estacion', name: 'Estación abandonada', theme: 'Tecnología', intro: 'La estación Kepler-9 lleva doscientos años en silencio. Sus sistemas siguen funcionando, más o menos, y no les hace ninguna gracia recibir visitas. Encuentra el núcleo y sal de aquí.' },
-  { id: 'selva', name: 'Mundo selvático', theme: 'Exploración', dc: [6, 6, 7, 7], intro: 'Tauris IV es un planeta cubierto de selva que ninguna expedición ha cartografiado del todo. Entre los árboles quedan ruinas de una civilización desaparecida hace milenios. La baliza de extracción está al otro lado del valle.' },
-  { id: 'puerto', name: 'Puerto franco', theme: 'Social', dc: [6, 7, 7, 8], intro: 'Vesta Libre es un asteroide hueco convertido en mercado sin ley. Aquí se compra y se vende de todo, y nadie hace preguntas. Para salir hace falta un salvoconducto, y solo lo firma la Síndica del puerto.' },
+  { id: 'estacion', name: 'Estación abandonada', theme: 'Tecnología', dc: [10, 10, 11, 11], intro: 'La estación Kepler-9 lleva doscientos años en silencio. Sus sistemas siguen funcionando, más o menos, y no les hace ninguna gracia recibir visitas. Encuentra el núcleo y sal de aquí.' },
+  { id: 'selva', name: 'Mundo selvático', theme: 'Exploración', dc: [10, 12, 12, 11], intro: 'Tauris IV es un planeta cubierto de selva que ninguna expedición ha cartografiado del todo. Entre los árboles quedan ruinas de una civilización desaparecida hace milenios. La baliza de extracción está al otro lado del valle.' },
+  { id: 'puerto', name: 'Puerto franco', theme: 'Social', dc: [11, 12, 13, 12], intro: 'Vesta Libre es un asteroide hueco convertido en mercado sin ley. Aquí se compra y se vende de todo, y nadie hace preguntas. Para salir hace falta un salvoconducto, y solo lo firma la Síndica del puerto.' },
   { id: 'cinturon', name: 'Cinturón de asteroides', theme: 'Acción', soon: true },
   { id: 'luna', name: 'Luna helada', theme: 'Supervivencia', soon: true },
 ];
@@ -37,7 +37,7 @@ export const ITEMS = {
   escudo:     { name: 'Escudo personal',    desc: 'Anula la próxima pérdida de vida (salta solo)', kind: 'auto', w: 2 },
   chip:       { name: 'Chip de cálculo',    desc: '+1 a una tirada', kind: 'roll', bonus: 1, w: 2 },
   baliza:     { name: 'Baliza',             desc: 'Repite una tirada gratis', kind: 'reroll', w: 2 },
-  dado:       { name: 'Dado trucado',       desc: 'La próxima tirada saca un 6', kind: 'roll', six: true, w: 1 },
+  dado:       { name: 'Dado trucado',       desc: 'La próxima tirada saca dobles: éxito seguro', kind: 'roll', sure: true, w: 1 },
   ganzua:     { name: 'Ganzúa electrónica', desc: '+2 a una tirada de Ingeniería', kind: 'roll', bonus: 2, roles: ['engineer'], w: 2 },
   mapa:       { name: 'Mapa parcial',       desc: '+2 a una tirada de Navegación o Pilotaje', kind: 'roll', bonus: 2, roles: ['navigator', 'pilot'], w: 2 },
   escaner:    { name: 'Escáner portátil',   desc: '+2 a una tirada de Prospección o Mantenimiento', kind: 'roll', bonus: 2, roles: ['prospector', 'medic'], w: 2 },
@@ -62,8 +62,8 @@ export const BOSSES = {
     text: 'El suelo tiembla bajo vuestros pies. Entre los árboles aparece la criatura más grande que habéis visto nunca, con escamas del color del musgo. Se interpone entre vosotros y la baliza de extracción, y no piensa apartarse.',
     steps: [
       { label: 'Despistarla entre la maleza', roles: ['navigator', 'prospector', 'pilot'], ok: 'La criatura pierde vuestro rastro y busca en la dirección equivocada.', ko: 'Os encuentra. Su cola barre el claro.' },
-      { label: 'Aguantar su embestida', roles: ['medic', 'instructor'], ok: 'Os mantenéis juntos y os curáis sobre la marcha. Seguís en pie.', ko: 'La embestida os lanza contra los árboles.' },
-      { label: 'Activar la baliza de extracción', roles: ['engineer', 'quarter'], ok: 'La baliza se enciende con un fogonazo. La criatura retrocede ante la luz.', ko: 'La baliza no arranca. La criatura vuelve a por vosotros.' },
+      { label: 'Ponerse a cubierto de su embestida', roles: ['medic', 'navigator', 'instructor'], ok: 'Encontráis unas rocas a tiempo y os curáis sobre la marcha. Seguís en pie.', ko: 'La embestida os lanza contra los árboles.' },
+      { label: 'Localizar y activar la baliza de extracción', roles: ['engineer', 'prospector', 'quarter'], ok: 'La baliza se enciende con un fogonazo. La criatura retrocede ante la luz.', ko: 'La baliza no arranca. La criatura vuelve a por vosotros.' },
     ],
     win: 'Simulación completada. La lanzadera de extracción ya baja hacia el claro.',
     lose: 'Simulación fallida. El valle sigue siendo suyo.',
@@ -73,8 +73,8 @@ export const BOSSES = {
     name: 'La Síndica',
     text: 'En lo alto de la torre de la Cámara, la Síndica os recibe tras una mesa de madera auténtica, la única en todo el asteroide. «Queréis un salvoconducto. Todos lo quieren. Veamos qué estáis dispuestos a hacer por él».',
     steps: [
-      { label: 'Detectar el veneno de la copa de bienvenida', roles: ['medic', 'prospector'], ok: 'Hueles el veneno antes de beber. La Síndica sonríe: habéis pasado su primera prueba.', ko: 'Bebes. El veneno no mata, pero duele.' },
-      { label: 'Escapar de sus guardias', roles: ['pilot', 'navigator'], ok: '«Atrapadlos». Pero ya no estáis donde estabais.', ko: 'Los guardias os cierran el paso.' },
+      { label: 'Detectar el veneno de la copa de bienvenida', roles: ['medic', 'prospector', 'quarter'], ok: 'Hueles el veneno antes de beber. La Síndica sonríe: habéis pasado su primera prueba.', ko: 'Bebes. El veneno no mata, pero duele.' },
+      { label: 'Salir de la trampa de sus guardias', roles: ['pilot', 'navigator', 'instructor'], ok: '«Atrapadlos». Pero ya no estáis donde estabais.', ko: 'Los guardias os cierran el paso.' },
       { label: 'Cerrar el trato o falsificar su firma', roles: ['trader', 'instructor', 'engineer'], ok: 'Salís con un salvoconducto firmado. Si la firma es suya o no, ya da igual.', ko: '«Respuesta equivocada», dice la Síndica.' },
     ],
     win: 'Simulación completada. Las puertas del puerto se abren para vosotros.',

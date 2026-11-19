@@ -7,10 +7,10 @@ Contenido de la fase 1b: 20 eventos y el jefe. Las reglas están en [plan-holocu
 ## Cómo leerlo
 
 - Cada evento tiene 2 o 3 opciones. Entre paréntesis, los roles que dan **+2** a la tirada.
-- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo. Un 6 en el dado siempre es éxito.
+- ✅ éxito · ⚠️ éxito con coste (falla por 1) · ❌ fallo. Se tiran dos dados; los dobles siempre son éxito.
 - 🛡️ opción segura: no hay tirada y el resultado es siempre el mismo.
 - La vida que se pierde o se gana es la del tripulante que tira, salvo que diga «a todos».
-- Dificultad: salas 1–3 → 6 · salas 4–6 → 7 · salas 7–9 → 7 · jefe → 8.
+- Dificultad: salas 1–3 → 11 · salas 4–6 → 12 · salas 7–9 → 13 · jefe → 12.
 
 El evento pue-12 (Una nota anónima) anuncia al jefe y da una pista para su primer paso: «No bebáis nada de lo que os ofrezca».
 
@@ -280,12 +280,12 @@ La Síndica ha cortado el agua en este sector para presionar a los comerciantes.
 
 > En lo alto de la torre de la Cámara, la Síndica os recibe tras una mesa de madera auténtica, la única en todo el asteroide. «Queréis un salvoconducto. Todos lo quieren. Veamos qué estáis dispuestos a hacer por él».
 
-Tres pasos, con dificultad 8. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
+Tres pasos, con dificultad 12. Hay que superar **los 3**. Un éxito con coste supera el paso pero cuesta 1 de vida. Un fallo cuesta 1 de vida a quien tira y el paso se repite. Si cae todo el escuadrón, se pierde.
 
-1. **Detectar el veneno de la copa de bienvenida** (Mantenimiento, Prospección)
+1. **Detectar el veneno de la copa de bienvenida** (Mantenimiento, Prospección, Intendencia)
    - ✅ Hueles el veneno antes de beber. La Síndica sonríe: habéis pasado su primera prueba.
    - ❌ Bebes. El veneno no mata, pero duele.
-2. **Escapar de sus guardias** (Pilotaje, Navegación)
+2. **Salir de la trampa de sus guardias** (Pilotaje, Navegación, Instrucción)
    - ✅ «Atrapadlos». Pero ya no estáis donde estabais.
    - ❌ Los guardias os cierran el paso.
 3. **Cerrar el trato o falsificar su firma** (Comercio, Instrucción, Ingeniería)

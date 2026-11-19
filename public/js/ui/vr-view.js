@@ -6,7 +6,7 @@ import { ROLES } from '../config.js';
 import { save, state } from '../store.js';
 import { escapeHtml, fmtEf, plural, todayStr } from '../util.js';
 import { HP_MAX, ITEMS_MAX, ROOMS, SQUAD } from '../rpg/config.js';
-import { bossRef, EVENT_BY_ID, ITEMS, MEDAL_BY_ID, MEDALS, SCENARIO_BY_ID, SCENARIOS } from '../rpg/data.js';
+import { BOSSES, bossRef, EVENT_BY_ID, ITEMS, MEDAL_BY_ID, MEDALS, SCENARIO_BY_ID, SCENARIOS } from '../rpg/data.js';
 import { syncCrew } from '../rpg/roster.js';
 import { canStart, isFree, nextCharge, syncEnergy } from '../rpg/energy.js';
 import { normRpg } from '../rpg/state.js';
@@ -126,22 +126,41 @@ const medalCard = (m, got) => `<div class="rounded-lg border px-2.5 py-2 ${got ?
 </div>`;
 
 /* ---------- escuadrón ---------- */
+// Lo que pide un escenario: los roles de cada paso del jefe y en cuántos eventos sale cada rol.
+function needs(esc) {
+  const evs = Object.values(EVENT_BY_ID).filter((e) => e.esc === esc), events = {};
+  for (const e of evs) for (const k of new Set(e.opts.flatMap((o) => o.roles || []))) events[k] = (events[k] || 0) + 1;
+  return { boss: BOSSES[esc].steps.map((st) => st.roles), events, total: evs.length, steps: BOSSES[esc].steps };
+}
+function needsBox(esc, need) {
+  const top = Object.entries(need.events).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${roleName(k)} (${n})`).join(' · ');
+  return `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
+    <div class="text-sm font-medium">Lo que se pide aquí</div>
+    <div class="mono text-[11px] text-slate-400 mt-2">Jefe: ${BOSSES[esc].name}</div>
+    <ol class="mt-1 space-y-1">${need.steps.map((st, i) => `<li class="text-[13px] text-slate-300">${i + 1}. ${st.label} <span class="mono text-[11px] text-violet-300">· ${st.roles.map(roleName).join(', ')}</span></li>`).join('')}</ol>
+    <div class="mono text-[11px] text-slate-400 mt-2">Roles que más salen en los eventos (de ${need.total}): <span class="text-slate-300">${top}</span></div>
+  </div>`;
+}
+
 function squadView(r) {
   const s = SCENARIO_BY_ID[ui.esc];
   // De serie primero; después la tripulación, de más a menos nivel.
   const roster = [...r.roster].sort((a, b) => (a.src === 'serie' ? 0 : 1) - (b.src === 'serie' ? 0 : 1) || b.lv - a.lv || a.name.localeCompare(b.name, 'es'));
   const hasCrew = roster.some((m) => m.src === 'crew');
+  const need = needs(ui.esc);
   const cards = roster.map((m) => {
-    const on = ui.pick.includes(m.id);
+    const on = ui.pick.includes(m.id), steps = need.boss.map((st, i) => st.includes(m.role) ? i + 1 : 0).filter(Boolean);
+    const use = `${steps.length ? `Jefe: ${steps.length > 1 ? 'pasos' : 'paso'} ${steps.join(' y ')}` : 'Sin papel en el jefe'} · eventos ${need.events[m.role] || 0}/${need.total}`;
     return `<button type="button" data-vr="pick" data-id="${m.id}" aria-pressed="${on}" class="flex items-center gap-3 min-h-[56px] px-3 py-2 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : 'border-slate-700 bg-[#0d1526] hover:border-violet-600'}">
       <span class="w-6 h-6 shrink-0 rounded-md border grid place-items-center text-xs ${on ? 'bg-violet-500 border-violet-300 text-white' : 'border-slate-600'}" aria-hidden="true">${on ? '✓' : ''}</span>
-      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span><span class="block mono text-[11px] ${steps.length ? 'text-violet-300' : 'text-slate-500'}">${use}</span></span>
     </button>`;
   }).join('');
   return `<section class="panel corner p-4 sm:p-5">
     <div class="sys-label">${s.name}</div>
     <h2 class="text-lg font-bold mt-1">Elige tu escuadrón <span class="text-slate-400 font-medium text-sm">${ui.pick.length}/${SQUAD}</span></h2>
     <p class="text-sm text-slate-300 mt-2 leading-relaxed">${s.intro}</p>
+    ${needsBox(ui.esc, need)}
     <p class="mono text-[11px] text-slate-400 mt-3">${hasCrew ? 'Los tripulantes que contratas en la nave quedan aquí como holoperfiles, aunque ya no estén a bordo.' : 'Cuando contrates tripulantes en la nave, aparecerán aquí como holoperfiles.'}</p>
     <div class="grid sm:grid-cols-3 gap-2 mt-3">${cards}</div>
     <div class="flex flex-wrap gap-2 mt-4">
@@ -213,7 +232,7 @@ function rollPanel(r, opt) {
   // El mejor objeto de tirada que tiene a mano cada tripulante, para avisar antes de elegir.
   const bestItem = (id) => rollItemsFor(r, id).map((k) => {
     const b = bonusFor(r, id, opt.roles, [k]);
-    return { k, o: odds(b.bonus, dc, b.six) };
+    return { k, o: odds(b.bonus, dc, b.sure) };
   }).sort((a, b) => score(b.o) - score(a.o))[0];
   if (!ui.member || !alive(run).some((m) => m.id === ui.member)) {
     ui.member = alive(run).map((m) => m.id).sort((a, b) => bonusFor(r, b, opt.roles).bonus - bonusFor(r, a, opt.roles).bonus || rollItemsFor(r, b).length - rollItemsFor(r, a).length)[0];
@@ -234,7 +253,7 @@ function rollPanel(r, opt) {
     const on = ui.items.includes(k);
     return `<button type="button" data-vr="item" data-id="${k}" aria-pressed="${on}" title="${ITEMS[k].desc}" class="mono text-[11px] min-h-[32px] px-2 rounded border ${on ? 'border-violet-300 bg-violet-800 text-white' : 'border-slate-600 text-slate-300'}">${ITEMS[k].name}</button>`;
   }).join('')}</div>` : '';
-  const { bonus, six } = bonusFor(r, ui.member, opt.roles, ui.items), o = odds(bonus, dc, six);
+  const { bonus, sure } = bonusFor(r, ui.member, opt.roles, ui.items), o = odds(bonus, dc, sure);
   const sum = boss ? `superar el paso ${pct(o.ok + o.part)}` : `éxito ${pct(o.ok)}${o.part ? ` · con coste ${pct(o.part)}` : ''}`;
   return `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
     <div class="text-sm font-medium mb-2">¿Quién lo intenta?</div>
@@ -242,9 +261,9 @@ function rollPanel(r, opt) {
     ${items}
     <div class="flex flex-wrap items-center gap-3 mt-3">
       <button type="button" data-vr="roll" class="${btnMain}">Tirar el dado</button>
-      <span class="mono text-[11px] text-slate-400">d6 + ${bonus} contra ${dc} · ${sum}</span>
+      <span class="mono text-[11px] text-slate-400">2 dados + ${bonus} contra ${dc} · ${sum}</span>
     </div>
-    <p class="mono text-[10px] text-slate-500 mt-2">Un 6 siempre es éxito.</p>
+    <p class="mono text-[10px] text-slate-500 mt-2">Los dobles siempre son éxito.</p>
   </div>`;
 }
 
@@ -288,10 +307,11 @@ function resultView(r) {
   }
   const effect = fxLabel(fx);
   const dice = res.kind === 'safe' ? '' : `<div class="flex items-center gap-4 mt-3">
-    <span class="vr-die ${ui.rolled ? 'vr-roll' : ''} text-6xl leading-none text-violet-200" aria-hidden="true">${FACES[res.die - 1]}</span>
+    <span class="shrink-0 flex gap-1" aria-hidden="true">${res.dice.map((d, i) => `<span class="vr-die ${ui.rolled ? 'vr-roll' : ''} text-6xl leading-none text-violet-200" style="animation-delay:${i * 90}ms">${FACES[d - 1]}</span>`).join('')}</span>
     <div class="${ui.rolled ? 'vr-reveal' : ''}">
-      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.die} + ${res.bonus} = ${res.total} contra ${res.dc}${res.die === 6 && res.total < res.dc ? ' · un 6 siempre es éxito' : ''}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
+      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.dice[0]} + ${res.dice[1]} + ${res.bonus} = ${res.total} contra ${res.dc}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
       <span class="inline-block mt-1 text-sm font-semibold px-2 py-0.5 rounded border ${KIND[res.kind][1]}">${KIND[res.kind][0]}</span>
+      ${res.dice[0] === res.dice[1] && !res.mods.some((k) => ITEMS[k].sure) ? `<span class="inline-block mt-1 ml-1 text-sm font-semibold px-2 py-0.5 rounded border border-amber-600 bg-amber-950/40 text-amber-200">¡Dobles!</span>` : ''}
     </div>
   </div>`;
   const again = canReroll(run) ? `
