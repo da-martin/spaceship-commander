@@ -5,7 +5,8 @@ import { BOOKS_DAYS } from '../public/js/config.js';
 import { dayIn, dayOut, earn, firstDay, incomeFn, incomeForecast, pastIn, spend, trimBooks, unearn } from '../public/js/core/books.js';
 import { crewPayroll, payDebt, payDue, payForecast } from '../public/js/core/crew.js';
 import { checkHabit, grantTask, revokeTask, tapFree, uncheckHabit, untapFree } from '../public/js/core/rewards.js';
-import { normBooks, normShip } from '../public/js/store.js';
+import { lastWeekOut, weekPlan } from '../public/js/core/forecast.js';
+import { normBooks, normSettings, normShip } from '../public/js/store.js';
 import { addDays } from '../public/js/util.js';
 import { clock, seed, fresh, restore } from './helpers.js';
 
@@ -205,4 +206,33 @@ test('el día que empieza el libro se queda con lo mayor de cada categoría; des
   assert.deepEqual([pastIn(Y).cats, pastIn(Y).est], [{ task: 20, sale: 30 }, true]);
   s.ship.books.days[T] = inn({ task: 3 });
   assert.deepEqual([pastIn(T).cats, pastIn(T).est, pastIn(T).n.task], [{ task: 3 }, false, 1]);
+});
+
+/* ---------- la semana en Contabilidad ---------- */
+test('el saldo de cada día: menos lo que se cobra al empezar, más lo previsto; lo que no se cobra no resta', () => {
+  const days = {};
+  for (let i = 1; i <= 7; i++) days[addDays(T, -i)] = inn({ task: 10 });
+  const s = books(addDays(T, -7), days);
+  s.wallet.mc = 50;
+  s.ship.crew = [member({ until: T }), member({ id: 'b', name: 'Tomás', wage: 45, lv: 1, until: '2026-11-21' }), member({ id: 'c', name: 'Aiko', cancel: true, until: '2026-11-22' }), member({ id: 'd', name: 'Rui', owed: true, until: '2026-11-16' })];
+  const p = weekPlan();
+  assert.deepEqual(p.days.map((d) => [d.out, d.unpaid, d.start, d.end]), [
+    [0, 90, 50, 60],   // vie 20: Lina no cobra
+    [0, 0, 60, 70],
+    [45, 0, 25, 35],   // dom 22: Tomás
+    [0, 0, 35, 45], [0, 0, 45, 55], [0, 0, 55, 65], [0, 0, 65, 75]]);
+  assert.equal(p.end, 75);
+  assert.deepEqual(p.days[3].leave.map((m) => m.id), ['c']);   // lun 23: se marcha Aiko
+  assert.deepEqual(p.risks.map((r) => r.id), ['m1']);
+  assert.deepEqual(p.debts.map((d) => [d.id, d.debt, d.perDay]), [['d', 39, 13]]);
+});
+
+test('lo gastado la última semana sale del libro, separando lo que se decide cada vez', () => {
+  books(addDays(T, -3), { [Y]: { in: {}, out: { wages: 90, yard: 60 } }, [T]: { in: {}, out: { buy: 5 } } });
+  assert.deepEqual(lastWeekOut(), { from: addDays(T, -3), total: 150, cats: { wages: 90, yard: 60 }, voluntary: 60 });
+});
+
+test('la pestaña Contabilidad viene activada y se puede apagar', () => {
+  assert.equal(normSettings(null).showBooks, true);
+  assert.equal(normSettings({ showBooks: false }).showBooks, false);
 });

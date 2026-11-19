@@ -15,6 +15,7 @@ import { renderProjects } from './projects.js';
 import { doneFoldEl, doneStripEl, habitFolded, habitRowEl, HOY_LG_MAX, matchAreas, noteTouch, scheduleRecent, taskFolded, taskRowEl, welcomeEl } from './rows.js';
 import { renderShip } from './ship-view.js';
 import { toast } from './toast.js';
+import { renderBooks } from './books-view.js';
 import { view } from './view.js';
 import { applyWeeks, closeWkModal, measureBars, renderWeeks, setWeeks, weeksOpen, wideMQ } from './weeks.js';
 import { etaDays, todayStr } from '../util.js';
@@ -181,6 +182,7 @@ export function render(){
 
   scheduleRecent(t);
   renderShip();
+  renderBooks();   // pinta la pestaña si está a la vista; el punto de aviso, siempre
   if(uiMode==='focus') renderFocus();
   renderWeeks();
 }

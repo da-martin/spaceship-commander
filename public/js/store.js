@@ -88,7 +88,7 @@ export function normFocus(f){
 }
 // Ajustes: van en la partida para viajar con la cuenta y con los archivos.
 // Solo entran claves conocidas y del tipo de su valor por defecto.
-export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false,allyEvents:true,allyProgress:true,showVR:false}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
+export function normSettings(x){ const d={showStreaks:true,showEvents:true,showProjects:true,badgeEvents:false,allyEvents:true,allyProgress:true,showVR:false,showBooks:true}; if(x) for(const k of Object.keys(d)) if(typeof x[k]===typeof d[k]) d[k]=x[k]; return d; }
 // Nombres propios de las áreas: la clave interna (Spirit…) no cambia nunca; vacío = el de siempre.
 export const AREA_NAME_MAX = 24;
 export function normAreaNames(x){ const d={}; for(const a of AREAS){ const v=typeof x?.[a]==='string'?x[a].trim().slice(0,AREA_NAME_MAX):''; if(v&&v!==a) d[a]=v; } return d; }

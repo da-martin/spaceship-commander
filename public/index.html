@@ -147,6 +147,24 @@
   .stab{color:#94a3b8;border-bottom:2px solid transparent;margin-bottom:-1px}
   .stab:hover{color:#e2e8f0}
   .stab[aria-pressed="true"]{color:#fff;font-weight:600;border-bottom-color:#22d3ee}
+  /* Contabilidad: en el móvil, una fila por día; desde sm, siete columnas con barras */
+  .bk-days{display:grid;gap:8px}
+  .bk-day{display:flex;align-items:center;gap:8px}
+  .bk-date{width:3.5rem;flex:none}
+  .bk-num{flex:1;min-height:44px;display:flex;align-items:center}
+  .bk-bal{width:4.5rem;flex:none;text-align:right}
+  .bk-bars{display:none;height:4rem;align-items:flex-end;justify-content:center;gap:3px}
+  .bk-bar{width:10px;border-radius:2px}
+  .bk-btn{min-height:44px;border-radius:8px;padding:0 6px;margin:0 -6px;text-decoration:underline dotted;text-underline-offset:4px}
+  .bk-btn:hover{background:#1e293b}
+  @media (min-width:640px){
+    .bk-days{grid-template-columns:repeat(7,minmax(0,1fr))}
+    .bk-day{flex-direction:column;align-items:stretch;text-align:center;gap:4px;padding:10px 6px}
+    .bk-date,.bk-bal{width:auto;text-align:center}
+    .bk-num{flex:none;justify-content:center}
+    .bk-btn{margin:0}
+    .bk-bars{display:flex}
+  }
   /* VR Training: el dado gira al tirar y el resultado aparece justo después */
   .vr-die{display:inline-block}
   .vr-roll{animation:vr-roll .6s cubic-bezier(.2,.8,.3,1)}
@@ -270,7 +288,7 @@
          la cabecera recupera la fila que ocupaba. -->
     <div id="navToggle" role="group" aria-label="Modo" class="hidden sm:flex bg-slate-900 border border-slate-700 rounded-lg p-1 shrink-0">
       <button id="btnCommander" aria-pressed="true" class="px-3 py-2 text-sm rounded-md bg-cyan-700 text-white font-medium">Commander</button>
-      <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span><span data-allydot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
+      <button id="btnSpaceship" aria-pressed="false" class="relative px-3 py-2 text-sm rounded-md text-slate-300 hover:text-white">Spaceship<span data-logdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full" aria-hidden="true"></span><span data-allydot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span><span data-booksdot class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-red-400" aria-hidden="true"></span></button>
     </div>
     <div id="focusNav" class="hidden w-full sm:w-auto order-2 sm:order-none items-center gap-2 shrink-0 sm:ml-auto">
       <div role="group" aria-label="Fase del Protocolo Forster" class="flex flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg p-1">
@@ -292,6 +310,7 @@
     <button type="button" data-stab="ship" aria-pressed="true" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Nave<span data-logdot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full" aria-hidden="true"></span></button>
     <button type="button" data-stab="alliance" aria-pressed="false" class="stab relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">Alianza<span data-allydot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span></button>
     <button type="button" id="vrTab" data-stab="vr" aria-pressed="false" class="stab hidden relative flex-1 sm:flex-none sm:px-6 h-11 text-sm">VR Training</button>
+    <button type="button" id="booksTab" data-stab="books" aria-pressed="false" class="stab hidden relative flex-1 sm:flex-none sm:px-6 h-11 text-sm"><span class="sm:hidden">Cuentas</span><span class="hidden sm:inline">Contabilidad</span><span data-booksdot class="hidden absolute top-2.5 right-2 sm:right-1.5 w-2 h-2 rounded-full bg-red-400" aria-hidden="true"></span></button>
   </div>
 </nav>
 
@@ -512,6 +531,11 @@
   <div id="vrBody" class="space-y-4"></div>
 </main>
 
+<!-- CONTABILIDAD: la pinta ui/books-view.js -->
+<main id="books-view" class="hidden max-w-6xl mx-auto px-4 pb-24 pt-5">
+  <div id="booksBody"></div>
+</main>
+
 <!-- FOCUS VIEW: PROTOCOLO FORSTER -->
 <main id="focus-view" class="hidden max-w-3xl mx-auto px-4 pb-24 pt-6 space-y-4">
   <section class="flex flex-wrap items-end gap-4">
@@ -644,6 +668,20 @@
       <button id="logClose" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
     </div>
     <div id="logBody" class="mt-2"></div>
+  </div>
+</div>
+
+<!-- CONTABILIDAD: de dónde sale una cifra -->
+<div id="booksModal" class="hidden fixed inset-0 z-50 overflow-y-auto p-4 bg-black/70 backdrop-blur-sm">
+  <div role="dialog" aria-modal="true" aria-labelledby="booksTitle" class="panel w-full max-w-md p-5 mx-auto my-8">
+    <div class="flex items-start gap-2">
+      <div>
+        <div id="booksKind" class="sys-label">Contabilidad</div>
+        <h3 id="booksTitle" class="text-lg font-bold mt-1"></h3>
+      </div>
+      <button id="booksClose" aria-label="Cerrar" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-sm">✕</button>
+    </div>
+    <div id="booksModalBody" class="mt-2"></div>
   </div>
 </div>
 
@@ -927,6 +965,15 @@
       <button id="setVR" type="button" role="switch" aria-checked="false" aria-labelledby="lblVR" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
     </div>
 
+    <div class="sys-label mt-6 mb-2">Contabilidad</div>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div id="lblBooks" class="text-sm font-medium">Previsión de entradas y gastos</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">Los próximos 7 días, con los sueldos y el saldo que quedaría. Aparece como pestaña en Spaceship. El aviso de impago de la tripulación sale igual</div>
+      </div>
+      <button id="setBooks" type="button" role="switch" aria-checked="true" aria-labelledby="lblBooks" class="switch"><span class="switch-knob" aria-hidden="true"></span></button>
+    </div>
+
     <!-- Importar y conectar viven juntos; la clave se pide en #thModal. Al
          conectar se guarda en el servidor, por cuenta: nunca entra en la partida. -->
     <div class="sys-label mt-6 mb-2">Integración con TaskHero</div>
@@ -992,6 +1039,7 @@
   <button type="button" data-mode="ship" aria-pressed="false" class="bnav relative flex-1 flex flex-col items-center gap-1 pt-2.5 pb-5 text-[11px]">
     <span data-logdot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full" aria-hidden="true"></span>
     <span data-allydot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full bg-cyan-400" aria-hidden="true"></span>
+    <span data-booksdot class="hidden absolute top-2 left-1/2 ml-2.5 w-2 h-2 rounded-full bg-red-400" aria-hidden="true"></span>
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5c2.4 2.7 3.7 6.1 3.7 9.5v4.5l2.3 2.3v1.2H6v-1.2L8.3 16.5V12c0-3.4 1.3-6.8 3.7-9.5z"/><circle cx="12" cy="10" r="1.6"/></svg>
     Spaceship
   </button>

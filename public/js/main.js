@@ -14,7 +14,7 @@ import { syncCrew } from './rpg/roster.js';
 import { cloud, CLOUDKEY, hydrate, initCloud, pushState, readLink, schedulePush } from './sync/cloud.js';
 import { allianceBoot, init as initUiAllianceView, refreshAlliance } from './ui/alliance-view.js';
 import { render } from './ui/commander.js';
-import { setMode, UIKEY, uiMode } from './ui/mode.js';
+import { setMode, SHIP_TABS, UIKEY, uiMode } from './ui/mode.js';
 import { paintMissionLeft, paintSignal, renderShip } from './ui/ship-view.js';
 import { toast } from './ui/toast.js';
 import { init as initUiModal } from './ui/modal.js';
@@ -28,6 +28,7 @@ import { init as initFeaturesLog } from './features/log.js';
 import { init as initFeaturesFocus } from './features/focus.js';
 import { init as initUiMode } from './ui/mode.js';
 import { init as initUiVR } from './ui/vr-view.js';
+import { init as initUiBooks } from './ui/books-view.js';
 import { init as initIntegrationsCalendars } from './integrations/calendars.js';
 import { init as initSyncAuth } from './sync/auth.js';
 
@@ -58,6 +59,7 @@ initFeaturesReview();
 initFeaturesLog();
 initFeaturesFocus();
 initUiMode();
+initUiBooks();
 initUiAllianceView();
 initUiVR();
 initIntegrationsCalendars();
@@ -73,7 +75,7 @@ addEventListener('storage',e=>{
 });
 /* ---------- boot ---------- */
 dailyTick();
-{ const m=localStorage.getItem(UIKEY); setMode(m==='ship'||m==='focus'||m==='alliance'||m==='vr'?m:'commander'); }
+{ const m=localStorage.getItem(UIKEY); setMode(m==='focus'||SHIP_TABS.includes(m)?m:'commander'); }
 // El panel de semanas se anima a partir de aquí, no al pintar el estado guardado.
 requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('weeks-anim')));
 addEventListener('focus',()=>{
