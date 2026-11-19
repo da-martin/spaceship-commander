@@ -1,7 +1,7 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
  * en localStorage. save() avisa con `saved` (la nube programa la subida). */
 import { UPDATES } from './config.js';
-import { AREAS, CREW_HIRE_MAX, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
+import { AREAS, BOOKS, CREW_HIRE_MAX, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
@@ -14,6 +14,18 @@ export function normShipName(x){ return typeof x==='string'?x.replace(/\s+/g,' '
 // Antes, quien no cobraba en misión quedaba «sin contrato» (idle sin cancelar):
 // ahora eso es sueldo pendiente. idle queda solo para contratos cancelados.
 const owedOf=(m)=>m.owed||(m.idle&&!m.cancel)?{owed:true,idle:false}:{owed:false,idle:!!m.idle};
+// Libro de cuentas (core/books.js). Sin libro, empieza hoy: lo de antes no se anotó.
+const DAY_RE=/^\d{4}-\d{2}-\d{2}$/;
+export function normBooks(b){
+  const side=(o,cats)=>{ const r={}; for(const k of Object.keys(cats)){ const n=clampInt(o?.[k],0,1e9,0); if(n) r[k]=n; } return r; };
+  const days={};
+  for(const [d,e] of Object.entries(b?.days&&typeof b.days==='object'?b.days:{})){
+    if(!DAY_RE.test(d)) continue;
+    const x={in:side(e?.in,BOOKS.in),out:side(e?.out,BOOKS.out)};
+    if(Object.keys(x.in).length||Object.keys(x.out).length) days[d]=x;
+  }
+  return {since:typeof b?.since==='string'&&DAY_RE.test(b.since)?b.since:todayStr(),days};
+}
 export function normShip(s){
   const modules={};
   for(const k of Object.keys(MODS)){ const m=s?.modules?.[k]; modules[k]={lv:clampInt(m?.lv,0,5,0),cond:clampInt(m?.cond,0,100,100)}; }
@@ -44,6 +56,7 @@ export function normShip(s){
       ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,CREW_HIRE_MAX,1)}))}
       :{week:null,cands:[]},
     log:normLog(s?.log),
+    books:normBooks(s?.books),
     updates:(Array.isArray(s?.updates)?s.updates:[]).filter(x=>typeof x==='string').slice(-100),
     recentMissions:(Array.isArray(s?.recentMissions)?s.recentMissions:[]).filter(id=>typeof id==='string'&&MISSION_BY_ID[id]).slice(-RECENT_MAX)
   };

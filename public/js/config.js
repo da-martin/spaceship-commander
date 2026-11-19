@@ -75,6 +75,14 @@ export const effOf = (x) => x?.kind==='acc' ? EFFORT.easy : (EFFORT[x?.diff]||1)
 // Lo fácil redondea ¢ y méritos hacia abajo (2,5 → 2); lo demás, a la más cercana.
 export const payRound = (v,ef) => ef<1 ? Math.floor(v+1e-9) : Math.round(v);
 
+/* ---------- libro de cuentas: ¢ que entran y salen cada día (state.ship.books) ---------- */
+// Solo los Megacréditos. Se guardan BOOKS_DAYS días, como la actividad de la nave.
+export const BOOKS = {
+  in: {task:'Tareas', habit:'Hábitos', free:'Hábitos libres', mission:'Misiones', forster:'Protocolo Forster', sale:'Venta de material'},
+  out:{wages:'Sueldos', crew:'Contratos y ascensos', debt:'Deudas', yard:'Astillero', repair:'Reparaciones', buy:'Compra de material', sweep:'Barrido de señal'}
+};
+export const BOOKS_DAYS = 30;
+
 /* ---------- rango del comandante: méritos que no se gastan ---------- */
 export const XP_PROGRESS = 1, XP_ROUND = 5, XP_CONTRACT = 25;   // tareas y hábitos: EF_XP por punto de esfuerzo
 export const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teniente',500],['Capitán de corbeta',900],['Capitán de fragata',1500],

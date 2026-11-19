@@ -1,5 +1,6 @@
 /* Protocolo Forster (modo Focus, en memoria de Mark Forster). */
 import { EF_PROGRESS, XP_PROGRESS, XP_ROUND } from '../config.js';
+import { earn } from '../core/books.js';
 import { on } from '../core/events.js';
 import { countToday, habitKind, isDoneToday, isScheduledToday } from '../core/habits.js';
 import { projBadge } from '../core/projects.js';
@@ -194,7 +195,7 @@ export function focusProgress(l){
   f.lines.push(newLine(l.kind,l.ref,{re:l.re+1,...(l.kind==='acc'?{title:l.title}:{})}));
   // Recompensa pequeña: 0,1 puntos de esfuerzo, 1 mérito y ¢ solo con Pilotaje
   const pm=perk('pilot');
-  if(pm){ addW('mc',pm); focusCount('mc',pm); }
+  if(pm){ addW('mc',pm); earn(pm,'forster'); focusCount('mc',pm); }
   addXP(XP_PROGRESS); addEffort(EF_PROGRESS); focusCount('progress',1); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
   if(round) openRoundModal(round,'Progreso anotado');
