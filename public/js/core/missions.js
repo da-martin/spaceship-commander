@@ -1,4 +1,4 @@
-import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, LONG_DAYS, LONG_P, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, MISSION_BY_ID, OFFER_TTL, OPEN_DAYS, OPEN_P, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
@@ -53,10 +53,10 @@ export function pickDiff(keys=Object.keys(DIFFS)){
   return keys[keys.length-1];
 }
 // La misión se sortea del catálogo del sistema, entre las que no han salido hace poco ni están en el tablón o en curso.
-// Las largas (`long: true`) solo salen sin plazo, y las demás solo con plazo.
-export const longCatalog=()=>here().missions.filter(m=>m.long);
-export function pickMission(long=false){
-  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions.filter(m=>!!m.long===long);
+// Las marcadas `open: true` solo salen sin plazo, y las demás solo con plazo.
+export const openCatalog=()=>here().missions.filter(m=>m.open);
+export function pickMission(open=false){
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions.filter(m=>!!m.open===open);
   const free=cat.filter(m=>!busy.has(m.id));
   const m=pick(free.length?free:cat);
   sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
@@ -65,7 +65,7 @@ export function pickMission(long=false){
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 export function genOffer(day,safe=false){
-  if(!safe&&LONG_P>0&&longCatalog().length&&Math.random()<LONG_P) return genLongOffer(day);   // con LONG_P a 0 no se tira el dado
+  if(!safe&&OPEN_P>0&&openCatalog().length&&Math.random()<OPEN_P) return genOpenOffer(day);   // con OPEN_P a 0 no se tira el dado
   const m=pickMission(), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
@@ -79,17 +79,17 @@ function rollMats(days,D){
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
   return mats;
 }
-// Misión larga, sin plazo: te saca del sistema como cualquier otra y termina al reunir la cuota (o al abandonarla).
-// Cuota de 4 a 7 días al ritmo medio; la paga por punto es la de una misión de 1 día
+// Misión sin plazo: te saca del sistema como cualquier otra y termina al reunir la cuota (o al abandonarla).
+// Cuota de 6 a 9 días al ritmo medio; la paga por punto es la de una misión de 1 día
 // (sin plazo no hay prisa que pagar) y no sube con la espera. Nunca es urgente.
-export function genLongOffer(day){
-  if(!longCatalog().length) return genOffer(day);   // sistema sin misiones largas: una normal
-  const m=pickMission(true), [lo,hi]=LONG_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
+export function genOpenOffer(day){
+  if(!openCatalog().length) return genOffer(day);   // sistema sin misiones sin plazo: una normal
+  const m=pickMission(true), [lo,hi]=OPEN_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
   const diff=pickDiff(), D=DIFFS[diff];
   const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
   const mc=Math.round(quota*12*D.pay);
   const mats=rollMats(span,D), [tlo,thi]=OFFER_TTL;
-  return {id:uid(),kind:'long',mid:m.id,topic:m.topic,flavor:m.flavor,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
+  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
 }
 // El contrato que sale de aceptar una oferta. Con plazo, cada día son 24 h desde ahora.
 export function contractFrom(o,now=new Date()){

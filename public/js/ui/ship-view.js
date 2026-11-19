@@ -316,16 +316,16 @@ export function renderShip(){
   const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
   if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   offers.forEach(o=>{
-    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, long=!hasDeadline(o), el=document.createElement('div');
+    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, open=!hasDeadline(o), el=document.createElement('div');
     el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
-        <span class="mono text-[11px] text-slate-400">${long?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
+        <span class="mono text-[11px] text-slate-400">${open?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
         <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">${long?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
       <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">

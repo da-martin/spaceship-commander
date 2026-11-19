@@ -79,11 +79,11 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 ## Misiones sin plazo
 
-Valen para el Sistema Madre y para cualquier otro sistema. Son **misiones largas**: te sacan del sistema como cualquier otra, y lo único que cambia es que no tienen plazo.
+Valen para el Sistema Madre y para cualquier otro sistema. Te sacan del sistema como cualquier otra misión; lo único que cambia es que no tienen plazo.
 
-- Llegan al tablón como las demás (`LONG_P` en `config.js`; la idea es 1 de cada 6) y caducan en el tablón igual que las otras. **Por ahora `LONG_P` es 0**: el código está, pero no llega ninguna.
-- Cuota moderada (entre 4 y 7 días al ritmo medio), porque mientras dura estás sin mercado, astillero, tripulación ni tablón. Terminan al reunir la cuota.
-- Salen solo de las misiones marcadas `long: true` en el catálogo, y esas nunca salen con plazo. En el Sistema Madre son 8: `min-pecio`, `min-gas`, `min-cristal`, `exp-ruinas`, `pat-perimetro`, `pat-minas`, `pat-balizas` y `rec-satelite`. Su final está reescrito como un trabajo de semanas en un mismo sitio (en órbita de una luna, de un pecio, de una estación…).
+- Llegan al tablón como las demás (`OPEN_P` en `config.js`; la idea es 1 de cada 6) y caducan en el tablón igual que las otras. **Por ahora `OPEN_P` es 0**: el código está, pero no llega ninguna.
+- Cuota de entre 6 y 9 días al ritmo medio: algo más que una misión normal (de 2 a 7 días, según los Motores), pero sin llegar a semanas, porque mientras dura estás sin mercado, astillero, tripulación ni tablón. Terminan al reunir la cuota.
+- Salen solo de las misiones marcadas `open: true` en el catálogo, y esas nunca salen con plazo. En el Sistema Madre son 8: `min-pecio`, `min-gas`, `min-cristal`, `exp-ruinas`, `pat-perimetro`, `pat-minas`, `pat-balizas` y `rec-satelite`. Su final está reescrito como un trabajo de semanas en un mismo sitio (en órbita de una luna, de un pecio, de una estación…).
 - La paga por punto es la de una misión de 1 día (sin plazo no hay prisa que pagar), y no sube con los días en el tablón. Nunca son urgentes, y no cuentan como la misión fácil que el tablón siempre intenta tener.
 - Se pueden abandonar cuando quieras, sin daño de reputación y sin cobrar nada, igual que una misión normal que no sea urgente.
 - Como en cualquier misión: reparaciones a bordo, la tripulación gana su XP por día y cobra su sueldo, y quien termina su contrato sigue a bordo hasta volver.
@@ -96,7 +96,7 @@ Se probó primero una variante «en órbita», sin salir del sistema y con merca
 | `kind` | Qué es | ¿Fuera del sistema? | ¿Plazo? |
 |---|---|---|---|
 | `run` | Misión normal del tablón | Sí | Sí |
-| `long` | Misión larga, sin plazo (y capítulos de historia) | Sí | No |
+| `open` | Misión sin plazo (y capítulos de historia) | Sí | No |
 | `jump` | Salto | Sí | Sí: los días del destino |
 
 ## La nave en pantalla
@@ -130,7 +130,7 @@ En el cliente:
 ## Fases
 
 1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles. Pendiente para la fase 3: `normShip` descarta los contratos con cuota 0, y el salto los necesita.
-2. **Misiones sin plazo** (hecha, sin activar): el tipo `long`, su oferta en el tablón (`genLongOffer`), aceptarlas (`contractFrom`), las 8 misiones largas del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `LONG_P`; entonces tocará anunciarlo en las novedades.
+2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
 3. **Salto**: el contrato `jump`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
 5. **Contenido**: el primer sistema con su historia, su catálogo y su mercado, como se hizo con las holocubiertas.

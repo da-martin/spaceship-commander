@@ -54,12 +54,12 @@ export const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 export const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
 // Tipos de contrato. `away`: mientras dura estás fuera del sistema (sin tablón, mercado ni astillero).
 // `deadline`: vence a una hora (endsAt); sin plazo, termina solo al reunir la cuota o al abandonarla.
-export const CONTRACT_KINDS = {run:{away:true,deadline:true}, long:{away:true,deadline:false}};
+export const CONTRACT_KINDS = {run:{away:true,deadline:true}, open:{away:true,deadline:false}};
 export const isAway=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.away!==false;          // sin tipo conocido: fuera, por si acaso
 export const hasDeadline=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.deadline!==false;
-// Misiones largas, sin plazo: parte de las transmisiones que lo son (0: por ahora no llegan
+// Misiones sin plazo: parte de las transmisiones que lo son (0: por ahora no llegan
 // al tablón) y su cuota, en días de ritmo medio.
-export const LONG_P = 0, LONG_DAYS = [4,7];
+export const OPEN_P = 0, OPEN_DAYS = [6,9];
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
 // dificultad: cuánto pide sobre tu ritmo (push), ¢ por unidad de cuota (pay),
 // material extra (mats) y probabilidad de salir (w)

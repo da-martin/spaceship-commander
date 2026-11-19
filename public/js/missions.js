@@ -7,7 +7,7 @@
  * Las 24 primeras frases son las de antes del catálogo: no las cambies, que
  * las partidas viejas encuentran su historia por la frase.
  *
- * `long: true`: misión larga, que sale sin plazo (y nunca con plazo): la nave
+ * `open: true`: misión sin plazo (nunca sale con plazo): la nave
  * pasa semanas trabajando en un mismo sitio y su `win` lo cuenta así. Sus
  * `partial` y `fail` quedan para los contratos con plazo de antes. */
 export const MISSIONS = [
@@ -32,7 +32,7 @@ export const MISSIONS = [
    win:'Un mundo sin estrella, helado y oscuro, recibió por primera vez la luz de unos focos. Bajo el hielo, la tripulación encontró océanos líquidos calentados por su propio núcleo. Lo que vive allí abajo espera a la próxima expedición.',
    partial:'La tripulación cartografió la superficie del planeta errante, pero no llegó a perforar el hielo. Lo que guarda debajo sigue siendo un misterio.',
    fail:'El planeta errante siguió su camino por el vacío antes de que la expedición terminara. Ya está demasiado lejos para volver.'},
-  {id:'exp-ruinas', topic:'Exploración', flavor:'Inspeccionar ruinas en una luna muerta', long:true,
+  {id:'exp-ruinas', topic:'Exploración', flavor:'Inspeccionar ruinas en una luna muerta', open:true,
    win:'Desde la órbita, la nave cartografió la cara oculta de la luna hasta dar con estructuras más antiguas que cualquier colonia conocida. Durante semanas, la tripulación bajó a documentarlas piedra a piedra, sin tocar nada. El sector entero se pregunta hoy quién pudo construirlas.',
    partial:'La tripulación fotografió la entrada de las ruinas, pero no llegó a recorrerlas. El informe deja más preguntas que respuestas.',
    fail:'Las ruinas siguen solas en su luna muerta. El plazo se agotó antes de que la nave pudiera documentarlas.'},
@@ -58,11 +58,11 @@ export const MISSIONS = [
    win:'Durante días, la perforadora mordió el metal del asteroide hasta alcanzar su núcleo. Lo que salió a la superficie fue hierro y níquel de una pureza excepcional. Las forjas del sector tienen material para un año.',
    partial:'La perforadora alcanzó una veta del núcleo, pero no su centro. El mineral extraído tiene valor, aunque no el que se esperaba.',
    fail:'El plazo terminó antes de alcanzar el núcleo. La perforadora se retiró sin su premio.'},
-  {id:'min-gas', topic:'Minería', flavor:'Recolectar gas en un gigante gaseoso', long:true,
+  {id:'min-gas', topic:'Minería', flavor:'Recolectar gas en un gigante gaseoso', open:true,
    win:'Pasada tras pasada, la nave rozó las capas altas del gigante gaseoso, entre relámpagos más grandes que planetas. Cada órbita dejaba un poco más de helio-3 en los tanques, hasta que no cupo ni una gota más. El combustible recogido mantendrá encendidas las estaciones del sector durante mucho tiempo.',
    partial:'Los tanques volvieron con gas, pero lejos de estar llenos. La tormenta obligó a subir antes de tiempo.',
    fail:'El combustible no llegó a tiempo. Las estaciones del sector buscarán otro proveedor.'},
-  {id:'min-cristal', topic:'Minería', flavor:'Extraer cristales de una cueva lunar', long:true,
+  {id:'min-cristal', topic:'Minería', flavor:'Extraer cristales de una cueva lunar', open:true,
    win:'La nave se quedó en órbita de la luna y, día tras día, las lanzaderas bajaron a la cueva. En la oscuridad, los cristales brillaban con la luz de los cascos, y la tripulación los extrajo uno a uno, sin romper ninguno. Cuando subió la última caja, la bodega valía más que la nave entera.',
    partial:'La tripulación sacó algunos cristales antes de que la cueva se volviera inestable. El resto sigue brillando en la oscuridad.',
    fail:'La cueva se cerró antes de que la tripulación terminara. Los cristales siguen en la oscuridad.'},
@@ -70,7 +70,7 @@ export const MISSIONS = [
    win:'La nave plantó las balizas de concesión en los doce asteroides antes que nadie. El registro del sector ya los reconoce como propiedad de la cooperativa que la contrató. Generaciones de mineros vivirán de ese trabajo.',
    partial:'La nave marcó parte de los asteroides antes de que llegaran otros reclamantes. La cooperativa se queda con menos de lo que esperaba.',
    fail:'Otros reclamantes llegaron antes. La concesión se perdió.'},
-  {id:'min-pecio', topic:'Minería', flavor:'Recuperar metal de un pecio', long:true,
+  {id:'min-pecio', topic:'Minería', flavor:'Recuperar metal de un pecio', open:true,
    win:'El viejo acorazado llevaba siglos en una órbita baja, perdiendo altura vuelta a vuelta. Durante semanas, la nave lo acompañó en su lenta caída mientras la tripulación lo desmontaba con respeto, placa a placa. Antes de que rozara la atmósfera, la bodega guardaba toneladas de aleación de guerra. Lo que fue un arma servirá para construir hogares.',
    partial:'La tripulación recuperó parte del metal antes de que el pecio entrara en una órbita peligrosa. El resto se perderá en la atmósfera.',
    fail:'El pecio entró en la atmósfera antes de terminar el desguace. Su metal ardió con él.'},
@@ -152,11 +152,11 @@ export const MISSIONS = [
    win:'Durante toda la misión, ni un solo carguero fue asaltado en la ruta. Los piratas que acechaban vieron la nave y se retiraron sin disparar. Los comerciantes del sector duermen hoy más tranquilos.',
    partial:'La nave vigiló la ruta parte del tiempo previsto. Hubo menos asaltos, pero no ninguno.',
    fail:'La ruta quedó sin la vigilancia prometida. Los piratas lo aprovecharon.'},
-  {id:'pat-minas', topic:'Patrulla', flavor:'Barrer un campo de minas antiguo', long:true,
+  {id:'pat-minas', topic:'Patrulla', flavor:'Barrer un campo de minas antiguo', open:true,
    win:'El campo se sembró en órbita durante una guerra que ya nadie recuerda, y desde entonces ninguna nave se atrevía a cruzarlo. Órbita a órbita, mina a mina, la tripulación lo fue desactivando sin prisa y sin un error. La última explotó lejos, sin herir a nadie. La órbita del planeta vuelve a estar abierta.',
    partial:'La nave limpió una parte del campo de minas. Se abrió un pasillo estrecho, pero el resto sigue siendo peligroso.',
    fail:'El campo de minas sigue activo. La ruta seguirá cerrada.'},
-  {id:'pat-perimetro', topic:'Patrulla', flavor:'Ronda por el perímetro de la estación', long:true,
+  {id:'pat-perimetro', topic:'Patrulla', flavor:'Ronda por el perímetro de la estación', open:true,
    win:'Vuelta tras vuelta, durante días, la nave orbitó la estación sin dejar un hueco en la vigilancia. En una de esas rondas detectó y expulsó a un contrabandista que intentaba acoplar a escondidas. La estación ha renovado su confianza en esta tripulación.',
    partial:'La nave cubrió parte de las rondas. La estación tuvo que reforzar la vigilancia con sus propios medios.',
    fail:'Las rondas no se completaron. La estación pasó esos días sin protección exterior.'},
@@ -168,7 +168,7 @@ export const MISSIONS = [
    win:'La nave recorrió la frontera de punta a punta, y su presencia bastó para que nadie la cruzara sin permiso. Los puestos fronterizos informaron de la semana más tranquila del año. El sector sigue en paz.',
    partial:'La nave cubrió parte de la frontera. En los tramos sin vigilancia hubo cruces no autorizados.',
    fail:'La frontera quedó sin patrulla. Habrá que averiguar quién la cruzó.'},
-  {id:'pat-balizas', topic:'Patrulla', flavor:'Reparar balizas de navegación', long:true,
+  {id:'pat-balizas', topic:'Patrulla', flavor:'Reparar balizas de navegación', open:true,
    win:'Las balizas que rodean el planeta llevaban años apagándose una tras otra. Órbita a órbita, la tripulación las fue alcanzando y devolviéndoles la luz. Los pilotos que llegan al sistema vuelven a tener referencias en la oscuridad. La noche en que se encendió la última, el planeta quedó rodeado por un collar de luces.',
    partial:'La tripulación reparó parte de las balizas. Aún quedan tramos del corredor a oscuras.',
    fail:'Las balizas siguen apagadas. El corredor sigue siendo peligroso.'},
@@ -270,7 +270,7 @@ export const MISSIONS = [
    win:'La nave rodeó la tormenta durante días, midiendo su fuerza y su rumbo. Gracias a sus datos, se desviaron tres rutas comerciales antes de que llegara. Nadie quedó atrapado en ella.',
    partial:'La nave midió la tormenta un tiempo antes de retirarse. Sus datos permitieron avisar a algunas naves, no a todas.',
    fail:'La tormenta llegó sin aviso. Nadie la estudió a tiempo.'},
-  {id:'rec-satelite', topic:'Reconocimiento', flavor:'Recuperar datos de un satélite espía', long:true,
+  {id:'rec-satelite', topic:'Reconocimiento', flavor:'Recuperar datos de un satélite espía', open:true,
    win:'El satélite llevaba años en silencio en una órbita alta, con sus defensas aún despiertas. La nave igualó su órbita y lo acompañó durante días mientras la tripulación desactivaba cada trampa y descifraba sus archivos uno a uno. Lo que guardaba vale una guerra.',
    partial:'La tripulación descargó parte de los archivos antes de que el satélite se apagara. El resto se perdió con él.',
    fail:'El satélite cayó a la atmósfera con sus datos dentro. No se recuperó nada.'},
