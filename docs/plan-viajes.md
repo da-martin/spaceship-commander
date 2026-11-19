@@ -17,20 +17,42 @@ Cada sistema es una ficha en `public/js/systems.js`, como el catálogo de `missi
 | Campo | Qué hace |
 |---|---|
 | `id`, `name`, `art`, `desc` | Identidad, artículo («el » en «el Sistema Madre») y texto de la tarjeta de destino |
+| `quote` | Epígrafe: una cita célebre, sin atribución, que abre la llegada y la tarjeta de destino |
 | `days` | Días de salto para llegar |
 | `intro`, `travel[]` | Relato de llegada y un fragmento por día de salto |
 | `market` | Multiplicador de precio por material (×1 si no aparece); ×0 es que allí no se compra ni se vende |
 | `yard` | `mult` del astillero (mejoras y reparaciones) y `closed`, los módulos que no se pueden mejorar allí (sí reparar) |
-| `missions` | Catálogo del tablón: las misiones de `missions.js` con `system` igual al id del sistema (las que no lo llevan son del Sistema Madre) |
-| `story[]` | Capítulos de la historia del sistema (ver abajo) |
+| `missions` | Catálogo del tablón: las misiones con `system` igual al id del sistema (las que no lo llevan son del Sistema Madre), sin los capítulos |
+| `story[]` | Capítulos de la historia del sistema (misiones con `chapter`, ver abajo) |
 | `roles` | Opcional: roles de tripulación que salen en el tablón de tripulación |
 
-El Sistema Madre también tiene ficha: es la que hoy está repartida entre `config.js`, `missions.js` y `core/shipyard.js`.
+El Sistema Madre también tiene ficha, con el catálogo de `missions.js`. Cada uno de los demás vive en `public/js/systems/<id>.js` (solo datos, con su catálogo y su historia); `missions.js` los junta todos en `MISSIONS`, marcados con `system`, para que una misión aceptada encuentre su relato esté donde esté.
+
+**Los viajes están cerrados** mientras `TRAVEL_ON` (en `config.js`) sea `false`: `destinations()` no ofrece ningún destino. La interfaz de viajes, cuando exista, tiene que pasar por ahí.
 
 - `priceOf(k, día)` multiplica por `market[k]` del sistema en el que estás, antes de redondear; `onSale(k)` dice si allí se comercia.
 - `yardMult()` incluye `yard.mult`, así que afecta a mejoras y reparaciones; `yardClosed(k)` dice si el módulo está cerrado allí.
 - `pickMission()` sortea solo del catálogo del sistema. Las historias de las misiones se buscan en todos los catálogos, porque una misión aceptada puede ser de otro sistema.
 - `here()` da la ficha del sistema actual y `herePrep('en' | 'de' | 'a')` su nombre con preposición («en el Sistema Madre», «del…», «al…»).
+
+## Los sistemas de destino
+
+Cuatro sistemas que rinden homenaje a clásicos de la ciencia ficción. El clásico se reconoce por el ambiente y los temas, no por los nombres:
+
+- Nombres propios originales para empresas, naves, personajes, planetas y criaturas; nada de nombres de las películas, ni tal cual ni con letras cambiadas.
+- Una sola cita célebre por sistema, como epígrafe (`quote`). Fuera de ahí no hay frases célebres ni escenas calcadas.
+- Escala de nave: cada misión y cada capítulo es un trabajo de la nave (transportar, escoltar, rescatar, sondear, remolcar…), nunca una aventura a pie. La tripulación es la del jugador, y la historia nunca la trata como prescindible.
+
+Cada sistema tiene un catálogo de 16 misiones (2 por tema, 2 o 3 sin plazo) y su historia.
+
+| Sistema | Homenaje | Salto | Mercado | Astillero | Historia |
+|---|---|---|---|---|---|
+| Zeta Reticuli (`zeta`) | Alien | 3 días | aleaciones ×0,6 · biomasa ×0 · nexos ×1,5 | ×0,8; Enfermería cerrada | 9 capítulos |
+| el Umbral (`umbral`) | Interstellar | 1 día | biomasa ×2,5 · aleaciones ×1,3 · ecos ×0,5 | ×1,5 | 5 capítulos |
+| Canopo (`canopo`) | Dune | 4 días | biomasa ×3 · ecos ×0,4 · aleaciones ×1,4 | ×1,2; Motores cerrados | 6 capítulos |
+| Betelgeuse (`betelgeuse`) | Blade Runner | 5 días | nexos ×2 · biomasa ×1,5 · ecos ×0,7 | ×1 | 9 capítulos |
+
+Zeta Reticuli no tiene Instrucción ni Comercio en el tablón de tripulación; el Umbral, ni Comercio ni Intendencia.
 
 ## Propuesta y votación
 
@@ -133,7 +155,7 @@ En el cliente:
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
 3. **Salto**: el contrato `jump`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
-5. **Contenido**: el primer sistema con su historia, su catálogo y su mercado, como se hizo con las holocubiertas.
+5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia. Falta repartir los capítulos al tablón, que va con la fase 3, porque hasta entonces nadie puede estar en otro sistema. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
 
 ## Por decidir
 
@@ -141,3 +163,4 @@ En el cliente:
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
 - **Misiones en grupo**: plan aparte.
+- **Escena de planeta**: el dibujo del planeta grande (estaba en el commit `27d0f7e`) podría volver para las misiones que pasan claramente en un planeta o en su órbita. Se decidirá con todas las misiones escritas.
