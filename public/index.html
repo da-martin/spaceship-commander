@@ -193,7 +193,12 @@
   .warp{animation:warp 7s linear infinite}
   .warp.far{animation-duration:16s}
   @keyframes warp{from{transform:translateY(0)}to{transform:translateY(300px)}}
-  @media (prefers-reduced-motion:reduce){.warp{animation:none}}
+  /* salto entre sistemas: el túnel crece desde delante del morro */
+  .tun{animation:tun 1.8s linear infinite;opacity:0}.tun.t2{animation-delay:-.6s}.tun.t3{animation-delay:-1.2s}
+  @keyframes tun{0%{transform:scale(.35);opacity:0}25%{opacity:1}100%{transform:scale(2.6);opacity:0}}
+  .jring{animation:jring 2.4s ease-in-out infinite}.jring.r2{animation-delay:-1.2s}
+  @keyframes jring{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.15);opacity:1}}
+  @media (prefers-reduced-motion:reduce){.warp,.tun,.jring{animation:none}.tun{opacity:1}}
   /* Próximas 13 semanas. En lg+ es un panel a la derecha que entra
      deslizándose desde el borde, y solo #views le deja sitio con padding: las
      vistas se recentran sin tocar su max-w y la cabecera no se mueve.

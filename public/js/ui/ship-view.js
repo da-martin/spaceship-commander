@@ -27,7 +27,9 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 //   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
 //   'orbit' — misión sin plazo: el planeta, de cerca, ocupa todo el lateral izquierdo.
 //   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
+//   'jump'  — salto entre sistemas: un túnel de luz violeta delante del morro del que brotan las estrellas.
 export function shipBackdrop(scene){
+  if(scene==='jump') return JUMP_BACKDROP;
   if(scene==='orbit'){
     // Borde derecho en x=88, a un palmo de la nave. No se corre con --planet-x:
     // en el recuadro alto taparía los módulos de babor.
@@ -75,11 +77,29 @@ export function shipBackdrop(scene){
   return `<g class="warp far">${far}</g><g class="warp">${near}</g>`;
 }
 
+// Túnel del salto: tres capas de trazos que salen de un punto delante del morro
+// y crecen hasta salirse, desfasadas para que no haya hueco. Se calcula una vez,
+// con un azar fijo: el dibujo solo se repinta si cambia, y sería distinto cada vez.
+const JUMP_BACKDROP=(()=>{
+  const VX=150, VY=52, cols=['#bae6fd','#c4b5fd','#a5f3fc'];
+  let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const layer=()=>Array.from({length:26},(_,i)=>{
+    const a=(360*i/26+(rnd()*12-6))*Math.PI/180, r0=18+rnd()*52, L=22+rnd()*38, c=Math.cos(a), sn=Math.sin(a), f=(v)=>v.toFixed(1);
+    return `<line x1="${f(VX+r0*c)}" y1="${f(VY+r0*sn)}" x2="${f(VX+(r0+L)*c)}" y2="${f(VY+(r0+L)*sn)}" stroke="${cols[i%3]}" stroke-width="${(1+rnd()*.8).toFixed(1)}" stroke-linecap="round"/>`;
+  }).join('');
+  const org=`style="transform-origin:${VX}px ${VY}px"`;
+  return `<defs><radialGradient id="tunG" cx="${VX}" cy="${VY}" r="260" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e0e7ff" stop-opacity=".55"/><stop offset=".08" stop-color="#818cf8" stop-opacity=".35"/><stop offset=".35" stop-color="#4338ca" stop-opacity=".18"/><stop offset="1" stop-color="#0b1120" stop-opacity="0"/></radialGradient></defs>
+    <rect width="300" height="300" fill="url(#tunG)"/>
+    <circle cx="${VX}" cy="${VY}" r="26" fill="none" stroke="#a5b4fc" stroke-opacity=".35" stroke-width="1.2" class="jring" ${org}/>
+    <circle cx="${VX}" cy="${VY}" r="46" fill="none" stroke="#a5b4fc" stroke-opacity=".2" stroke-width="1" class="jring r2" ${org}/>
+    <g class="tun" ${org}>${layer()}</g><g class="tun t2" ${org}>${layer()}</g><g class="tun t3" ${org}>${layer()}</g>`;
+})();
+
 // La nave ocupa solo parte del dibujo: deja espacio alrededor (y margen para
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
-// Dónde está la nave para el dibujo: en el sistema, en órbita (misión sin plazo) o en misión.
-export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':isAway(c)?'away':'orbit'; };
+// Dónde está la nave para el dibujo: en el sistema, en órbita (misión sin plazo), en misión o saltando a otro sistema.
+export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':c.kind==='jump'?'jump':isAway(c)?'away':'orbit'; };
 export function shipArt(){
   const m=state.ship.modules, scene=shipScene();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
@@ -90,7 +110,7 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='orbit'?'en órbita, '+herePrep('en'):'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='orbit'?'en órbita, '+herePrep('en'):scene==='jump'?'saltando a otro sistema':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -104,7 +124,9 @@ export function shipArt(){
   {
     const r=8+2*m.engines.lv;
     // En el sistema los motores están apagados: la nave espera a que hagas algo.
-    const exh=scene==='home'?'':`<ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>`;
+    // En el salto, a tope: la estela se alarga.
+    const big=scene==='jump'?1.65:1;
+    const exh=scene==='home'?'':`<ellipse cx="150" cy="268" rx="${r+4}" ry="${30*big}" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="${22*big}" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="${22*big}" fill="url(#exhG)"/>`;
     s+=`<g opacity="${op('engines')}">${exh}
     <path d="M104 206 L90 214 L90 246 L104 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/>
     <path d="M196 206 L210 214 L210 246 L196 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/></g>`;
