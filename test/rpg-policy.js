@@ -29,10 +29,10 @@ function bestPlay(r) {
     }
     for (const m of alive(run)) {
       // Los objetos de tirada se gastan solo cuando la tirada es difícil; el dado trucado, solo en las muy difíciles.
-      const base = bonusFor(r, m.id, o.roles).bonus, hard = dc - base >= 5;
-      const items = hard ? rollItemsFor(r, m.id).filter((k) => !ITEMS[k].six || dc - base >= 6).slice(0, 1) : [];
-      const { bonus, six } = bonusFor(r, m.id, o.roles, items);
-      const p = odds(bonus, dc, six);
+      const base = odds(bonusFor(r, m.id, o.roles).bonus, dc).ok, hard = base < 0.6;
+      const items = hard ? rollItemsFor(r, m.id).filter((k) => !ITEMS[k].sure || base < 0.4).slice(0, 1) : [];
+      const { bonus, sure } = bonusFor(r, m.id, o.roles, items);
+      const p = odds(bonus, dc, sure);
       const v = boss
         ? p.ok * 10 + p.part * (10 + value(run, { hp: -1 }, m)) + p.ko * value(run, { hp: -1 }, m)
         : p.ok * value(run, o.ok, m) + p.part * value(run, o.part, m) + p.ko * value(run, o.ko, m);

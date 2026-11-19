@@ -10,6 +10,7 @@ import { dailyTick, needsReview } from './features/review.js';
 import { loadCalEvents } from './integrations/calendars.js';
 import { thFlush, thTrack } from './integrations/taskhero.js';
 import { load, save, setState, state } from './store.js';
+import { addProfile } from './rpg/roster.js';
 import { cloud, CLOUDKEY, hydrate, initCloud, pushState, readLink, schedulePush } from './sync/cloud.js';
 import { allianceBoot, init as initUiAllianceView, refreshAlliance } from './ui/alliance-view.js';
 import { render } from './ui/commander.js';
@@ -39,6 +40,8 @@ on('logged',onLogged);
 // Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
 on('rankUp',i=>toast(`★ Ascenso: ahora eres ${RANKS[i][0]}`,'win'));
 on('track',thTrack);
+// VR Training: cada contratación deja un holoperfil (lo guarda el save() de la contratación).
+on('crewJoined',m=>addProfile(state.rpg,m));
 // Lo que comparte tu juego con la alianza: hitos al chat y el porcentaje del día.
 on('rankUp',i=>shareEvent({kind:'rank',rank:i}));
 on('missionWon',c=>shareEvent({kind:'mission',topic:c.topic}));

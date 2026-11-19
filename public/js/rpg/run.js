@@ -4,18 +4,21 @@
  * un texto de error si la acción no vale, o lo que la vista tenga que avisar. */
 import { BOSS_AT, BOSS_STEPS, dcOf, EVENTS_PER_RUN, HP_MAX, ITEMS_MAX, lvBonus, REST_AT, ROLE_BONUS, ROOMS, SQUAD, SUP_START } from './config.js';
 import { canStart, spendCharge } from './energy.js';
-import { BOSSES, EVENT_BY_ID, EVENTS, ITEMS, SCENARIOS } from './data.js';
+import { BOSSES, EVENT_BY_ID, EVENTS, ITEMS, MEDALS, SCENARIO_BY_ID, SCENARIOS, STARTERS } from './data.js';
 
+// Cada tirada son dos dados de 6 caras que se suman.
 const die = (rng) => 1 + Math.floor(rng() * 6);
+export const rollDice = (rng) => [die(rng), die(rng)];
+export const isDoubles = (dice) => dice[0] === dice[1];
 export const memberInfo = (r, id) => r.roster.find((m) => m.id === id);
 export const alive = (run) => run.squad.filter((m) => m.hp > 0);
 export const eventOf = (run) => EVENT_BY_ID[run.rooms[run.i]] || null;
 export const bossOf = (run) => BOSSES[run.esc];
-export const dcNow = (run) => dcOf(run.i);
+export const dcNow = (run) => dcOf(run.i, SCENARIO_BY_ID[run.esc]?.dc);
 // La opción en juego: la del evento, o el paso del jefe.
 export const optionOf = (run, idx) => run.i === BOSS_AT ? bossOf(run).steps[run.boss.step] : eventOf(run)?.opts[idx];
-// Un 6 en el dado siempre es éxito: ninguna tirada es imposible.
-export const kindOf = (total, dc, d = 0) => d === 6 || total >= dc ? 'ok' : total === dc - 1 ? 'part' : 'ko';
+// Los dobles siempre son éxito (1 de cada 6 tiradas): ninguna tirada es imposible.
+export const kindOf = (total, dc, doubles = false) => doubles || total >= dc ? 'ok' : total === dc - 1 ? 'part' : 'ko';
 
 /* ---------- empezar y terminar ---------- */
 export function startRun(r, esc, squadIds, rng = Math.random) {
@@ -30,8 +33,9 @@ export function startRun(r, esc, squadIds, rng = Math.random) {
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   const evs = pool.slice(0, EVENTS_PER_RUN), rooms = [];
   for (let i = 0; i < ROOMS; i++) rooms.push(i === REST_AT ? 'rest' : i === BOSS_AT ? 'boss' : evs.shift());
-  r.run = { esc, squad: ids.map((id) => ({ id, hp: HP_MAX })), rooms, i: 0, stage: 'room', boss: null, sup: SUP_START, items: [], res: null, outcome: null, found: 0, unlocked: null };
+  r.run = { esc, squad: ids.map((id) => ({ id, hp: HP_MAX })), rooms, i: 0, stage: 'room', boss: null, sup: SUP_START, items: [], res: null, outcome: null, found: 0, downs: 0, rerolled: 0, unlocked: null, medals: [] };
   r.stats.runs++;
+  r.lastSquad = [...ids];
   markSeen(r);
   return null;
 }
@@ -45,12 +49,27 @@ function endRun(r, outcome) {
   const run = r.run;
   run.stage = 'end'; run.outcome = outcome; run.res = null;
   r.stats.best = Math.max(r.stats.best, outcome === 'win' ? ROOMS : run.i);
-  if (outcome !== 'win') return;
-  r.stats.wins++;
-  r.stats.bosses[run.esc] = (r.stats.bosses[run.esc] || 0) + 1;
-  const next = SCENARIOS[SCENARIOS.findIndex((s) => s.id === run.esc) + 1];
-  if (next && !next.soon && !r.unlocked.includes(next.id)) { r.unlocked.push(next.id); run.unlocked = next.id; }
+  if (outcome === 'win') {
+    r.stats.wins++;
+    r.stats.bosses[run.esc] = (r.stats.bosses[run.esc] || 0) + 1;
+    const next = SCENARIOS[SCENARIOS.findIndex((s) => s.id === run.esc) + 1];
+    if (next && !next.soon && !r.unlocked.includes(next.id)) { r.unlocked.push(next.id); run.unlocked = next.id; }
+  }
+  run.medals = MEDALS.filter((m) => !r.medals.includes(m.id) && MEDAL_RULES[m.rule]?.(r, run, m)).map((m) => m.id);
+  r.medals.push(...run.medals);
 }
+// Para las medallas: si el escuadrón era todo de tripulación propia y si ya se ha visto todo un escenario.
+export const noStarters = (run) => run.squad.every((m) => !STARTERS.some((s) => s.id === m.id));
+export const allSeen = (r, esc) => EVENTS.filter((e) => e.esc === esc).every((e) => r.seen[e.id]);
+// Cuándo se gana cada medalla (las de jefe llevan su escenario en `esc`). Se mira al acabar la simulación.
+const MEDAL_RULES = {
+  first: (r, run) => run.outcome === 'win',
+  noDowns: (r, run) => run.outcome === 'win' && run.downs === 0,
+  noRerolls: (r, run) => run.outcome === 'win' && run.rerolled === 0,
+  ownCrew: (r, run) => run.outcome === 'win' && noStarters(run),
+  explorer: (r, run) => allSeen(r, run.esc),
+  boss: (r, run, m) => run.outcome === 'win' && run.esc === m.esc,
+};
 
 // Abandonar: la carga no se devuelve. Salir del resumen final, igual.
 export function abandon(r) {
@@ -67,15 +86,15 @@ export function rollItemsFor(r, memberId) {
 }
 export function bonusFor(r, memberId, roles, itemIds = []) {
   const m = memberInfo(r, memberId), ok = rollItemsFor(r, memberId);
-  let bonus = (roles?.includes(m.role) ? ROLE_BONUS : 0) + lvBonus(m.lv), six = false;
-  for (const k of itemIds) if (ok.includes(k)) { bonus += ITEMS[k].bonus || 0; if (ITEMS[k].six) six = true; }
-  return { bonus, six };
+  let bonus = (roles?.includes(m.role) ? ROLE_BONUS : 0) + lvBonus(m.lv), sure = false;
+  for (const k of itemIds) if (ok.includes(k)) { bonus += ITEMS[k].bonus || 0; if (ITEMS[k].sure) sure = true; }
+  return { bonus, sure };
 }
 // Probabilidades de cada resultado, para enseñarlas antes de tirar.
-export function odds(bonus, dc, six = false) {
+export function odds(bonus, dc, sure = false) {
   const p = { ok: 0, part: 0, ko: 0 };
-  if (six) { p.ok = 1; return p; }
-  for (let d = 1; d <= 6; d++) p[kindOf(d + bonus, dc, d)] += 1 / 6;
+  if (sure) { p.ok = 1; return p; }
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) p[kindOf(a + b + bonus, dc, a === b)] += 1 / 36;
   return p;
 }
 
@@ -93,10 +112,11 @@ export function choose(r, optIdx, memberId, itemIds = [], rng = Math.random) {
   const m = run.squad.find((x) => x.id === memberId);
   if (!m || m.hp <= 0) return 'Ese tripulante no puede tirar';
   const use = [...new Set(itemIds)].filter((k) => rollItemsFor(r, memberId).includes(k));
-  const { bonus, six } = bonusFor(r, memberId, opt.roles, use);
+  const { bonus, sure } = bonusFor(r, memberId, opt.roles, use);
   for (const k of use) run.items.splice(run.items.indexOf(k), 1);
-  const d = six ? 6 : die(rng), dc = dcNow(run), total = d + bonus;
-  run.res = { kind: six ? 'ok' : kindOf(total, dc, d), opt: boss ? run.boss.step : optIdx, member: memberId, die: d, bonus, total: six ? Math.max(total, dc) : total, dc, boss, mods: use, rerolls: 0 };
+  // El dado trucado saca dobles: éxito seguro.
+  const dice = sure ? [6, 6] : rollDice(rng), dc = dcNow(run), total = dice[0] + dice[1] + bonus;
+  run.res = { kind: kindOf(total, dc, isDoubles(dice)), opt: boss ? run.boss.step : optIdx, member: memberId, dice, bonus, total, dc, boss, mods: use, rerolls: 0 };
   run.stage = 'result';
   return null;
 }
@@ -109,7 +129,7 @@ export function reroll(r, how, rng = Math.random) {
   if (how === 'baliza') { const i = run.items.indexOf('baliza'); if (i < 0) return 'No tienes baliza'; run.items.splice(i, 1); }
   else { if (run.sup < 1) return 'Sin suministros'; run.sup--; }
   const res = run.res;
-  res.die = die(rng); res.total = res.die + res.bonus; res.kind = kindOf(res.total, res.dc, res.die); res.rerolls++;
+  res.dice = rollDice(rng); res.total = res.dice[0] + res.dice[1] + res.bonus; res.kind = kindOf(res.total, res.dc, isDoubles(res.dice)); res.rerolls++; run.rerolled++;
   return null;
 }
 
@@ -127,7 +147,7 @@ function shield(run, notes) {
 }
 function hurt(r, m, n, notes) {
   const before = m.hp; m.hp = Math.max(0, Math.min(HP_MAX, m.hp + n));
-  if (before > 0 && m.hp === 0) notes.push(`${nameOf(r, m.id)} se desconecta`);
+  if (before > 0 && m.hp === 0) { notes.push(`${nameOf(r, m.id)} se desconecta`); r.run.downs++; }
 }
 // Aplica un resultado. `memberId`: quien tiró (las opciones seguras no tienen).
 export function applyFx(r, fx, memberId, rng = Math.random) {

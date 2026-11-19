@@ -7,6 +7,7 @@ import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, 
 import { boardCap, mod } from '../core/ship.js';
 import { buyPrice, canAfford, modCost, repairQuote, sellOf } from '../core/shipyard.js';
 import { dropFocusRef } from '../features/focus.js';
+import { emit } from '../core/events.js';
 import { save, state } from '../store.js';
 import { render } from './commander.js';
 import { toast } from './toast.js';
@@ -20,6 +21,7 @@ export function hireCrew(id){
   const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
   subW('mc',paid);
   sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
+  emit('crewJoined',x);
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
   state.cmd.stats.hires++;
   save(); render(); toast(`${x.name} se une a la tripulación · −${paid} ¢/sem, se renueva solo`);

@@ -6,7 +6,8 @@ import { ROLES } from '../config.js';
 import { save, state } from '../store.js';
 import { escapeHtml, fmtEf, plural, todayStr } from '../util.js';
 import { HP_MAX, ITEMS_MAX, ROOMS, SQUAD } from '../rpg/config.js';
-import { EVENT_BY_ID, ITEMS, SCENARIO_BY_ID, SCENARIOS } from '../rpg/data.js';
+import { BOSSES, bossRef, EVENT_BY_ID, ITEMS, MEDAL_BY_ID, MEDALS, SCENARIO_BY_ID, SCENARIOS } from '../rpg/data.js';
+import { syncCrew } from '../rpg/roster.js';
 import { canStart, isFree, nextCharge, syncEnergy } from '../rpg/energy.js';
 import { normRpg } from '../rpg/state.js';
 import { abandon, alive, bonusFor, bossOf, canReroll, canUse, choose, dcNow, eventOf, fxOf, memberInfo, odds, REST_OPTS, rest, reroll, resolve, rollItemsFor, startRun, useItem } from '../rpg/run.js';
@@ -40,7 +41,9 @@ export function fxLabel(fx) {
 /* ---------- entrar y repintar ---------- */
 // Al entrar se abonan las cargas ganadas desde la última vez.
 export function enterVR() {
-  if (syncEnergy(state.rpg, state.ship.activity, todayStr())) save();
+  // Cargas ganadas desde la última vez, y la tripulación a bordo como holoperfiles.
+  const energy = syncEnergy(state.rpg, state.ship.activity, todayStr()), crew = syncCrew(state.rpg, state.ship.crew);
+  if (energy || crew) save();
   if (!state.rpg.run && ui.screen !== 'squad') ui.screen = 'lobby';
   renderVR();
 }
@@ -76,7 +79,7 @@ function lobbyView(r) {
   const scen = SCENARIOS.map((s, i) => {
     const open = r.unlocked.includes(s.id);
     if (!open) {
-      const why = s.soon ? 'Próximamente' : `Vence al jefe de ${SCENARIOS[i - 1].name}`;
+      const prev = SCENARIOS[i - 1], why = s.soon ? 'Próximamente' : `Vence a ${bossRef(prev.id)} en ${prev.name}`;
       return `<div class="flex items-center gap-3 min-h-[60px] px-3 py-2 rounded-lg border border-dashed border-slate-700 opacity-60">
         <span aria-hidden="true">🔒</span>
         <div class="min-w-0"><div class="text-sm font-medium">${s.name}</div><div class="mono text-[11px] text-slate-400">${s.theme} · ${why}</div></div>
@@ -107,6 +110,8 @@ function lobbyView(r) {
     <div class="grid grid-cols-3 gap-2 text-center">
       ${[['Jugadas', st.runs], ['Completadas', st.wins], ['Mejor sala', `${st.best}/${ROOMS}`]].map(([k, v]) => `<div class="rounded-lg border border-[#1f2a3d] bg-[#0d1526] py-2"><div class="text-lg font-bold">${v}</div><div class="mono text-[11px] text-slate-400">${k}</div></div>`).join('')}
     </div>
+    <div class="sys-label mt-5 mb-2">Medallas <span class="text-slate-400">${r.medals.length}/${MEDALS.length}</span></div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${MEDALS.map((m) => medalCard(m, r.medals.includes(m.id))).join('')}</div>
     <div class="flex flex-wrap items-center gap-2 mt-4">
       ${ui.confirm === 'wipe'
         ? `<span class="text-sm text-red-300">¿Borrar todo el progreso de VR Training? No toca nada más.</span><button type="button" data-vr="wipe-yes" class="${btnDanger}">Sí, borrar</button><button type="button" data-vr="no" class="${btn}">No</button>`
@@ -115,21 +120,45 @@ function lobbyView(r) {
   </section>`;
 }
 
+const medalCard = (m, got) => `<div class="rounded-lg border px-2.5 py-2 ${got ? 'border-amber-600 bg-amber-950/30' : 'border-dashed border-slate-700 opacity-60'}" title="${m.desc}">
+  <div class="text-sm font-medium ${got ? 'text-amber-200' : 'text-slate-300'}">${got ? '★' : '☆'} ${m.name}</div>
+  <div class="mono text-[10px] text-slate-400 mt-0.5 leading-snug">${m.desc}</div>
+</div>`;
+
 /* ---------- escuadrón ---------- */
+// Los roles que más se piden en un escenario, contando los eventos y los pasos del jefe.
+// No se dice qué pide cada paso del jefe: eso se descubre al enfrentarse a él.
+function topRoles(esc, n = 4) {
+  const count = {}, add = (roles) => { for (const k of new Set(roles)) count[k] = (count[k] || 0) + 1; };
+  for (const e of Object.values(EVENT_BY_ID)) if (e.esc === esc) add(e.opts.flatMap((o) => o.roles || []));
+  for (const st of BOSSES[esc].steps) add(st.roles);
+  return Object.entries(count).sort((a, b) => b[1] - a[1] || roleName(a[0]).localeCompare(roleName(b[0]), 'es')).slice(0, n).map(([k]) => k);
+}
+const rolesBox = (esc) => `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
+    <div class="text-sm font-medium">Roles más útiles en este escenario</div>
+    <div class="flex flex-wrap gap-1.5 mt-2">${topRoles(esc).map((k) => chip(roleName(k), 'border-violet-700 text-violet-200')).join('')}</div>
+    <p class="mono text-[11px] text-slate-400 mt-2">Cuentan los eventos y el jefe.</p>
+  </div>`;
+
 function squadView(r) {
   const s = SCENARIO_BY_ID[ui.esc];
-  const cards = r.roster.map((m) => {
+  // De serie primero; después la tripulación, de más a menos nivel.
+  const roster = [...r.roster].sort((a, b) => (a.src === 'serie' ? 0 : 1) - (b.src === 'serie' ? 0 : 1) || b.lv - a.lv || a.name.localeCompare(b.name, 'es'));
+  const hasCrew = roster.some((m) => m.src === 'crew');
+  const cards = roster.map((m) => {
     const on = ui.pick.includes(m.id);
     return `<button type="button" data-vr="pick" data-id="${m.id}" aria-pressed="${on}" class="flex items-center gap-3 min-h-[56px] px-3 py-2 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : 'border-slate-700 bg-[#0d1526] hover:border-violet-600'}">
       <span class="w-6 h-6 shrink-0 rounded-md border grid place-items-center text-xs ${on ? 'bg-violet-500 border-violet-300 text-white' : 'border-slate-600'}" aria-hidden="true">${on ? '✓' : ''}</span>
-      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ''}</span></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span></span>
     </button>`;
   }).join('');
   return `<section class="panel corner p-4 sm:p-5">
     <div class="sys-label">${s.name}</div>
     <h2 class="text-lg font-bold mt-1">Elige tu escuadrón <span class="text-slate-400 font-medium text-sm">${ui.pick.length}/${SQUAD}</span></h2>
     <p class="text-sm text-slate-300 mt-2 leading-relaxed">${s.intro}</p>
-    <div class="grid sm:grid-cols-3 gap-2 mt-4">${cards}</div>
+    ${rolesBox(ui.esc)}
+    <p class="mono text-[11px] text-slate-400 mt-3">${hasCrew ? 'Los tripulantes que contratas en la nave quedan aquí como holoperfiles, aunque ya no estén a bordo.' : 'Cuando contrates tripulantes en la nave, aparecerán aquí como holoperfiles.'}</p>
+    <div class="grid sm:grid-cols-3 gap-2 mt-3">${cards}</div>
     <div class="flex flex-wrap gap-2 mt-4">
       <button type="button" data-vr="start" ${ui.pick.length === SQUAD && canStart(r) ? '' : 'disabled'} class="${btnMain}">Iniciar simulación${isFree(r) ? ' (gratis)' : ' · 1 carga'}</button>
       <button type="button" data-vr="back" class="${btn}">Volver</button>
@@ -199,7 +228,7 @@ function rollPanel(r, opt) {
   // El mejor objeto de tirada que tiene a mano cada tripulante, para avisar antes de elegir.
   const bestItem = (id) => rollItemsFor(r, id).map((k) => {
     const b = bonusFor(r, id, opt.roles, [k]);
-    return { k, o: odds(b.bonus, dc, b.six) };
+    return { k, o: odds(b.bonus, dc, b.sure) };
   }).sort((a, b) => score(b.o) - score(a.o))[0];
   if (!ui.member || !alive(run).some((m) => m.id === ui.member)) {
     ui.member = alive(run).map((m) => m.id).sort((a, b) => bonusFor(r, b, opt.roles).bonus - bonusFor(r, a, opt.roles).bonus || rollItemsFor(r, b).length - rollItemsFor(r, a).length)[0];
@@ -220,7 +249,7 @@ function rollPanel(r, opt) {
     const on = ui.items.includes(k);
     return `<button type="button" data-vr="item" data-id="${k}" aria-pressed="${on}" title="${ITEMS[k].desc}" class="mono text-[11px] min-h-[32px] px-2 rounded border ${on ? 'border-violet-300 bg-violet-800 text-white' : 'border-slate-600 text-slate-300'}">${ITEMS[k].name}</button>`;
   }).join('')}</div>` : '';
-  const { bonus, six } = bonusFor(r, ui.member, opt.roles, ui.items), o = odds(bonus, dc, six);
+  const { bonus, sure } = bonusFor(r, ui.member, opt.roles, ui.items), o = odds(bonus, dc, sure);
   const sum = boss ? `superar el paso ${pct(o.ok + o.part)}` : `éxito ${pct(o.ok)}${o.part ? ` · con coste ${pct(o.part)}` : ''}`;
   return `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
     <div class="text-sm font-medium mb-2">¿Quién lo intenta?</div>
@@ -228,9 +257,9 @@ function rollPanel(r, opt) {
     ${items}
     <div class="flex flex-wrap items-center gap-3 mt-3">
       <button type="button" data-vr="roll" class="${btnMain}">Tirar el dado</button>
-      <span class="mono text-[11px] text-slate-400">d6 + ${bonus} contra ${dc} · ${sum}</span>
+      <span class="mono text-[11px] text-slate-400">2 dados + ${bonus} contra ${dc} · ${sum}</span>
     </div>
-    <p class="mono text-[10px] text-slate-500 mt-2">Un 6 siempre es éxito.</p>
+    <p class="mono text-[10px] text-slate-500 mt-2">Los dobles siempre son éxito.</p>
   </div>`;
 }
 
@@ -274,10 +303,11 @@ function resultView(r) {
   }
   const effect = fxLabel(fx);
   const dice = res.kind === 'safe' ? '' : `<div class="flex items-center gap-4 mt-3">
-    <span class="vr-die ${ui.rolled ? 'vr-roll' : ''} text-6xl leading-none text-violet-200" aria-hidden="true">${FACES[res.die - 1]}</span>
+    <span class="shrink-0 flex gap-1" aria-hidden="true">${res.dice.map((d, i) => `<span class="vr-die ${ui.rolled ? 'vr-roll' : ''} text-6xl leading-none text-violet-200" style="animation-delay:${i * 90}ms">${FACES[d - 1]}</span>`).join('')}</span>
     <div class="${ui.rolled ? 'vr-reveal' : ''}">
-      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.die} + ${res.bonus} = ${res.total} contra ${res.dc}${res.die === 6 && res.total < res.dc ? ' · un 6 siempre es éxito' : ''}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
+      <div class="mono text-[11px] text-slate-400">${first(res.member)} · ${res.dice[0]} + ${res.dice[1]} + ${res.bonus} = ${res.total} contra ${res.dc}${res.mods.length ? ` · ${res.mods.map((k) => ITEMS[k].name).join(', ')}` : ''}${res.rerolls ? ` · ${plural(res.rerolls, 'repetición', 'repeticiones')}` : ''}</div>
       <span class="inline-block mt-1 text-sm font-semibold px-2 py-0.5 rounded border ${KIND[res.kind][1]}">${KIND[res.kind][0]}</span>
+      ${res.dice[0] === res.dice[1] && !res.mods.some((k) => ITEMS[k].sure) ? `<span class="inline-block mt-1 ml-1 text-sm font-semibold px-2 py-0.5 rounded border border-amber-600 bg-amber-950/40 text-amber-200">¡Dobles!</span>` : ''}
     </div>
   </div>`;
   const again = canReroll(run) ? `
@@ -319,6 +349,7 @@ function endView(r) {
       <li>Eventos nuevos descubiertos: ${run.found}</li>
       ${unlock ? `<li class="text-violet-300">${unlock}</li>` : ''}
     </ul>
+    ${run.medals.length ? `<div class="mt-3"><div class="mono text-[11px] text-amber-300 mb-1.5">Medallas nuevas</div><div class="grid sm:grid-cols-2 gap-2">${run.medals.map((id) => medalCard(MEDAL_BY_ID[id], true)).join('')}</div></div>` : ''}
     <div class="flex flex-wrap gap-2 mt-4"><button type="button" data-vr="leave" class="${btnMain}">Volver a la Holocubierta</button></div>
   </section>`;
 }
@@ -331,7 +362,13 @@ export function init() {
     const r = state.rpg, run = r.run, id = b.dataset.id, a = b.dataset.vr;
     if (a !== 'wipe' && a !== 'quit') ui.confirm = null;
     switch (a) {
-      case 'esc': ui.esc = id; ui.screen = 'squad'; ui.pick = r.roster.length <= SQUAD ? r.roster.map((m) => m.id) : []; renderVR(); scrollTo(0, 0); break;
+      case 'esc': {
+        // Se propone el último escuadrón; si no hay, y el plantel es justo de 3, esos 3.
+        const last = r.lastSquad.filter((x) => memberInfo(r, x));
+        ui.esc = id; ui.screen = 'squad';
+        ui.pick = last.length === SQUAD ? last : r.roster.length <= SQUAD ? r.roster.map((m) => m.id) : [];
+        renderVR(); scrollTo(0, 0); break;
+      }
       case 'pick': ui.pick = ui.pick.includes(id) ? ui.pick.filter((x) => x !== id) : ui.pick.length < SQUAD ? [...ui.pick, id] : ui.pick; renderVR(); break;
       case 'back': ui.screen = 'lobby'; renderVR(); break;
       case 'start': {

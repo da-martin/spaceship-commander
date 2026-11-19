@@ -11,9 +11,12 @@ export const BANK_MAX = 3;        // cargas guardadas como máximo
 export const ROOMS = 10, REST_AT = 4, BOSS_AT = 9;   // índices desde 0
 export const EVENTS_PER_RUN = 8;
 export const HP_MAX = 3, SUP_START = 2, ITEMS_MAX = 3, SQUAD = 3;
-// Dificultad por tramo: salas 1–3 · 4–6 · 7–9 · jefe.
-export const DC = [5, 6, 7, 7];
-export const dcOf = (i) => DC[i >= BOSS_AT ? 3 : Math.floor(i / 3)];
+export const ROSTER_MAX = 30;   // holoperfiles de tripulación como mucho
+// Dificultad por tramo: salas 1–3 · 4–6 · 7–9 · jefe. Se compara con la suma de
+// dos dados más el bono. Cada escenario trae la suya (SCENARIOS[].dc): cada uno
+// es algo más difícil que el anterior.
+export const DC = [10, 10, 11, 11];
+export const dcOf = (i, table = DC) => table[i >= BOSS_AT ? 3 : Math.floor(i / 3)];
 // Jefe: hay que superar sus 3 pasos; cada fallo cuesta 1 de vida y se repite el paso.
 export const BOSS_STEPS = 3;
 // Bono de la tirada: +2 si el rol encaja, y el nivel del holoperfil (1/2/3 → +0/+1/+2).
