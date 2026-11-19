@@ -16,20 +16,21 @@ Cada sistema es una ficha en `public/js/systems.js`, como el catálogo de `missi
 
 | Campo | Qué hace |
 |---|---|
-| `id`, `name`, `desc` | Identidad y texto de la tarjeta de destino |
+| `id`, `name`, `art`, `desc` | Identidad, artículo («el » en «el Sistema Madre») y texto de la tarjeta de destino |
 | `days` | Días de travesía para llegar |
 | `intro`, `travel[]` | Relato de llegada y un fragmento por día de travesía |
-| `market` | Multiplicador de precio por material; un material puede no venderse allí |
-| `yard` | Multiplicador del astillero; módulos que no se pueden mejorar allí |
-| `missions` | Catálogo propio del tablón, con sus finales `win/partial/fail` |
+| `market` | Multiplicador de precio por material (×1 si no aparece); ×0 es que allí no se compra ni se vende |
+| `yard` | `mult` del astillero (mejoras y reparaciones) y `closed`, los módulos que no se pueden mejorar allí (sí reparar) |
+| `missions` | Catálogo del tablón: las misiones de `missions.js` con `system` igual al id del sistema (las que no lo llevan son del Sistema Madre) |
 | `story[]` | Capítulos de la historia del sistema (ver abajo) |
 | `roles` | Opcional: roles de tripulación que salen en el tablón de tripulación |
 
 El Sistema Madre también tiene ficha: es la que hoy está repartida entre `config.js`, `missions.js` y `core/shipyard.js`.
 
-- `priceOf(k, día)` multiplica por `market[k]` del sistema en el que estás.
-- `modCost(k)` multiplica por `yard.mult` y devuelve `null` en los módulos cerrados allí.
-- `pickMission()` sortea solo del catálogo del sistema.
+- `priceOf(k, día)` multiplica por `market[k]` del sistema en el que estás, antes de redondear; `onSale(k)` dice si allí se comercia.
+- `yardMult()` incluye `yard.mult`, así que afecta a mejoras y reparaciones; `yardClosed(k)` dice si el módulo está cerrado allí.
+- `pickMission()` sortea solo del catálogo del sistema. Las historias de las misiones se buscan en todos los catálogos, porque una misión aceptada puede ser de otro sistema.
+- `here()` da la ficha del sistema actual y `herePrep('en' | 'de' | 'a')` su nombre con preposición («en el Sistema Madre», «del…», «al…»).
 
 ## Propuesta y votación
 
@@ -86,7 +87,7 @@ Valen para el Sistema Madre y para cualquier otro sistema.
 - Se hacen **en órbita**: con una de estas en curso sigues teniendo mercado, astillero y tripulación. Su coste es que ocupan el hueco de misión: mientras la tengas no puedes aceptar otra.
 - Se pueden abandonar sin daño de reputación y sin cobrar nada.
 
-Hoy «tener misión» significa «estar fuera del sistema» (`atHome()`). Pasa a depender del tipo de contrato:
+«Tener misión» significaba «estar fuera del sistema» (`atHome()`). Desde la fase 1 lo decide `docked()` según el tipo de contrato (`CONTRACT_KINDS` en `config.js`):
 
 | `kind` | Qué es | ¿Fuera del sistema? |
 |---|---|---|
@@ -116,7 +117,7 @@ En el cliente:
 
 ## Fases
 
-1. **Sistemas en local**: `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero y tablón por sistema, y el `kind` de los contratos. Sin cambios visibles.
+1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles. Pendiente para la fase 3: `normShip` descarta los contratos con cuota 0, y la travesía los necesita.
 2. **Misiones sin plazo** en el Sistema Madre: el tipo `orbit`, su oferta en el tablón y abandonarlas.
 3. **Travesía**: el contrato `travel`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.

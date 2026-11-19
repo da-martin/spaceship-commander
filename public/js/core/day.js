@@ -4,7 +4,7 @@ import { trimBooks } from './books.js';
 import { crewPayroll, genCandidates, missionCrewXp } from './crew.js';
 import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
 import { logShip, logUpdates } from './log.js';
-import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
+import { docked, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
 import { state } from '../store.js';
 import { addDays, dayParse, todayStr, weekStart } from '../util.js';
@@ -51,7 +51,7 @@ export function processDays(){
   const pay=crewPayroll(t);
   if(pay) logShip({kind:'crew',tone:pay.left?'warn':'info',title:pay.paid?`Sueldos de la tripulación: −${pay.paid} ¢`:'Tripulación',lines:pay.notes});
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
-  if(atHome()) logBoardNews();
+  if(docked()) logBoardNews();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
   trimBooks(t);
   logUpdates();   // novedades del juego, una vez por partida

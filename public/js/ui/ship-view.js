@@ -1,12 +1,12 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
- * del Sistema Madre. */
+ * del sistema en el que está la nave. */
 import { AGE_BONUS, AREA_COLORS, DIFFS, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
-import { agedMc, atHome, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
+import { agedMc, docked, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
 import { perk } from '../core/rewards.js';
-import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
-import { buyPrice, canAfford, fmtCost, modCost, priceOf, repairCost, repairQuote, sellOf } from '../core/shipyard.js';
+import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
+import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
 import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
 import { render } from './commander.js';
@@ -59,7 +59,7 @@ export function shipBackdrop(home){
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
 export function shipArt(){
-  const m=state.ship.modules, home=atHome();
+  const m=state.ship.modules, home=docked();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
   // Todos los módulos existen desde el día uno: una nave necesita puente y
   // motores para volar. El nivel solo decide cuánto crece cada pieza.
@@ -68,7 +68,7 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${home?'en el Sistema Madre':'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${home?herePrep('en'):'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -132,6 +132,18 @@ export function missionLeftTxt(c){
   const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5);
   return h>48?`quedan ${Math.round(h/24)} días`:ms>=36e5?`quedan ${h} h`:`quedan ${Math.max(1,Math.ceil(ms/6e4))} min`;
 }
+// un material que no se compra ni se vende en este sistema
+function offSale(k,w){
+  const r=RES[k], el=document.createElement('div');
+  el.className='rounded-xl border border-dashed border-slate-700 bg-slate-900/70 p-3';
+  el.innerHTML=`
+    <div class="flex items-center gap-2">
+      <span class="mono text-[11px] px-1.5 py-0.5 rounded border ${r.chip}">${r.sym} ${r.name}</span>
+      <span class="mono text-[11px] text-slate-400 ml-auto">tienes ${w[k]}</span>
+    </div>
+    <div class="text-sm text-slate-400 mt-2">No se comercia ${herePrep('en')}</div>`;
+  return el;
+}
 export const missionEndTxt=(c)=>{ const d=new Date(c.endsAt); return `hasta ${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 export const shortLeft=(c)=>{ const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5); return h>48?`${Math.round(h/24)}d`:ms>=36e5?`${h}h`:'<1h'; };
 export const leftTone=(c)=>msLeft(c)<864e5?'text-amber-300':'text-slate-400';
@@ -161,7 +173,7 @@ export function renderMission(c){
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
     <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
-    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera del Sistema Madre: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), q=repairQuote(k), ok=q.pts>0;
@@ -232,7 +244,7 @@ export function renderShip(){
   // estado: en el Sistema Madre o en misión
   const ss=document.getElementById('shipStatus');
   ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(c?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
-  ss.textContent=c?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ En el Sistema Madre';
+  ss.textContent=c?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ '+herePrep('En');
   if(c) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
@@ -256,7 +268,11 @@ export function renderShip(){
     (document.getElementById((sh.contract?'rep-':'mod-')+k)||document.getElementById('homePanel')).scrollIntoView({behavior:'smooth',block:'center'});
   });
 
-  // Sistema Madre o misión en curso
+  // el sistema o la misión en curso
+  const sys=here();
+  document.getElementById('homeTitle').textContent='En '+sys.name;
+  document.getElementById('homeTabs').setAttribute('aria-label',sys.name);
+  document.querySelectorAll('[data-sys]').forEach(e=>{ e.textContent=sys.art+sys.name; });
   document.getElementById('homeDock').classList.toggle('hidden',!!c);
   document.getElementById('homeMission').classList.toggle('hidden',!c);
   if(c) renderMission(c);
@@ -294,7 +310,7 @@ export function renderShip(){
   // módulos
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
-    const m=mod(k), up=m.lv>0, cost=modCost(k), ok=cost&&canAfford(cost), rc=repairCost(k), q=repairQuote(k);
+    const m=mod(k), up=m.lv>0, closed=yardClosed(k), cost=modCost(k), ok=!closed&&cost&&canAfford(cost), rc=repairCost(k), q=repairQuote(k);
     const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`,
       quarters:`${berths()} literas`+(berthsUsable()<berths()?` · ${berths()-berthsUsable()} dañada${berths()-berthsUsable()>1?'s':''}`:''),
       spirit:`+${Math.round(XP_BONUS*eff(k)*100)}% de méritos`,social:`−${Math.round(WAGE_CUT*eff(k)*100)}% en los sueldos`,
@@ -314,7 +330,8 @@ export function renderShip(){
       </div>
       <div class="mono text-[11px] text-cyan-200 mt-1">Ahora: ${effTxt}</div>`:''}
       <div class="flex flex-col gap-1.5 mt-2.5">
-        <button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`Mejorar · ${fmtCost(cost)}`}</button>
+        ${m.lv<5&&closed?`<button data-act="build" class="${btnCls(false)}" disabled>No se mejora ${herePrep('en')}</button>`
+          :`<button data-act="build" class="${m.lv>=5?'px-2 py-2 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-300 cursor-default':btnCls(ok)}" ${m.lv>=5||!ok?'disabled':''}>${m.lv>=5?'MAX':`Mejorar · ${fmtCost(cost)}`}</button>`}
         ${up&&m.cond<100?`<button data-act="repair" class="${btnCls(q.pts>0)}" ${q.pts>0?'':'disabled'}>Reparar · ${q.pts>0?q.mc:rc} ¢</button>`:''}
       </div>`;
     if(m.lv<5&&ok) el.querySelector('[data-act="build"]').onclick=()=>buildMod(k);
@@ -326,6 +343,7 @@ export function renderShip(){
   const mk=document.getElementById('marketList'); mk.innerHTML='';
   const y=addDays(todayStr(),-1);
   for(const k of MATS){
+    if(!onSale(k)){ mk.appendChild(offSale(k,w)); continue; }
     const r=RES[k], p0=priceOf(k), p=buyPrice(k), py=priceOf(k,y), sp=sellOf(k);
     const el=document.createElement('div');
     el.className='rounded-xl border border-slate-700 bg-slate-900/70 p-3';

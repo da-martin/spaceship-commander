@@ -6,6 +6,7 @@ import { logShip } from './log.js';
 import { finishContract, logBoardNews, missionStory } from './missions.js';
 import { addW, addXP, perk, subW, subXP } from './rewards.js';
 import { state } from '../store.js';
+import { sysOf, sysPrep } from '../systems.js';
 import { dayParse, efRound, plural, todayStr } from '../util.js';
 
 export const mod=(k)=>state.ship.modules[k];
@@ -58,7 +59,7 @@ export function addEffort(ef,day=todayStr()){
   c.progress=efRound(c.progress+ef);
   if(c.progress>=c.quota){
     const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
-    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:['De vuelta en el Sistema Madre',returnHome()].filter(Boolean)});
+    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:['De vuelta '+herePrep('en'),returnHome()].filter(Boolean)});
     logBoardNews();
     emit('missionWon',c);
   }
@@ -93,3 +94,6 @@ export function logWear(before,miss){
   logShip({kind:'wear',tone:'warn',title:`Desgaste en ${plural(hit.length,'módulo','módulos')}`,
     lines:[hit.map(k=>`${MODS[k].name} ${before[k]} → ${mod(k).cond} %`).join(', '),...(why.length?['Por '+why.join(' y ')]:[])]});
 }
+// El sistema en el que está la nave, y su nombre con preposición: herePrep('en') → «en el Sistema Madre».
+export const here=()=>sysOf(state.ship.system);
+export const herePrep=(prep)=>sysPrep(here(),prep);

@@ -3,10 +3,10 @@
 import { CREW_DAYS, CREW_LV, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
-import { agedMc, atHome, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
+import { agedMc, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
-import { boardCap, mod } from '../core/ship.js';
-import { buyPrice, canAfford, modCost, repairQuote, sellOf } from '../core/shipyard.js';
+import { boardCap, herePrep, mod } from '../core/ship.js';
+import { buyPrice, canAfford, modCost, onSale, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { dropFocusRef } from '../features/focus.js';
 import { emit } from '../core/events.js';
 import { save, state } from '../store.js';
@@ -16,7 +16,7 @@ import { view } from './view.js';
 import { addDays, fDate, todayStr, uid } from '../util.js';
 /* ---------- tripulación ---------- */
 export function hireCrew(id){
-  if(!atHome()||!crewUnlocked()) return;
+  if(!docked()||!crewUnlocked()) return;
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
@@ -36,12 +36,12 @@ export function promoteCrew(id){
   emit('crewPromoted',m);
   save(); render(); toast(`${m.name} asciende a ${L.name.toLowerCase()} · −${paid} ¢, cobrará ${paid} ¢/sem`,'win');
 }
-// Con sueldo pendiente y en misión, cancelar es despedirle al volver al Sistema Madre.
+// Con sueldo pendiente y en misión, cancelar es despedirle al volver al sistema.
 export function toggleCancel(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
   m.cancel=!m.cancel;
   save(); render();
-  if(m.owed) toast(m.cancel?`${m.name} desembarcará al volver al Sistema Madre, sin cobrar la deuda`:`${m.name} sigue a bordo con su deuda`);
+  if(m.owed) toast(m.cancel?`${m.name} desembarcará al volver ${herePrep('a')}, sin cobrar la deuda`:`${m.name} sigue a bordo con su deuda`);
   else toast(m.cancel?`${m.name} trabajará hasta el ${fDate(m.until)} y se marchará`:`Contrato de ${m.name} mantenido · se renueva solo`);
 }
 export function settleDebt(id){
@@ -58,7 +58,7 @@ export function rehireCrew(id){
 }
 export let crewReleasing=null;   // primer toque de «Despedir ya» pide confirmación
 export function releaseCrew(id){
-  if(!atHome()) return;
+  if(!docked()) return;
   if(crewReleasing!==id){ crewReleasing=id; render(); return; }
   const m=state.ship.crew.find(c=>c.id===id); crewReleasing=null; if(!m) return;
   state.ship.crew=state.ship.crew.filter(c=>c.id!==id);
@@ -76,17 +76,17 @@ export function acceptOffer(id){
   const now=new Date(), end=new Date(now); end.setDate(end.getDate()+o.days);   // cada día de plazo son 24 h desde ahora
   sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),progress:0};
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
-  save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas del Sistema Madre`);
+  save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas ${herePrep('de')}`);
 }
 export function abandonContract(){
   const c=state.ship.contract; if(!c) return;
   tickBoard();
   if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
   state.ship.contract=null; const r=[returnHome(),boardNews()].filter(Boolean).join(' · '); save(); render();
-  toast((c.urgent?'Misión urgente abandonada · reputación dañada':'Misión abandonada')+' · de vuelta en el Sistema Madre'+(r?' · '+r:''));
+  toast((c.urgent?'Misión urgente abandonada · reputación dañada':'Misión abandonada')+' · de vuelta '+herePrep('en')+(r?' · '+r:''));
 }
 export function sweep(){
-  if(!atHome()||!missionsUnlocked()) return;
+  if(!docked()||!missionsUnlocked()) return;
   tickBoard();
   const b=state.ship.board, cost=sweepCost();
   if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
@@ -116,7 +116,7 @@ export function deleteProject(id){
 
 /* ---------- astillero y mercado ---------- */
 export function buildMod(k){
-  const c=modCost(k); if(!c||!atHome()) return;
+  const c=modCost(k); if(!c||!docked()||yardClosed(k)) return;
   if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
   tickBoard();   // la señal acumulada hasta ahora va al ritmo de antes
   for(const [r,n] of Object.entries(c)) subW(r,n); spend(c.mc,'yard');
@@ -130,12 +130,12 @@ export function repairMod(k){
   subW('mc',q.mc); spend(q.mc,'repair'); m.cond+=q.pts; save(); render(); toast(`${MODS[k].name} reparado +${q.pts}%`);
 }
 export function buyMat(k,n){
-  if(!atHome()) return;
+  if(!docked()||!onSale(k)) return;
   const c=buyPrice(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
   subW('mc',c); spend(c,'buy'); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
 }
 export function sellMat(k){
-  if(state.wallet[k]<1||!atHome()) return;
+  if(state.wallet[k]<1||!docked()||!onSale(k)) return;
   const p=sellOf(k); subW(k,1); addW('mc',p); earn(p,'sale'); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ¢`);
 }
 
