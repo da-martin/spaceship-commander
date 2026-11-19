@@ -124,20 +124,22 @@ export function crewPayroll(t){
 // Sin previsión vale 0: el peor caso, solo con el saldo de ahora (lo que se
 // gane hoy queda de margen). Quien no cobra deja de cobrar en la simulación,
 // como en el juego, y los demás siguen con el saldo que queda.
-// Un cobro por tripulante y día: {day,id,name,due,bal,ok,short}.
+// Un cobro por tripulante y día: {day,id,name,due,bal,ok,short,inc,tight,rely}.
+// inc: cuánto de `bal` son entradas previstas. tight (justo): cobra contando con
+// ellas, pero con el saldo de ahora solo no; rely es lo que necesita de ellas.
 export function payForecast(days=CREW_DAYS,income=()=>0,t=todayStr()){
-  let bal=state.wallet.mc; const out=[];
+  let bal=state.wallet.mc, inc=0; const out=[];
   const crew=state.ship.crew.filter(m=>working(m)&&!m.cancel).map(m=>({m,until:m.until,out:false}));
   for(let i=1;i<=days;i++){
     const day=addDays(t,i);
     for(const c of crew){
       while(!c.out&&c.until<day){
-        const due=wageOf(c.m.wage), ok=bal>=due;
-        out.push({day,id:c.m.id,name:c.m.name,due,bal,ok,short:ok?0:due-bal});
+        const due=wageOf(c.m.wage), ok=bal>=due, tight=ok&&bal-inc<due;
+        out.push({day,id:c.m.id,name:c.m.name,due,bal,ok,short:ok?0:due-bal,inc,tight,rely:tight?due-(bal-inc):0});
         if(ok){ bal-=due; c.until=addDays(c.until,CREW_DAYS); } else c.out=true;
       }
     }
-    bal+=Math.max(0,Math.round(income(day)||0));
+    const n=Math.max(0,Math.round(income(day)||0)); bal+=n; inc+=n;
   }
   return out;
 }

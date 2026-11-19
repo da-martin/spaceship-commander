@@ -2,7 +2,7 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { BOOKS_DAYS } from '../public/js/config.js';
-import { dayIn, dayOut, earn, spend, trimBooks, unearn } from '../public/js/core/books.js';
+import { dayIn, dayOut, earn, firstDay, incomeFn, incomeForecast, pastIn, spend, trimBooks, unearn } from '../public/js/core/books.js';
 import { crewPayroll, payDebt, payDue, payForecast } from '../public/js/core/crew.js';
 import { checkHabit, grantTask, revokeTask, tapFree, uncheckHabit, untapFree } from '../public/js/core/rewards.js';
 import { normBooks, normShip } from '../public/js/store.js';
@@ -98,7 +98,7 @@ test('todo lo que mueve ¢ se anota en el libro', () => {
 /* ---------- aviso de impago ---------- */
 test('cobra al día siguiente del último pagado y descuenta del saldo', () => {
   fresh({ wallet: { mc: 200 } }).ship.crew = [member({ until: '2026-11-20' })];
-  assert.deepEqual(payForecast(), [{ day: '2026-11-21', id: 'm1', name: 'Lina Okafor', due: 90, bal: 200, ok: true, short: 0 }]);
+  assert.deepEqual(payForecast(), [{ day: '2026-11-21', id: 'm1', name: 'Lina Okafor', due: 90, bal: 200, ok: true, short: 0, inc: 0, tight: false, rely: 0 }]);
 });
 
 test('sueldo entero o nada, en el orden de la tripulación; uno más barato puede cobrar después', () => {
@@ -135,4 +135,74 @@ test('quien cobra mañana y dentro de 7 días cobra dos veces si alcanza', () =>
 test('el Salón rebaja el sueldo previsto', () => {
   fresh({ wallet: { mc: 0 }, modules: { social: { lv: 1, cond: 100 } } }).ship.crew = [member()];
   assert.equal(payForecast()[0].due, 83);
+});
+
+test('justo: cobra con lo previsto, pero no con el saldo de ahora', () => {
+  fresh({ wallet: { mc: 60 } }).ship.crew = [member({ until: '2026-11-20' }), member({ id: 'b', wage: 45, lv: 1, until: '2026-11-23' })];   // cobran el 21 y el 24
+  const p = payForecast(7, (d) => ({ '2026-11-20': 50, '2026-11-22': 30 })[d]);
+  // al b le quedan 50 ¢ el 24, pero 80 son previstos: sin ellos irían −30
+  assert.deepEqual(p.map((x) => [x.id, x.ok, x.tight, x.rely]), [['m1', true, true, 30], ['b', true, true, 75]]);
+  assert.deepEqual(payForecast(7, () => 0).map((x) => [x.id, x.ok, x.tight]), [['m1', false, false], ['b', true, false]]);
+});
+
+/* ---------- previsión de entradas ---------- */
+// Partida con libro desde `since` y actividad desde `first`.
+const books = (since, days = {}, first = since) => { const s = fresh(); s.ship.books = { since, days }; s.ship.activity = { [first]: 1 }; return s; };
+const inn = (o) => ({ in: o, out: {} });
+
+test('cada día prevé lo del mismo día de la semana pasada; dentro de 7 días, el de hace dos semanas', () => {
+  const days = {};
+  for (let i = 1; i <= 14; i++) days[addDays(T, -i)] = inn({ task: i });   // hace i días: i ¢
+  books(addDays(T, -14), days);
+  const fc = incomeForecast();
+  assert.deepEqual(fc.map((p) => p.day), Array.from({ length: 7 }, (_, i) => addDays(T, i + 1)));
+  assert.deepEqual(fc.map((p) => p.ref), ['2026-11-13', '2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18', '2026-11-12']);
+  assert.deepEqual(fc.map((p) => p.total), [6, 5, 4, 3, 2, 1, 7]);
+  assert.ok(fc.every((p) => !p.avg && !p.est && !p.none));
+  assert.equal(incomeFn(fc)('2026-11-20'), 6);
+  assert.equal(incomeFn(fc)('2027-01-01'), 0);
+});
+
+test('sin el día de referencia, la media de los días que hay; sin ninguno, nada', () => {
+  books(Y, { [Y]: inn({ task: 10 }), '2026-11-17': inn({ habit: 20 }) }, '2026-11-17');
+  const fc = incomeForecast();
+  assert.equal(fc[5].ref, Y); assert.equal(fc[5].total, 10);   // mié 25 ← mié 18
+  assert.equal(fc[4].ref, '2026-11-17'); assert.equal(fc[4].total, 20);
+  assert.deepEqual([fc[0].avg, fc[0].total, fc[0].refs], [true, 15, ['2026-11-17', Y]]);
+  assert.equal(fc[6].avg, true);   // jue 26 ← jue 12: aún no había partida
+  books(T);
+  assert.ok(incomeForecast().every((p) => p.none && p.total === 0 && !p.avg));
+});
+
+test('la misión del día de referencia cuenta, y se dice cuánto es', () => {
+  books(addDays(T, -14), { '2026-11-13': inn({ task: 12, mission: 180 }) });
+  const p = incomeForecast()[0];
+  assert.deepEqual([p.total, p.mission], [192, 180]);
+});
+
+test('antes del libro se rehace con lo que pagaron tareas, hábitos, libres y misiones', () => {
+  const s = books(T, {}, '2026-11-10');
+  const D = '2026-11-13';
+  s.tasks.push({ id: 'a', title: 'A', done: true, doneOn: D, grant: { mc: 20, day: D } }, { id: 'b', title: 'B', done: true, grant: { mc: 9, day: '2026-11-14' } });
+  s.focus.lines.push({ id: 'l', kind: 'acc', ref: 'x', title: 'Rápida', grant: { mc: 5, day: D } });
+  s.habits.push(
+    { id: 'h', title: 'H', type: 'daily', g: { [D]: { mc: 15 } } },
+    { id: 'f', title: 'F', type: 'free', g: { [D]: { mc: 4, tap: 4 } }, log: { [D]: 3 } },
+    { id: 'o', title: 'Viejo libre', type: 'free', g: { [D]: { mc: 6 } }, log: { [D]: 2 } },   // sin tap: los demás toques valían FREE_MC
+    { id: 'n', title: 'Caída', type: 'neg', g: { [D]: { hits: [{ k: 'hull', n: 3 }] } }, log: { [D]: 1 } });
+  s.ship.log.push({ kind: 'mission', day: D, rew: { mc: 100 } }, { kind: 'mission', day: D, rew: null });
+  const p = pastIn(D);
+  assert.deepEqual(p.cats, { task: 25, habit: 15, free: 12 + 6 + 2, mission: 100 });
+  assert.deepEqual(p.n, { task: 2, habit: 1, free: 5, mission: 1 });
+  assert.equal(p.est, true);
+  assert.equal(incomeForecast()[0].est, true);   // vie 20 ← vie 13
+  assert.equal(firstDay(), '2026-11-10');
+});
+
+test('el día que empieza el libro se queda con lo mayor de cada categoría; después, solo el libro', () => {
+  const s = books(Y, { [Y]: inn({ task: 8, sale: 30 }) });
+  s.tasks.push({ id: 'a', title: 'A', grant: { mc: 20, day: Y } }, { id: 'b', title: 'B', grant: { mc: 7, day: T } });
+  assert.deepEqual([pastIn(Y).cats, pastIn(Y).est], [{ task: 20, sale: 30 }, true]);
+  s.ship.books.days[T] = inn({ task: 3 });
+  assert.deepEqual([pastIn(T).cats, pastIn(T).est, pastIn(T).n.task], [{ task: 3 }, false, 1]);
 });

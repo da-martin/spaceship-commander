@@ -80,7 +80,9 @@ Un test recorre todos los `addW('mc'…)` y `subW('mc'…)` de `public/js` y fal
 
 ### Partidas que ya existían
 
-Antes de `books.since` no hay libro. Para esos días, las entradas se reconstruyen con lo que hay (`x.grant` de las tareas, `h.g[día]` de los hábitos y `rew` de las misiones de la bitácora) y el modal las marca como **estimadas**. Se pierden las tareas borradas, los toques de libres que no son el primero del día, el Pilotaje y las ventas. A las dos semanas ya no hace falta.
+Antes de `books.since` no hay libro. Para esos días, las entradas se reconstruyen con lo que hay (`x.grant` de las tareas y de las acciones rápidas del Forster, `h.g[día]` de los hábitos, `g.tap × h.log[día]` de los libres y `rew` de las misiones de la bitácora) y el modal las marca como **estimadas**. Se pierden las tareas borradas, el Pilotaje y las ventas. El día en que empezó el libro solo se anotó desde que se abrió: de cada categoría se queda lo mayor entre el libro y lo reconstruido. A las dos semanas ya no hace falta.
+
+Los días anteriores al primer día con historial (el libro o la actividad más antigua) no cuentan como días a cero: la partida aún no existía.
 
 ## Previsión de entradas
 
@@ -189,5 +191,5 @@ GASTOS PREVISTOS // VIE 21
 
 1. ✅ **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
 2. ✅ **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
-3. **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar.
+3. ✅ **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar. Hecho en `core/books.js` (`pastIn`, `incomeForecast`, `incomeFn`); `payForecast` marca `tight` y `rely` (lo que hace falta ganar antes).
 4. **Pestaña Contabilidad y modales**, con el punto de aviso.
