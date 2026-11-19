@@ -1,5 +1,5 @@
 /* Bitácora de a bordo: las entradas se guardan en la partida (state.ship.log). */
-import { LOG_DAYS, LOG_MAX } from '../config.js';
+import { LOG_DAYS, LOG_MAX, UPDATES } from '../config.js';
 import { emit } from './events.js';
 import { boardText } from './missions.js';
 import { state } from '../store.js';
@@ -24,3 +24,8 @@ export function logShip(e){
   emit('logged',e);
 }
 export const logText=(e)=>[e.title,...e.lines].join(' · ');
+// Novedades del juego que esta partida aún no ha recibido: una entrada por cada una.
+export function logUpdates(){
+  const done=state.ship.updates;
+  for(const u of UPDATES) if(!done.includes(u.id)){ done.push(u.id); logShip({kind:u.kind,tone:'info',title:u.title,lines:u.lines.map(l=>'• '+l)}); }
+}

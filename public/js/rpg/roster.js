@@ -1,24 +1,22 @@
-/* VR Training: holoperfiles. Cada tripulante que se contrata en la nave deja
- * uno (nombre, rol y nivel) que se queda aunque se marche. Si vuelve alguien
- * con el mismo nombre y rol, se guarda el nivel más alto.
- * Recibe los datos del tripulante: no lee la nave por su cuenta. */
-import { ROLES } from '../config.js';
-import { ROSTER_MAX } from './config.js';
+/* VR Training: holoperfiles de la tripulación. El plantel es la tripulación
+ * que está a bordo de la nave, además de los de serie: quien se marcha deja
+ * de estar, salvo en una simulación a medias, que termina con él.
+ * Recibe los datos de la tripulación: no lee la nave por su cuenta. */
+import { CREW_LV, ROLES } from '../config.js';
 
-export function addProfile(r, m) {
-  if (!m || typeof m.name !== 'string' || !m.name.trim() || !ROLES[m.role]) return false;
-  const lv = Math.max(1, Math.min(3, Math.floor(+m.lv) || 1));
-  const same = r.roster.find((x) => x.src === 'crew' && x.name === m.name && x.role === m.role);
-  if (same) { if (lv > same.lv) { same.lv = lv; return true; } return false; }
-  r.roster.push({ id: 'c-' + String(m.id || m.name).slice(0, 60), name: m.name.slice(0, 40), role: m.role, lv, src: 'crew' });
-  // Con el plantel lleno se va el holoperfil de tripulación más antiguo que no esté en juego.
+const valid = (m) => m && m.id != null && typeof m.name === 'string' && !!m.name.trim() && !!ROLES[m.role];
+const profileOf = (m) => ({ id: 'c-' + String(m.id).slice(0, 60), name: m.name.slice(0, 40), role: m.role,
+  lv: Math.max(1, Math.min(CREW_LV.length, Math.floor(+m.lv) || 1)), src: 'crew' });
+
+// Pone el plantel al día con la tripulación a bordo (`crew`): entra quien se
+// contrató, sube quien ascendió y sale quien se fue. Devuelve si cambió algo.
+export function syncCrew(r, crew) {
+  const want = (Array.isArray(crew) ? crew : []).filter(valid).map(profileOf), ids = new Set(want.map((p) => p.id));
   const busy = new Set(r.run ? r.run.squad.map((x) => x.id) : []);
-  while (r.roster.filter((x) => x.src === 'crew').length > ROSTER_MAX) {
-    const i = r.roster.findIndex((x) => x.src === 'crew' && !busy.has(x.id));
-    if (i < 0) break;
-    r.roster.splice(i, 1);
-  }
-  return true;
+  const playing = r.roster.filter((x) => x.src === 'crew' && !ids.has(x.id) && busy.has(x.id));   // se fue a media simulación
+  const roster = [...r.roster.filter((x) => x.src !== 'crew'), ...want, ...playing], have = new Set(roster.map((x) => x.id));
+  const lastSquad = r.lastSquad.every((id) => have.has(id)) ? r.lastSquad : [];
+  const changed = JSON.stringify(roster) !== JSON.stringify(r.roster) || lastSquad !== r.lastSquad;
+  r.roster = roster; r.lastSquad = lastSquad;
+  return changed;
 }
-// La tripulación a bordo, por si se contrató antes de que existieran los holoperfiles.
-export const syncCrew = (r, crew) => (Array.isArray(crew) ? crew : []).reduce((n, m) => n + (addProfile(r, m) ? 1 : 0), 0);

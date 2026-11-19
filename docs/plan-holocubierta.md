@@ -9,7 +9,7 @@ Un minijuego de rol dentro de Spaceship, aparte del juego principal. Es un simul
 
 - Pestaña nueva en Spaceship: **Nave · Alianza · VR Training**.
 - Título de la pantalla: **Entrenamiento en Holocubierta**.
-- **Viene desactivado.** Se activa en Ajustes con el interruptor **VR Training** (`showVR`, por defecto `false`). Desactivado no hay pestaña ni se calculan cargas; solo se apuntan los holoperfiles de quien contrates. Al volver a activarlo todo sigue donde estaba.
+- **Viene desactivado.** Se activa en Ajustes con el interruptor **VR Training** (`showVR`, por defecto `false`). Desactivado no hay pestaña ni se calculan cargas; solo se mantiene al día el plantel con la tripulación a bordo. Al volver a activarlo todo sigue donde estaba.
 - El interruptor lleva una línea que explica qué es: «Minijuego de rol en un simulador. No afecta a tu nave ni a tus recompensas.»
 
 ## Cortafuegos
@@ -49,10 +49,10 @@ Cada simulación cuesta **1 carga**.
 | Ada Marín | Mantenimiento | Curar, soporte vital |
 
 - Son nivel 1 y siempre están disponibles, también para quien no juega a la nave.
-- **Cada tripulante que se contrata en la nave deja un holoperfil** con su nombre, rol y nivel. Si vuelve alguien con el mismo nombre y rol pero más nivel, se guarda el más alto. Los holoperfiles no se pierden cuando el tripulante se va de la nave.
-- Para enterarse de las contrataciones: el aviso `crewJoined(m)` de `core/events.js`, que emite la contratación (`ui/actions.js`). `main.js` lo escucha y apunta el perfil, también con VR Training desactivado, para que al activarlo esté tu tripulación. Al abrir VR Training se copian además los tripulantes que estén a bordo.
-- Como mucho 30 holoperfiles de tripulación; con el plantel lleno se va el más antiguo que no esté jugando.
-- Al elegir escuadrón se propone el último que se usó.
+- **El plantel es la tripulación que está a bordo de la nave**, con su nombre, rol y nivel, además de los de serie. Quien se marcha de la nave deja de estar; si estaba en una simulación a medias, sigue en ella hasta que termine. Cada holoperfil va ligado a su tripulante (`c-` + su id): si vuelve alguien con el mismo nombre, es otro.
+- Solo la tripulación a bordo **gana experiencia** al terminar una simulación (+2 XP, véase la tripulación en la nave), y solo si tiene el sueldo al día. Los que tienen sueldo pendiente pueden jugar, pero no la ganan. Al elegir escuadrón se ve en dos grupos: «A bordo de la nave», con una etiqueta «+2 XP» o «sin cobrar · sin XP», y «De serie».
+- `syncCrew(r, crew)` (`rpg/roster.js`) pone el plantel al día. Se llama al abrir VR Training, al salir de una simulación, al borrar el progreso y con los avisos `crewJoined(m)` y `crewPromoted(m)` de `core/events.js`, que `main.js` escucha también con VR Training desactivado.
+- Al elegir escuadrón se propone el último que se usó, si siguen todos en el plantel.
 
 ### Qué significa cada rol en la simulación
 
@@ -88,7 +88,7 @@ Duran solo esa simulación.
 
 - Al elegir una opción con tirada, se elige qué tripulante la hace. Viene marcado el que más bono tiene.
 - **Dos dados de 6 caras (2d6) + bono** contra la dificultad de la sala. Con un solo dado, cada punto de bono valía siempre un 17 %, un +1 a veces no servía de nada y un +6 ganaba siempre; con dos dados los resultados se agrupan alrededor del 7, cada bono se nota y hay recorrido hasta +5 o +6 sin llegar al 100 %.
-- Bono: **+2** si el rol del tripulante es uno de los de la opción, **+0/+1/+2** según el nivel del holoperfil (1/2/3).
+- Bono: **+2** si el rol del tripulante es uno de los de la opción, **+0/+1/+2/+3** según el nivel del holoperfil (Aprendiz/Veterano/Oficial/Élite).
 - Resultado:
   - **Éxito**: igual o mayor que la dificultad.
   - **Éxito con coste**: falla por 1. Se consigue, pero con el coste que diga el evento.
@@ -200,7 +200,7 @@ En la pantalla de entrada:
 Pensadas para el móvil y para jugar con una mano.
 
 1. **Entrada (VR Training)**: título «Entrenamiento en Holocubierta», cargas (●●○), escenarios, botón **Iniciar simulación** (o **Continuar** si hay una a medias) y registro.
-2. **Escuadrón**: un recuadro «Roles más útiles en este escenario» con los 4 roles que más se piden, contando los eventos y el jefe, sin números. No se dice qué pide cada paso del jefe: se descubre al enfrentarse a él, y quien pierde tiene que acordarse para la próxima vez. Debajo, los holoperfiles con nombre, rol y nivel. Se eligen 3.
+2. **Escuadrón**: un recuadro «Roles más útiles en este escenario» con los 4 roles que más se piden, contando los eventos y el jefe, sin números. No se dice qué pide cada paso del jefe: se descubre al enfrentarse a él, y quien pierde tiene que acordarse para la próxima vez. Debajo, los holoperfiles con nombre, rol y nivel, en dos grupos: la tripulación a bordo (con si gana experiencia) y los de serie. Se eligen 3.
 3. **Sala**: arriba, sala n/10, vida de cada tripulante, suministros y holoobjetos. En medio, la tarjeta del evento. Abajo, las opciones como botones, con los roles que dan bono. Al elegir: quién tira → dado animado (corto) → texto del resultado y sus efectos → **Continuar**.
 4. **Fin**: completada o fallida, salas superadas, eventos nuevos, medallas y desbloqueos.
 
@@ -213,7 +213,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
   - `data.js`: escenarios, eventos, jefes, holoobjetos y personajes de serie.
   - `energy.js`: cálculo de cargas a partir de `state.ship.activity`.
   - `run.js`: crear la simulación, resolver tiradas (con el azar inyectable para los tests), aplicar efectos, objetos, descanso y jefe.
-  - `roster.js`: holoperfiles de la tripulación.
+  - `roster.js`: holoperfiles de la tripulación a bordo.
   - `state.js`: `normRpg()` para la partida y las partidas guardadas.
 - Ningún archivo de `rpg/` importa `store.js` ni `core/`: reciben `state.rpg` y lo que leen como argumentos. `test/architecture.test.js` lo comprueba.
 - `public/js/ui/vr-view.js`: las pantallas.
@@ -244,7 +244,7 @@ Sin cargas, el botón dice cuántos puntos de esfuerzo faltan para la próxima: 
 - **Tiradas**: bono por rol y nivel; éxito, éxito con coste y fallo en los límites; tripulante desconectado no puede tirar.
 - **Eventos**: todos tienen el formato correcto; cada rol aparece en al menos 20; ids únicos; 20 por escenario; cada evento tiene una opción de rol de serie o una segura.
 - **Equilibrio**: 1.000 simulaciones con un jugador automático razonable (`test/rpg-policy.js`). Con el escuadrón de serie: Estación entre el 67 % y el 87 %, Selva entre el 58 % y el 78 %, Puerto entre el 50 % y el 70 %, y cada uno por debajo del anterior. En la Selva y el Puerto, con todos los tripulantes a nivel 1, el escuadrón temático gana al menos como el de serie y uno mal elegido gana claramente menos. Una persona gana algo menos que el jugador automático.
-- **Holoperfiles y medallas**: contratación, nivel más alto, tope del plantel, último escuadrón, desbloqueos en cadena y cada medalla una sola vez.
+- **Holoperfiles y medallas**: el plantel sigue a la tripulación a bordo (entra, asciende y sale, salvo a media simulación), último escuadrón, desbloqueos en cadena y cada medalla una sola vez.
 - **Partidas guardadas**: `normRpg()` con `undefined`, con basura y con una simulación a medias.
 
 ## Fases

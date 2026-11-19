@@ -11,7 +11,6 @@ export const BANK_MAX = 3;        // cargas guardadas como máximo
 export const ROOMS = 10, REST_AT = 4, BOSS_AT = 9;   // índices desde 0
 export const EVENTS_PER_RUN = 8;
 export const HP_MAX = 3, SUP_START = 2, ITEMS_MAX = 3, SQUAD = 3;
-export const ROSTER_MAX = 30;   // holoperfiles de tripulación como mucho
 // Dificultad por tramo: salas 1–3 · 4–6 · 7–9 · jefe. Se compara con la suma de
 // dos dados más el bono. Cada escenario trae la suya (SCENARIOS[].dc): cada uno
 // es algo más difícil que el anterior.

@@ -2,7 +2,8 @@
  * Se pinta sola (como la alianza): entrada con cargas y escenarios, elección
  * de escuadrón y la simulación sala a sala. Las reglas están en rpg/; aquí
  * solo se pinta, se guarda y se avisa. */
-import { ROLES } from '../config.js';
+import { CREW_LV, CREW_XP_RUN, ROLES } from '../config.js';
+import { profileId, trainCrewXp, working } from '../core/crew.js';
 import { save, state } from '../store.js';
 import { escapeHtml, fmtEf, plural, todayStr } from '../util.js';
 import { HP_MAX, ITEMS_MAX, ROOMS, SQUAD } from '../rpg/config.js';
@@ -142,23 +143,36 @@ const rolesBox = (esc) => `<div class="mt-4 p-3 rounded-xl border border-violet-
 
 function squadView(r) {
   const s = SCENARIO_BY_ID[ui.esc];
-  // De serie primero; después la tripulación, de más a menos nivel.
-  const roster = [...r.roster].sort((a, b) => (a.src === 'serie' ? 0 : 1) - (b.src === 'serie' ? 0 : 1) || b.lv - a.lv || a.name.localeCompare(b.name, 'es'));
-  const hasCrew = roster.some((m) => m.src === 'crew');
-  const cards = roster.map((m) => {
-    const on = ui.pick.includes(m.id);
-    return `<button type="button" data-vr="pick" data-id="${m.id}" aria-pressed="${on}" class="flex items-center gap-3 min-h-[56px] px-3 py-2 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : 'border-slate-700 bg-[#0d1526] hover:border-violet-600'}">
+  // Dos grupos: la tripulación a bordo (la única que gana experiencia) y los
+  // holoperfiles de serie. En cada uno, de más a menos nivel.
+  const aboard = new Map(state.ship.crew.map((m) => [profileId(m), m]));
+  const byLv = (a, b) => b.lv - a.lv || a.name.localeCompare(b.name, 'es');
+  const groups = [
+    ['A bordo de la nave', `con el sueldo al día ganan +${CREW_XP_RUN} XP de tripulación al terminar la simulación`, r.roster.filter((m) => m.src === 'crew' && aboard.has(m.id))],
+    ['De serie', 'holoperfiles de entrenamiento: no ganan experiencia', r.roster.filter((m) => m.src === 'serie')],
+  ].filter((g) => g[2].length);
+  const card = (m) => {
+    const on = ui.pick.includes(m.id), crew = aboard.get(m.id);
+    const tag = !crew ? '' : working(crew)
+      ? chip(`+${CREW_XP_RUN} XP`, 'border-emerald-700 text-emerald-300')
+      : chip(crew.owed ? 'sin cobrar · sin XP' : 'sin contrato · sin XP', 'border-red-800 text-red-300');
+    return `<button type="button" data-vr="pick" data-id="${m.id}" aria-pressed="${on}" class="flex items-center gap-3 min-h-[56px] px-3 py-2 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : crew ? 'border-cyan-800 bg-[#0d1526] hover:border-violet-600' : 'border-slate-700 bg-[#0d1526] hover:border-violet-600'}">
       <span class="w-6 h-6 shrink-0 rounded-md border grid place-items-center text-xs ${on ? 'bg-violet-500 border-violet-300 text-white' : 'border-slate-600'}" aria-hidden="true">${on ? '✓' : ''}</span>
-      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · ${CREW_LV[m.lv - 1]?.name || 'nivel ' + m.lv}</span>${tag ? `<span class="flex mt-1">${tag}</span>` : ''}</span>
     </button>`;
-  }).join('');
+  };
+  const cards = groups.map(([title, note, list]) => `<div class="mt-4">
+      <h3 class="text-sm font-semibold">${title} <span class="text-slate-400 font-medium">· ${list.length}</span></h3>
+      <p class="mono text-[11px] text-slate-400 mt-0.5">${note}</p>
+      <div class="grid sm:grid-cols-3 gap-2 mt-2">${[...list].sort(byLv).map(card).join('')}</div>
+    </div>`).join('');
   return `<section class="panel corner p-4 sm:p-5">
     <div class="sys-label">${s.name}</div>
     <h2 class="text-lg font-bold mt-1">Elige tu escuadrón <span class="text-slate-400 font-medium text-sm">${ui.pick.length}/${SQUAD}</span></h2>
     <p class="text-sm text-slate-300 mt-2 leading-relaxed">${s.intro}</p>
     ${rolesBox(ui.esc)}
-    <p class="mono text-[11px] text-slate-400 mt-3">${hasCrew ? 'Los tripulantes que contratas en la nave quedan aquí como holoperfiles, aunque ya no estén a bordo.' : 'Cuando contrates tripulantes en la nave, aparecerán aquí como holoperfiles.'}</p>
-    <div class="grid sm:grid-cols-3 gap-2 mt-3">${cards}</div>
+    ${aboard.size ? '' : '<p class="mono text-[11px] text-slate-400 mt-3">Cuando contrates tripulantes en la nave, entrenarán aquí mientras sigan a bordo y ganarán experiencia.</p>'}
+    ${cards}
     <div class="flex flex-wrap gap-2 mt-4">
       <button type="button" data-vr="start" ${ui.pick.length === SQUAD && canStart(r) ? '' : 'disabled'} class="${btnMain}">Iniciar simulación${isFree(r) ? ' (gratis)' : ' · 1 carga'}</button>
       <button type="button" data-vr="back" class="${btn}">Volver</button>
@@ -390,17 +404,22 @@ export function init() {
         resetPick(); save(); ui.rolled = true; renderVR(); break;
       }
       case 'reroll': { const err = reroll(r, b.dataset.how); if (err) { toast(err); return; } save(); ui.rolled = true; renderVR(); break; }
-      case 'continue': { let notes; act(() => { notes = resolve(r); }); notify(notes); scrollTo(0, 0); break; }
+      case 'continue': {
+        // Al terminar la simulación (ganada o perdida), XP para la tripulación que siga a bordo.
+        let notes; act(() => { const was = r.run?.stage; notes = resolve(r);
+          if (was !== 'end' && r.run?.stage === 'end') { const got = trainCrewXp(r.run.squad.map((m) => m.id)); if (got.length) notes.push(`${got.map((m) => m.name.split(' ')[0]).join(', ')}: +${CREW_XP_RUN} XP de tripulación`); } });
+        notify(notes); scrollTo(0, 0); break;
+      }
       case 'rest': { let notes; act(() => { notes = rest(r, id); }); notify(notes); break; }
       case 'use': { let msg; act(() => { msg = useItem(r, id); }); if (msg) toast(msg); break; }
       case 'quit': ui.confirm = 'quit'; renderVR(); break;
-      case 'quit-yes': resetPick(); act(() => abandon(r)); break;
-      case 'leave': resetPick(); ui.screen = 'lobby'; act(() => abandon(r)); scrollTo(0, 0); break;
+      case 'quit-yes': resetPick(); act(() => { abandon(r); syncCrew(r, state.ship.crew); }); break;
+      case 'leave': resetPick(); ui.screen = 'lobby'; act(() => { abandon(r); syncCrew(r, state.ship.crew); }); scrollTo(0, 0); break;
       case 'wipe': ui.confirm = 'wipe'; renderVR(); break;
       case 'wipe-yes': {
-        // Solo se vacía lo de VR Training; la energía ganada hoy se respeta.
+        // Solo se vacía lo de VR Training; la energía ganada hoy y la tripulación a bordo se respetan.
         const energy = r.energy;
-        act(() => { Object.assign(r, { ...normRpg(null), energy }); });
+        act(() => { Object.assign(r, { ...normRpg(null), energy }); syncCrew(r, state.ship.crew); });
         toast('Progreso de VR Training borrado'); break;
       }
       case 'no': renderVR(); break;

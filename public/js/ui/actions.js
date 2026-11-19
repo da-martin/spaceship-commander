@@ -1,7 +1,7 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
 import { CREW_DAYS, CREW_LV, MODS, REP_DAYS, RES } from '../config.js';
-import { crewUnlocked, hireBlock, returnHome } from '../core/crew.js';
+import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
 import { agedMc, atHome, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
 import { boardCap, mod } from '../core/ship.js';
@@ -20,16 +20,33 @@ export function hireCrew(id){
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
   subW('mc',paid);
-  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
+  sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,xp:CREW_LV[x.lv-1].xp,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
   emit('crewJoined',x);
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
   state.cmd.stats.hires++;
   save(); render(); toast(`${x.name} se une a la tripulación · −${paid} ¢/sem, se renueva solo`);
 }
+// Ascenso: se paga ya lo mismo que el sueldo nuevo, que se cobra desde la próxima renovación.
+export function promoteCrew(id){
+  const m=state.ship.crew.find(c=>c.id===id); if(!m) return;
+  const why=promoteBlock(m); if(why){ toast(why); return; }
+  const L=nextLv(m), paid=wageOf(L.wage);
+  subW('mc',paid); m.lv++; m.wage=L.wage;
+  emit('crewPromoted',m);
+  save(); render(); toast(`${m.name} asciende a ${L.name.toLowerCase()} · −${paid} ¢, cobrará ${paid} ¢/sem`,'win');
+}
+// Con sueldo pendiente y en misión, cancelar es despedirle al volver al Sistema Madre.
 export function toggleCancel(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||m.idle) return;
   m.cancel=!m.cancel;
-  save(); render(); toast(m.cancel?`${m.name} trabajará hasta el ${fDate(m.until)} y se marchará`:`Contrato de ${m.name} mantenido · se renueva solo`);
+  save(); render();
+  if(m.owed) toast(m.cancel?`${m.name} desembarcará al volver al Sistema Madre, sin cobrar la deuda`:`${m.name} sigue a bordo con su deuda`);
+  else toast(m.cancel?`${m.name} trabajará hasta el ${fDate(m.until)} y se marchará`:`Contrato de ${m.name} mantenido · se renueva solo`);
+}
+export function settleDebt(id){
+  const m=state.ship.crew.find(c=>c.id===id); if(!m?.owed) return;
+  const paid=payDebt(m); if(paid===null){ toast('Recursos insuficientes'); return; }
+  save(); render(); toast(`${m.name} cobra la deuda y la semana · −${paid} ¢ · vuelve al trabajo; próximo cobro el ${fDate(addDays(m.until,1))}`);
 }
 export function rehireCrew(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;

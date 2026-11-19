@@ -1,7 +1,7 @@
 /* VR Training: la parte de la partida que es del minijuego (state.rpg).
  * Normaliza también partidas sin ella o con basura: lo que no se entiende
  * se descarta, y una simulación a medias que no cuadra se pierde. */
-import { ROLES } from '../config.js';
+import { CREW_LV, ROLES } from '../config.js';
 import { clampInt } from '../util.js';
 import { BANK_MAX, BOSS_AT, BOSS_STEPS, CHARGES_DAY, HP_MAX, ITEMS_MAX, REST_AT, ROOMS, SQUAD } from './config.js';
 import { EVENT_BY_ID, ITEMS, MEDAL_BY_ID, SCENARIO_BY_ID, SCENARIOS, STARTERS } from './data.js';
@@ -18,7 +18,7 @@ export function normRpg(x) {
   for (const m of Array.isArray(x?.roster) ? x.roster : []) {
     if (!m || typeof m.id !== 'string' || ids.has(m.id) || !ROLES[m.role] || typeof m.name !== 'string' || !m.name.trim()) continue;
     ids.add(m.id);
-    roster.push({ id: m.id, name: m.name.slice(0, 40), role: m.role, lv: clampInt(m.lv, 1, 3, 1), src: 'crew' });
+    roster.push({ id: m.id, name: m.name.slice(0, 40), role: m.role, lv: clampInt(m.lv, 1, CREW_LV.length, 1), src: 'crew' });
   }
   const unlocked = SCENARIOS.filter((s) => playable(s.id) && (s.id === SCENARIOS[0].id || (Array.isArray(x?.unlocked) && x.unlocked.includes(s.id)))).map((s) => s.id);
   const seen = {};
