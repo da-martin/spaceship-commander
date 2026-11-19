@@ -1,7 +1,8 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { BERTHS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, MODS, RANKS, SHIP_LV_MAX } from '../public/js/config.js';
-import { gainCrewXp, genCandidates, hireBlock, missionCrewXp, promoteBlock, trainCrewXp, xpReady } from '../public/js/core/crew.js';
+import { crewPayroll, dayWage, debtOf, gainCrewXp, genCandidates, hireBlock, missionCrewXp, payDebt, promoteBlock, returnHome, trainCrewXp, xpReady } from '../public/js/core/crew.js';
+import { perk } from '../public/js/core/rewards.js';
 import { checkContractEnd, finishContract } from '../public/js/core/missions.js';
 import { berths, berthsUsable } from '../public/js/core/ship.js';
 import { normShip } from '../public/js/store.js';
@@ -130,5 +131,56 @@ test('ascender pide experiencia, rango y el sueldo nuevo', () => {
   s.wallet.mc = CREW_LV[2].wage - 1;
   assert.equal(promoteBlock(m), 'Recursos insuficientes');
   assert.equal(promoteBlock({ ...m, idle: true }), 'Sin contrato');
+  assert.equal(promoteBlock({ ...m, owed: true }), 'Sueldo pendiente');
   assert.equal(promoteBlock(member({ lv: 4, xp: 5000 })), 'Nivel máximo');
+});
+
+/* ---------- sueldo pendiente ---------- */
+test('sin ¢ para el sueldo no se marcha: deja de trabajar y acumula deuda', () => {
+  const s = fresh({ wallet: { mc: 10 } });
+  s.ship.crew = [member({ lv: 2, xp: 100, wage: 90, until: '2026-11-13' })];
+  crewPayroll('2026-11-14');
+  const m = s.ship.crew[0];
+  assert.equal(s.ship.crew.length, 1);
+  assert.deepEqual([m.owed, m.until, s.wallet.mc], [true, '2026-11-13', 10]);
+  assert.equal(perk('pilot'), 0);
+  assert.equal(dayWage(m), 13);
+  assert.equal(debtOf(m, '2026-11-14'), 13);
+  assert.equal(debtOf(m, '2026-11-20'), 7 * 13);
+  crewPayroll('2026-11-20');   // con deuda no se le intenta cobrar la semana
+  assert.equal(s.wallet.mc, 10);
+  gainCrewXp(s.ship.crew, 50);
+  assert.equal(m.xp, 100);
+});
+
+test('pagar la deuda le devuelve al trabajo y mañana cobra la semana', () => {
+  const s = fresh({ wallet: { mc: 1000 } });
+  const m = member({ wage: 45, until: '2026-11-11', owed: true });
+  s.ship.crew = [m];
+  assert.equal(payDebt(m, '2026-11-14'), 3 * 7);
+  assert.deepEqual([m.owed, m.until, s.wallet.mc], [false, '2026-11-14', 1000 - 21]);
+  assert.equal(perk('pilot'), 1);
+  crewPayroll('2026-11-15');
+  assert.deepEqual([m.until, s.wallet.mc], ['2026-11-21', 1000 - 21 - 45]);
+  s.wallet.mc = 5;
+  assert.equal(payDebt(member({ until: '2026-11-11', owed: true }), '2026-11-14'), null);
+});
+
+test('con deuda sigue a bordo al volver, salvo que se le despidiera en la misión', () => {
+  const s = fresh();
+  s.ship.crew = [member({ owed: true }), member({ id: 'm2', name: 'Tomás Ibarra', owed: true, cancel: true }), member({ id: 'm3', name: 'Aiko Tanaka', idle: true, cancel: true })];
+  assert.match(returnHome(), /Tomás Ibarra, Aiko Tanaka desembarcan/);
+  assert.deepEqual(s.ship.crew.map((m) => m.id), ['m1']);
+});
+
+test('el contrato cancelado sigue terminando como antes', () => {
+  const s = fresh({ wallet: { mc: 1000 } });
+  s.ship.crew = [member({ cancel: true, until: '2026-11-13' })];
+  crewPayroll('2026-11-14');
+  assert.equal(s.ship.crew.length, 0);
+});
+
+test('las partidas antiguas: «sin contrato» por impago pasa a sueldo pendiente', () => {
+  const sh = normShip({ crew: [{ name: 'A B', role: 'pilot', until: '2026-11-10', idle: true }, { name: 'C D', role: 'pilot', until: '2026-11-10', idle: true, cancel: true }] });
+  assert.deepEqual(sh.crew.map((m) => [m.owed, m.idle]), [[true, false], [false, true]]);
 });

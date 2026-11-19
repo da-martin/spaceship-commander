@@ -10,6 +10,9 @@ export const KEY = 'spaceship-commander:v1';
 export const SHIP_NAME_MAX = 20;
 export const SHIP_NAME_DEFAULT = 'Tu nave';
 export function normShipName(x){ return typeof x==='string'?x.replace(/\s+/g,' ').trim().slice(0,SHIP_NAME_MAX).trim():''; }
+// Antes, quien no cobraba en misión quedaba «sin contrato» (idle sin cancelar):
+// ahora eso es sueldo pendiente. idle queda solo para contratos cancelados.
+const owedOf=(m)=>m.owed||(m.idle&&!m.cancel)?{owed:true,idle:false}:{owed:false,idle:!!m.idle};
 export function normShip(s){
   const modules={};
   for(const k of Object.keys(MODS)){ const m=s?.modules?.[k]; modules[k]={lv:clampInt(m?.lv,0,5,0),cond:clampInt(m?.cond,0,100,100)}; }
@@ -35,7 +38,7 @@ export function normShip(s){
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
     rot:clampInt(s?.rot,0,1e9,0),
     crew:(Array.isArray(s?.crew)?s.crew:[]).filter(m=>m&&ROLES[m.role]&&typeof m.name==='string'&&typeof m.until==='string')
-      .map(m=>{ const lv=clampInt(m.lv,1,CREW_LV.length,1); return {id:String(m.id||uid()),name:m.name,role:m.role,lv,xp:Math.max(CREW_LV[lv-1].xp,clampInt(m.xp,0,1e7,0)),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,idle:!!m.idle}; }),
+      .map(m=>{ const lv=clampInt(m.lv,1,CREW_LV.length,1); return {id:String(m.id||uid()),name:m.name,role:m.role,lv,xp:Math.max(CREW_LV[lv-1].xp,clampInt(m.xp,0,1e7,0)),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,...owedOf(m)}; }),
     crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
       ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,CREW_HIRE_MAX,1)}))}
       :{week:null,cands:[]},

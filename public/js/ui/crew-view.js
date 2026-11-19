@@ -1,11 +1,11 @@
 /* Hoja de servicios: rango y tripulación. */
 import { CREW_DAYS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
-import { crewHint, crewUnlocked, hireBlock, nextLv, promoteBlock, xpReady } from '../core/crew.js';
+import { crewHint, crewUnlocked, dayWage, debtOf, hireBlock, nextLv, promoteBlock, working, xpReady } from '../core/crew.js';
 import { atHome, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
 import { berths, berthsUsable } from '../core/ship.js';
 import { state } from '../store.js';
-import { crewReleasing, hireCrew, promoteCrew, rehireCrew, releaseCrew, toggleCancel } from './actions.js';
+import { crewReleasing, hireCrew, promoteCrew, rehireCrew, releaseCrew, settleDebt, toggleCancel } from './actions.js';
 import { btnCls, showHomeTab } from './ship-view.js';
 import { addDays, dayParse, escapeHtml, fDate, todayStr, weekStart } from '../util.js';
 
@@ -44,6 +44,28 @@ export function renderRank(){
     <p class="mono text-[11px] text-slate-400 mt-3">Méritos: +${EF_XP} por punto de esfuerzo (micro +${payRound(EF_XP*EFFORT.micro,EFFORT.micro)} · fácil +${payRound(EF_XP*EFFORT.easy,EFFORT.easy)} · normal +${EF_XP} · difícil +${EF_XP*EFFORT.hard} · épica +${EF_XP*EFFORT.epic}) · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]} · ${CREW_LV[3].name.toLowerCase()} desde ${RANKS[CREW_LV[3].rank][0]}, solo ascendiendo. Experiencia de la tripulación con contrato: +${CREW_XP_DAY} XP por día de misión · +${CREW_XP_RUN} XP por simulación de VR Training.</p>`:''}`;
 }
+// Sueldo pendiente: ocupa su litera sin trabajar y su deuda crece cada día.
+// Se le paga, o se le despide: ya en el Sistema Madre, o al volver si estás de misión.
+function owedCard(m,fire){
+  const R=ROLES[m.role], debt=debtOf(m), ok=state.wallet.mc>=debt;
+  const leave=atHome()?fire:`<button data-crew="cancel" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${m.cancel?'bg-slate-800 border border-amber-600 text-amber-200 hover:border-amber-400':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${m.cancel?'Mantener a bordo':'Despedir al volver'}</button>`;
+  const status=m.cancel?`<span class="text-amber-300">Desembarca al volver al Sistema Madre, sin cobrar</span>`
+    :`<span class="text-red-300">Sin cobrar desde el ${fDate(addDays(m.until,1))} · no trabaja · deuda ${debt} ¢, sube ${dayWage(m)} ¢ al día</span>`;
+  return `<div class="rounded-xl border border-dashed ${m.cancel?'border-amber-600':'border-red-700'} bg-slate-900/70 p-3">
+      <div class="flex items-start gap-3">
+        ${roleTile(m.role)}
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold leading-tight">${escapeHtml(m.name)}</div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1"><span class="mono text-[11px] text-slate-300">${R.name}</span><span class="mono text-[11px] px-1.5 py-0.5 rounded border ${CREW_LV_CHIP[m.lv-1]}">${CREW_LV[m.lv-1].name}</span></div>
+        </div>
+      </div>
+      <div class="text-sm mt-2 text-slate-400 line-through">${R.desc(R.eff[m.lv-1])}</div>
+      <div class="mono text-[11px] mt-1">${status}</div>
+      <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
+        <button data-crew="debt" data-id="${m.id}" class="${btnCls(ok)} flex-1" ${ok?'':'disabled'}>Pagar deuda · ${debt} ¢</button>${leave}
+      </div>
+    </div>`;
+}
 export function renderCrew(){
   const sh=state.ship;
   // Bloqueada: se rellenan los mismos destinos con la pista y se sale antes de
@@ -58,13 +80,15 @@ export function renderCrew(){
     document.getElementById('candList').innerHTML=pista;
     return;
   }
-  const wages=sh.crew.filter(m=>!m.idle&&!m.cancel).reduce((a,m)=>a+wageOf(m.wage),0), short=state.wallet.mc<wages;
-  document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${berths()}${wages?` · sueldos ${wages} ¢/sem`:''}`;
-  const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre se marchará.`:'';
+  const wages=sh.crew.filter(m=>working(m)&&!m.cancel).reduce((a,m)=>a+wageOf(m.wage),0), short=state.wallet.mc<wages;
+  const debts=sh.crew.reduce((a,m)=>a+debtOf(m),0);
+  document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${berths()}${wages?` · sueldos ${wages} ¢/sem`:''}${debts?` · deudas ${debts} ¢`:''}`;
+  const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre dejará de trabajar y acumulará deuda.`:'';
   const cl=document.getElementById('crewList'), home=atHome();
   cl.innerHTML=sh.crew.map(m=>{
     const R=ROLES[m.role], conf=crewReleasing===m.id;
-    const fire=home?`<button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${conf?'¿Seguro? Pierdes lo pagado':'Despedir ya'}</button>`:'';
+    const fire=home?`<button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${conf?(m.owed?'¿Seguro? Se va sin cobrar':'¿Seguro? Pierdes lo pagado'):(m.owed?'Despedir':'Despedir ya')}</button>`:'';
+    if(m.owed) return owedCard(m,fire);
     const status=m.idle?'<span class="text-slate-400">Sin contrato · desembarca al volver al Sistema Madre</span>'
       :m.cancel?`<span class="text-amber-300">Contrato cancelado · se marcha el ${fDate(addDays(m.until,1))}</span>`
       :`<span class="text-slate-400">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · se renueva solo</span>`;
@@ -80,7 +104,7 @@ export function renderCrew(){
       </div>
       <div class="text-sm mt-2 ${m.idle?'text-slate-400 line-through':'text-cyan-200'}">${R.desc(R.eff[m.lv-1])}</div>
       <div class="mono text-[11px] mt-1">${status}</div>
-      ${m.idle?'':crewXp(m)}
+      ${working(m)?crewXp(m):''}
       <div class="flex flex-wrap items-center gap-1.5 mt-2.5">${main}${m.idle?'':fire}</div>
     </div>`;
   }).join('')+Array.from({length:Math.max(0,berths()-sh.crew.length)},(_,i)=>sh.crew.length+i>=berthsUsable()
@@ -107,6 +131,6 @@ export function renderCrew(){
     </div>`;
   }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
   const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
-    if(a==='hire') hireCrew(id); else if(a==='cancel') toggleCancel(id); else if(a==='rehire') rehireCrew(id); else if(a==='promote') promoteCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
+    if(a==='hire') hireCrew(id); else if(a==='cancel') toggleCancel(id); else if(a==='rehire') rehireCrew(id); else if(a==='promote') promoteCrew(id); else if(a==='debt') settleDebt(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
   cl.onclick=act; cand.onclick=act;
 }

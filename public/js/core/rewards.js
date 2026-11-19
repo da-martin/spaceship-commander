@@ -19,7 +19,7 @@ export function addXP(n){
   return n;
 }
 export const subXP=(n)=>{ if(n) state.cmd.xp=Math.max(0,state.cmd.xp-n); };
-export const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>!m.idle&&m.until>=t); };   // a bordo sin contrato no da bono
+export const crewActive=()=>{ const t=todayStr(); return state.ship.crew.filter(m=>!m.idle&&!m.owed&&m.until>=t); };   // sin contrato o sin cobrar no da bono
 // ventaja de una especialidad: la del mejor tripulante a bordo con ese rol (0 si no hay)
 export const perk=(role)=>crewActive().reduce((a,m)=>m.role===role?Math.max(a,ROLES[role].eff[m.lv-1]):a,0);
 // Salón: el sueldo se guarda en bruto y se rebaja al cobrarlo, así subir el

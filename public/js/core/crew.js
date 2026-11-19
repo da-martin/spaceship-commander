@@ -5,7 +5,7 @@ import { rankIdx, subW, wageOf } from './rewards.js';
 import { berths, berthsUsable, mod } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { state } from '../store.js';
-import { addDays, pick, uid } from '../util.js';
+import { addDays, dayParse, pick, todayStr, uid } from '../util.js';
 
 export function genCandidates(){
   const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
@@ -29,11 +29,14 @@ export function hireBlock(x){
 // alguien de más nivel empieza con la de su nivel. Se gana solo a bordo y con
 // contrato, y nunca asciende sola: el comandante decide si paga el ascenso.
 export const nextLv=(m)=>CREW_LV[m.lv]||null;
-export const xpReady=(m)=>!m.idle&&!!nextLv(m)&&m.xp>=nextLv(m).xp;
+// trabaja quien tiene el sueldo al día: ni sin contrato (idle) ni con deuda (owed)
+export const working=(m)=>!m.idle&&!m.owed;
+export const xpReady=(m)=>working(m)&&!!nextLv(m)&&m.xp>=nextLv(m).xp;
 // por qué no se puede ascender (null si se puede); cuesta lo mismo que el sueldo nuevo
 export function promoteBlock(m){
   const L=nextLv(m);
   if(!L) return 'Nivel máximo';
+  if(m.owed) return 'Sueldo pendiente';
   if(m.idle) return 'Sin contrato';
   if(m.xp<L.xp) return `Faltan ${L.xp-m.xp} XP`;
   if(rankIdx()<L.rank) return 'Requiere rango '+RANKS[L.rank][0];
@@ -45,7 +48,7 @@ export function promoteBlock(m){
 export function gainCrewXp(members,n){
   const got=[], ready=[];
   for(const m of members){
-    if(m.idle||n<=0) continue;
+    if(!working(m)||n<=0) continue;
     const was=xpReady(m); m.xp+=n; got.push(m);
     if(!was&&xpReady(m)) ready.push(m);
   }
@@ -76,29 +79,46 @@ export function trainCrewXp(squadIds){
 // así que quien ya tenga gente nunca debe quedarse sin panel donde verla.
 export const crewUnlocked=()=>mod('bridge').lv>=1||state.ship.crew.length>0;
 export const crewHint=()=>`Mejora el Puente a nivel 1 para contratar tripulación · ${fmtCost(modCost('bridge'))}`;
-// cobra cada semana vencida mientras haya saldo; si el contrato termina (cancelado o sin ¢),
-// el tripulante se va, salvo en misión: entonces sigue a bordo sin bono hasta volver
+// Sueldo pendiente: quien no cobró se queda en su litera sin trabajar (sin
+// bono ni experiencia) y cada día a bordo desde el último pagado suma a su
+// deuda la parte diaria del sueldo. m.until sigue siendo el último día pagado.
+export const dayWage=(m)=>Math.ceil(wageOf(m.wage)/CREW_DAYS-1e-9);
+export const debtDays=(m,t=todayStr())=>m.owed?Math.max(1,Math.round((dayParse(t)-dayParse(m.until))/864e5)):0;
+export const debtOf=(m,t=todayStr())=>debtDays(m,t)*dayWage(m);
+// Pagar la deuda: vuelve al trabajo y el sueldo semanal se cobra de nuevo desde mañana.
+// Devuelve lo pagado, o null si no alcanza.
+export function payDebt(m,t=todayStr()){
+  const due=debtOf(m,t);
+  if(!m.owed||state.wallet.mc<due) return null;
+  subW('mc',due); Object.assign(m,{owed:false,cancel:false,until:t});
+  return due;
+}
+// Cobra cada semana vencida mientras haya saldo. Si no alcanza, el tripulante
+// no se va: queda con sueldo pendiente hasta que se le pague o se le despida.
+// Si el contrato estaba cancelado se marcha, salvo en misión: entonces sigue
+// a bordo sin contrato (ni deuda) hasta volver.
 export function crewPayroll(t){
   const sh=state.ship, notes=[]; let paid=0;
   for(const m of sh.crew){
-    if(m.idle) continue;
+    if(m.idle||m.owed) continue;
     while(m.until<t){
       const due=wageOf(m.wage);
       if(!m.cancel&&state.wallet.mc>=due){ subW('mc',due); paid+=due; m.until=addDays(m.until,CREW_DAYS); continue; }
-      const why=m.cancel?'termina su contrato':'no había ¢ para su sueldo';
-      if(sh.contract){ m.idle=true; notes.push(`${m.name}: ${why}; sigue a bordo sin contrato hasta volver`); }
-      else { m.gone=true; notes.push(m.cancel?`${m.name} termina su contrato y se marcha`:`${m.name} se marcha: no había ¢ para su sueldo`); }
+      if(!m.cancel){ m.owed=true; notes.push(`${m.name} no ha cobrado: deja de trabajar y su deuda sube ${dayWage(m)} ¢ al día hasta que le pagues o le despidas`); }
+      else if(sh.contract){ m.idle=true; notes.push(`${m.name} termina su contrato; sigue a bordo sin contrato hasta volver`); }
+      else { m.gone=true; notes.push(`${m.name} termina su contrato y se marcha`); }
       break;
     }
   }
   sh.crew=sh.crew.filter(m=>!m.gone);
   return (paid||notes.length)?{paid,notes,left:notes.length>0}:null;
 }
-// al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato
-// (las noticias del tablón que esperaban a la vuelta las da quien llama)
+// Al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato y
+// los que tienen sueldo pendiente y se despidieron durante la misión (sin cobrar).
+// Las noticias del tablón que esperaban a la vuelta las da quien llama.
 export function returnHome(){
-  const sh=state.ship, off=sh.crew.filter(m=>m.idle);
+  const sh=state.ship, leaves=(m)=>m.idle||(m.owed&&m.cancel), off=sh.crew.filter(leaves);
   if(!off.length) return null;
-  sh.crew=sh.crew.filter(m=>!m.idle);
+  sh.crew=sh.crew.filter(m=>!leaves(m));
   return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
 }
