@@ -2,7 +2,7 @@
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
 import { crewPayroll, genCandidates, missionCrewXp } from './crew.js';
 import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
-import { logShip } from './log.js';
+import { logShip, logUpdates } from './log.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
 import { state } from '../store.js';
@@ -52,4 +52,5 @@ export function processDays(){
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(atHome()) logBoardNews();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
+  logUpdates();   // novedades del juego, una vez por partida
 }

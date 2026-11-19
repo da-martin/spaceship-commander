@@ -71,3 +71,19 @@ test('todayProgress: cuenta hábitos que tocan y tareas de hoy; ni libres, ni ne
   assert.deepEqual(todayProgress(), { done: 2, total: 4 });
   restore();
 });
+
+test('las novedades del juego llegan una vez a las partidas que ya existían, no a las nuevas', async () => {
+  const { UPDATES } = await import('../public/js/config.js');
+  const { normState, setState, state } = await import('../public/js/store.js');
+  fresh();
+  processDays();
+  assert.equal(state.ship.log.length, 0);
+  setState(normState({ ship: { lastTick: '2026-11-13' } }));   // una partida guardada antes de las novedades
+  const s = state;
+  processDays();
+  const news = () => s.ship.log.filter((e) => UPDATES.some((u) => u.title === e.title));
+  assert.equal(news().length, UPDATES.length);
+  assert.deepEqual(s.ship.updates, UPDATES.map((u) => u.id));
+  processDays();
+  assert.equal(news().length, UPDATES.length);
+});

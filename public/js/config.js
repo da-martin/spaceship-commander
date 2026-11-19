@@ -112,6 +112,18 @@ export const CREW_LAST = [
   'Quintero','Rossi','Salgado','Toledo','Uribe','Valdés','Weber','Xiong','Yamada','Zamora','Almeida','Bergström','Chen','Duarte','Esposito','Fischer',
   'García','Hoshino','Iglesias','Jovanović','Kim','Lozano','Mbeki','Navarro','Olsen','Park','Rahman','Sato','Torres','Varga','Wójcik','Zubiri'
 ];
+// Novedades del juego: cada una llega una vez a la bitácora de cada partida que
+// ya existía (state.ship.updates guarda los id ya avisados; las nuevas las traen todas).
+export const UPDATES = [
+  {id:'crew-xp-2026-11', kind:'crew', title:'Novedades: experiencia y ascensos', lines:[
+    'Hay un nivel nuevo. Los niveles son ahora Aprendiz, Veterano, Oficial y Élite. Tus tripulantes conservan su nivel con otro nombre: los Oficiales pasan a llamarse Veteranos y los Élite, Oficiales.',
+    'A Élite no se llega contratando, solo ascendiendo. Cobra 225 ¢/sem y da el mayor bonus de su rol.',
+    'La tripulación con el sueldo al día gana experiencia: +10 XP por cada día de misión y +2 XP por cada simulación de VR Training terminada.',
+    'Al llegar a 100, 350 y 850 XP aparece la opción de ascender. Pide el rango de comandante del nivel y cuesta lo mismo que el sueldo nuevo, que se cobra a partir de entonces.',
+    'Si no hay ¢ para un sueldo, el tripulante ya no se marcha. Se queda en su litera sin trabajar y su deuda sube cada día. Puedes pagarle la deuda y la semana siguiente de una vez, o despedirle sin pagarle: en el Sistema Madre, o al volver si estás de misión.',
+    'En VR Training solo entrenan tu tripulación a bordo y los holoperfiles de serie; los antiguos tripulantes ya no aparecen. Quien no cobra puede jugar, pero no gana experiencia.',
+  ]},
+];
 // El catálogo de misiones vive en missions.js (MISSIONS).
 export const MISSION_BY_ID = Object.fromEntries(MISSIONS.map(m=>[m.id,m]));
 // Lo recién marcado se queda en su sitio RECENT_MS antes de irse a Completados:
