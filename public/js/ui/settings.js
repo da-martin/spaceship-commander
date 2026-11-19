@@ -5,6 +5,7 @@ import { AREA_DOT, AREAS } from '../config.js';
 import { AREA_NAME_MAX, SHIP_NAME_DEFAULT, areaName, normAreaNames, normShipName, save, state } from '../store.js';
 import { escapeHtml } from '../util.js';
 import { render } from './commander.js';
+import { paintBooksTab, renderBooks } from './books-view.js';
 import { paintVRTab, setMode, uiMode } from './mode.js';
 import { view } from './view.js';
 
@@ -17,6 +18,7 @@ export function paintSettings(){
   document.getElementById('setAllyProgress').setAttribute('aria-checked',String(state.settings.allyProgress));
   document.getElementById('setAllyEvents').setAttribute('aria-checked',String(state.settings.allyEvents));
   document.getElementById('setVR').setAttribute('aria-checked',String(state.settings.showVR));
+  document.getElementById('setBooks').setAttribute('aria-checked',String(state.settings.showBooks));
   document.getElementById('setAreasSub').textContent=AREAS.map(areaName).join(' · ');
   paintCalendars(); paintTh();
 }
@@ -76,5 +78,10 @@ export function init(){
   document.getElementById('setVR').onclick=()=>{
     state.settings.showVR=!state.settings.showVR; save(); paintSettings(); paintVRTab();
     if(!state.settings.showVR&&uiMode==='vr') setMode('ship');
+  };
+  // Contabilidad: igual. El libro se sigue anotando aunque no se vea.
+  document.getElementById('setBooks').onclick=()=>{
+    state.settings.showBooks=!state.settings.showBooks; save(); paintSettings(); paintBooksTab(); renderBooks();
+    if(!state.settings.showBooks&&uiMode==='books') setMode('ship');
   };
 }

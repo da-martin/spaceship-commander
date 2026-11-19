@@ -108,7 +108,7 @@ Saldo de cada día = saldo del día anterior − sueldos cobrados al empezar el 
 
 ## Pantalla
 
-La pestaña se llama **Cuentas** en el móvil y **Contabilidad** desde `sm`.
+La pestaña se llama **Cuentas** en el móvil y **Contabilidad** desde `sm`. Se puede ocultar en Ajustes › Contabilidad, como VR Training.
 
 ```
 ┌ Contabilidad ──────────────────────────────┐
@@ -192,4 +192,4 @@ GASTOS PREVISTOS // VIE 21
 1. ✅ **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
 2. ✅ **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
 3. ✅ **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar. Hecho en `core/books.js` (`pastIn`, `incomeForecast`, `incomeFn`); `payForecast` marca `tight` y `rely` (lo que hace falta ganar antes).
-4. **Pestaña Contabilidad y modales**, con el punto de aviso.
+4. ✅ **Pestaña Contabilidad y modales**, con el punto de aviso. Se activa u oculta en Ajustes (`settings.showBooks`, activada por defecto), como VR Training; el libro se sigue anotando y el aviso de la tripulación sale igual. La semana se calcula en `core/forecast.js` (`weekPlan`, `lastWeekOut`, `payDetail`).
