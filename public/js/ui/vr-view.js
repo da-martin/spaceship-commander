@@ -126,41 +126,37 @@ const medalCard = (m, got) => `<div class="rounded-lg border px-2.5 py-2 ${got ?
 </div>`;
 
 /* ---------- escuadrón ---------- */
-// Lo que pide un escenario: los roles de cada paso del jefe y en cuántos eventos sale cada rol.
-function needs(esc) {
-  const evs = Object.values(EVENT_BY_ID).filter((e) => e.esc === esc), events = {};
-  for (const e of evs) for (const k of new Set(e.opts.flatMap((o) => o.roles || []))) events[k] = (events[k] || 0) + 1;
-  return { boss: BOSSES[esc].steps.map((st) => st.roles), events, total: evs.length, steps: BOSSES[esc].steps };
+// Los roles que más se piden en un escenario, contando los eventos y los pasos del jefe.
+// No se dice qué pide cada paso del jefe: eso se descubre al enfrentarse a él.
+function topRoles(esc, n = 4) {
+  const count = {}, add = (roles) => { for (const k of new Set(roles)) count[k] = (count[k] || 0) + 1; };
+  for (const e of Object.values(EVENT_BY_ID)) if (e.esc === esc) add(e.opts.flatMap((o) => o.roles || []));
+  for (const st of BOSSES[esc].steps) add(st.roles);
+  return Object.entries(count).sort((a, b) => b[1] - a[1] || roleName(a[0]).localeCompare(roleName(b[0]), 'es')).slice(0, n).map(([k]) => k);
 }
-function needsBox(esc, need) {
-  const top = Object.entries(need.events).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${roleName(k)} (${n})`).join(' · ');
-  return `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
-    <div class="text-sm font-medium">Lo que se pide aquí</div>
-    <div class="mono text-[11px] text-slate-400 mt-2">Jefe: ${BOSSES[esc].name}</div>
-    <ol class="mt-1 space-y-1">${need.steps.map((st, i) => `<li class="text-[13px] text-slate-300">${i + 1}. ${st.label} <span class="mono text-[11px] text-violet-300">· ${st.roles.map(roleName).join(', ')}</span></li>`).join('')}</ol>
-    <div class="mono text-[11px] text-slate-400 mt-2">Roles que más salen en los eventos (de ${need.total}): <span class="text-slate-300">${top}</span></div>
+const rolesBox = (esc) => `<div class="mt-4 p-3 rounded-xl border border-violet-900 bg-violet-950/10">
+    <div class="text-sm font-medium">Roles más útiles en este escenario</div>
+    <div class="flex flex-wrap gap-1.5 mt-2">${topRoles(esc).map((k) => chip(roleName(k), 'border-violet-700 text-violet-200')).join('')}</div>
+    <p class="mono text-[11px] text-slate-400 mt-2">Cuentan los eventos y el jefe.</p>
   </div>`;
-}
 
 function squadView(r) {
   const s = SCENARIO_BY_ID[ui.esc];
   // De serie primero; después la tripulación, de más a menos nivel.
   const roster = [...r.roster].sort((a, b) => (a.src === 'serie' ? 0 : 1) - (b.src === 'serie' ? 0 : 1) || b.lv - a.lv || a.name.localeCompare(b.name, 'es'));
   const hasCrew = roster.some((m) => m.src === 'crew');
-  const need = needs(ui.esc);
   const cards = roster.map((m) => {
-    const on = ui.pick.includes(m.id), steps = need.boss.map((st, i) => st.includes(m.role) ? i + 1 : 0).filter(Boolean);
-    const use = `${steps.length ? `Jefe: ${steps.length > 1 ? 'pasos' : 'paso'} ${steps.join(' y ')}` : 'Sin papel en el jefe'} · eventos ${need.events[m.role] || 0}/${need.total}`;
+    const on = ui.pick.includes(m.id);
     return `<button type="button" data-vr="pick" data-id="${m.id}" aria-pressed="${on}" class="flex items-center gap-3 min-h-[56px] px-3 py-2 rounded-lg border text-left ${on ? 'border-violet-400 bg-violet-950/40' : 'border-slate-700 bg-[#0d1526] hover:border-violet-600'}">
       <span class="w-6 h-6 shrink-0 rounded-md border grid place-items-center text-xs ${on ? 'bg-violet-500 border-violet-300 text-white' : 'border-slate-600'}" aria-hidden="true">${on ? '✓' : ''}</span>
-      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span><span class="block mono text-[11px] ${steps.length ? 'text-violet-300' : 'text-slate-500'}">${use}</span></span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium">${escapeHtml(m.name)}</span><span class="block mono text-[11px] text-slate-400">${roleName(m.role)} · nivel ${m.lv}${m.src === 'serie' ? ' · de serie' : ' · de tu tripulación'}</span></span>
     </button>`;
   }).join('');
   return `<section class="panel corner p-4 sm:p-5">
     <div class="sys-label">${s.name}</div>
     <h2 class="text-lg font-bold mt-1">Elige tu escuadrón <span class="text-slate-400 font-medium text-sm">${ui.pick.length}/${SQUAD}</span></h2>
     <p class="text-sm text-slate-300 mt-2 leading-relaxed">${s.intro}</p>
-    ${needsBox(ui.esc, need)}
+    ${rolesBox(ui.esc)}
     <p class="mono text-[11px] text-slate-400 mt-3">${hasCrew ? 'Los tripulantes que contratas en la nave quedan aquí como holoperfiles, aunque ya no estén a bordo.' : 'Cuando contrates tripulantes en la nave, aparecerán aquí como holoperfiles.'}</p>
     <div class="grid sm:grid-cols-3 gap-2 mt-3">${cards}</div>
     <div class="flex flex-wrap gap-2 mt-4">

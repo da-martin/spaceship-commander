@@ -200,7 +200,7 @@ En la pantalla de entrada:
 Pensadas para el móvil y para jugar con una mano.
 
 1. **Entrada (VR Training)**: título «Entrenamiento en Holocubierta», cargas (●●○), escenarios, botón **Iniciar simulación** (o **Continuar** si hay una a medias) y registro.
-2. **Escuadrón**: un recuadro «Lo que se pide aquí» con los roles de los 3 pasos del jefe y los roles que más salen en los eventos. Debajo, los holoperfiles con nombre, rol, nivel y dónde ayuda cada uno («Jefe: paso 1 · eventos 11/20»). Se eligen 3.
+2. **Escuadrón**: un recuadro «Roles más útiles en este escenario» con los 4 roles que más se piden, contando los eventos y el jefe, sin números. No se dice qué pide cada paso del jefe: se descubre al enfrentarse a él, y quien pierde tiene que acordarse para la próxima vez. Debajo, los holoperfiles con nombre, rol y nivel. Se eligen 3.
 3. **Sala**: arriba, sala n/10, vida de cada tripulante, suministros y holoobjetos. En medio, la tarjeta del evento. Abajo, las opciones como botones, con los roles que dan bono. Al elegir: quién tira → dado animado (corto) → texto del resultado y sus efectos → **Continuar**.
 4. **Fin**: completada o fallida, salas superadas, eventos nuevos, medallas y desbloqueos.
 
