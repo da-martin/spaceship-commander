@@ -3,7 +3,6 @@
  * quedaría. Cada cifra abre un modal que explica de dónde sale. Los cálculos
  * están en core/forecast.js y core/books.js; aquí solo se pinta. */
 import { CREW_LV, ROLES } from '../config.js';
-import { firstDay, pastIn } from '../core/books.js';
 import { inName, outName, payDetail, weekPlan } from '../core/forecast.js';
 import { state } from '../store.js';
 import { addDays, escapeHtml, fDate, FDAY, dayParse, plural, todayStr } from '../util.js';
@@ -12,23 +11,22 @@ import { uiMode } from './mode.js';
 const C=(n)=>`${n}&nbsp;¢`;
 const short=(d)=>FDAY[dayParse(d).getDay()]+' '+dayParse(d).getDate();
 const when=(d)=>d===addDays(todayStr(),1)?'mañana':fDate(d);
-const COUNT={task:['tarea','tareas'],habit:['hábito','hábitos'],free:['toque','toques'],mission:['misión','misiones']};
 let plan=null;   // lo último pintado: los modales explican lo que se ve
 
 /* ---------- punto de aviso ---------- */
 // Rojo en la pestaña y en el botón Spaceship mientras algún cobro no llegue ni
 // con lo previsto. Dentro de la vista sobra; el del botón, dentro de Spaceship.
 function paintDots(p){
-  const red=state.settings.showBooks&&p&&p.risks.length>0, inShip=['ship','alliance','vr','books'].includes(uiMode);
+  const red=state.settings.showLedger&&p&&p.risks.length>0, inShip=['ship','alliance','vr','books'].includes(uiMode);
   document.querySelectorAll('[data-booksdot]').forEach(e=>{
     const tab=e.closest('#shipTabs');
     e.classList.toggle('hidden',!red||(tab?uiMode==='books':inShip));
   });
 }
-export function paintBooksTab(){ document.getElementById('booksTab').classList.toggle('hidden',!state.settings.showBooks); }
+export function paintBooksTab(){ document.getElementById('booksTab').classList.toggle('hidden',!state.settings.showLedger); }
 
 export function renderBooks(){
-  plan=state.settings.showBooks?weekPlan():null;
+  plan=state.settings.showLedger?weekPlan():null;
   paintDots(plan);
   if(uiMode!=='books'||!plan) return;
   const p=plan, el=document.getElementById('booksBody');
@@ -82,7 +80,7 @@ function days(p){
       <div class="bk-bal mono text-sm ${d.end<0?'text-red-300':'text-amber-200'}">${C(d.end)}</div>
     </div>`;
   }).join('')}</div>
-  ${p.days.some(d=>d.inc.est||d.inc.avg)?'<p class="mono text-[11px] text-slate-500 mt-2">* estimado o media: aún no hay una semana entera en el libro.</p>':''}
+  ${p.days.some(d=>d.inc.est||d.inc.avg)?'<p class="mono text-[11px] text-slate-500 mt-2">* con días estimados de antes del libro, o una media de pocos días.</p>':''}
   <p class="mono text-[11px] text-slate-500 mt-1">Los sueldos se cobran al empezar el día; lo que ganes ese día cuenta para los siguientes.</p>`;
 }
 
@@ -97,29 +95,25 @@ function openModal(kind,title,body){
 const closeModal=()=>document.getElementById('booksModal').classList.add('hidden');
 const line=(a,b,cls='')=>`<div class="flex justify-between gap-3 ${cls}"><span>${a}</span><span class="mono tabular-nums">${b}</span></div>`;
 
+const WEEKDAYS=['domingos','lunes','martes','miércoles','jueves','viernes','sábados'];
 function incomeModal(d){
-  const f=d.inc, t=todayStr(), start=firstDay();
-  let head, rows='';
-  if(f.none) head='Aún no hay datos · vuelve mañana.';
-  else if(f.avg) head=`≈ ${C(f.total)} — media de ${plural(f.refs.length,'día','días')}: aún no hay datos del mismo día de la semana pasada.`;
-  else head=`≈ ${C(f.total)} — lo que entró el ${fDate(f.ref)}.`;
-  if(f.cats){
-    const cats=Object.entries(f.cats).sort((a,b)=>b[1]-a[1]);
-    rows=cats.length?`<div class="space-y-1 text-sm mt-3">${cats.map(([c,n])=>line(`${inName(c)}${COUNT[c]&&f.n[c]?` <span class="mono text-[11px] text-slate-400">· ${plural(f.n[c],...COUNT[c])}</span>`:''}`,C(n))).join('')}
-      ${line('Total',C(f.total),'border-t border-slate-800 pt-1 font-semibold')}</div>`
-      :'<p class="text-sm text-slate-400 mt-3">Ese día no entró nada.</p>';
-  } else if(f.avg) rows=`<div class="space-y-1 text-sm mt-3">${f.refs.map(r=>line(fDate(r),C(pastIn(r).total))).join('')}${line('Media',C(f.total),'border-t border-slate-800 pt-1 font-semibold')}</div>`;
-  const mission=f.mission?`<p class="text-sm text-amber-300 mt-3">Incluye ${C(f.mission)} de ${f.avg?'misiones':'una misión'}: sin ${f.avg?'ellas':'ella'} serían ${C(f.total-f.mission)}.</p>`:'';
-  const est=f.est?`<p class="mono text-[11px] text-slate-400 mt-2">Estimado: de antes de que hubiera libro. Se rehace con lo que pagaron tareas, hábitos y misiones; no cuenta tareas borradas, el Pilotaje ni ventas.</p>`:'';
-  // la semana pasada, de la más antigua a ayer; la de referencia, marcada
-  const week=Array.from({length:7},(_,i)=>addDays(t,i-7)).map(w=>{
-    if(w<start) return `<span class="text-slate-600">${short(w)} —</span>`;
-    const q=pastIn(w), ref=w===f.ref;
-    return `<span class="${ref?'text-cyan-300 font-semibold':'text-slate-400'}">${short(w)} ${q.total}${q.est?' est.':''}</span>`;
-  }).join(' · ');
+  const f=d.inc, wd=WEEKDAYS[dayParse(d.day).getDay()];
+  if(f.none) return openModal('Entradas previstas',`Entradas · ${fDate(d.day)}`,'<p class="text-sm text-slate-200">Aún no hay datos · vuelve mañana.</p>');
+  const n=f.refs.length;
+  const head=f.avg?`≈ ${C(f.total)} — aún no hay ningún día de la semana igual: media de los días que hay.`
+    :n===1?`≈ ${C(f.total)} — lo que entró el ${fDate(f.refs[0].day)}, más las misiones.`
+    :`≈ ${C(f.total)} — media de los ${n} últimos ${wd}, más las misiones.`;
+  const cats=(r)=>Object.entries(r.cats).filter(([c])=>c!=='mission').sort((a,b)=>b[1]-a[1]).map(([c,v])=>`${inName(c)} ${v}`).join(' · ');
+  const refs=f.refs.map(r=>`<div>${line(`${fDate(r.day)}${r.est?' <span class="mono text-[11px] text-slate-500">est.</span>':''}`,C(r.routine))}
+    ${cats(r)?`<div class="mono text-[11px] text-slate-500">${cats(r)}</div>`:''}</div>`).join('');
+  const rows=`<div class="space-y-1.5 text-sm mt-3">${refs}
+    ${n>1?line(`Media de ${plural(n,f.avg?'día':'semana',f.avg?'días':'semanas')}`,C(f.routine),'border-t border-slate-800 pt-1'):''}
+    ${line('+ misiones, repartidas',C(f.mission),'text-amber-300')}
+    ${line('Total',C(f.total),'border-t border-slate-800 pt-1 font-semibold')}</div>`;
+  const mission=`<p class="mono text-[11px] text-slate-400 mt-3">${f.missionSum?`Misiones: ${C(f.missionSum)} en los últimos ${plural(f.missionDays,'día','días')}, repartidos a partes iguales entre todos. No caen siempre el mismo día de la semana.`:`Sin misiones cobradas en los últimos ${plural(f.missionDays,'día','días')}.`}</p>`;
+  const est=f.est?`<p class="mono text-[11px] text-slate-400 mt-2">est.: de antes de que hubiera libro. Se rehace con lo que pagaron tareas, hábitos y misiones; no cuenta tareas borradas, el Pilotaje ni ventas.</p>`:'';
   openModal('Entradas previstas',`Entradas · ${fDate(d.day)}`,`<p class="text-sm text-slate-200">${head}</p>${rows}${mission}${est}
-    <div class="mono text-[11px] mt-4 leading-relaxed"><span class="text-slate-500">Semana pasada:</span> ${week}</div>
-    <p class="mono text-[11px] text-slate-500 mt-3">Es una previsión: lo que entró el mismo día de la semana pasada. Lo que ganes hoy no cuenta: queda de margen.</p>`);
+    <p class="mono text-[11px] text-slate-500 mt-3">Es una previsión: la media de ese día de la semana en las últimas 4 semanas, sin misiones, para que un día muy bueno o muy malo no mande. Lo que ganes hoy no cuenta: queda de margen.</p>`);
 }
 
 function expenseModal(d){

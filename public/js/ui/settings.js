@@ -18,7 +18,7 @@ export function paintSettings(){
   document.getElementById('setAllyProgress').setAttribute('aria-checked',String(state.settings.allyProgress));
   document.getElementById('setAllyEvents').setAttribute('aria-checked',String(state.settings.allyEvents));
   document.getElementById('setVR').setAttribute('aria-checked',String(state.settings.showVR));
-  document.getElementById('setBooks').setAttribute('aria-checked',String(state.settings.showBooks));
+  document.getElementById('setBooks').setAttribute('aria-checked',String(state.settings.showLedger));
   document.getElementById('setAreasSub').textContent=AREAS.map(areaName).join(' · ');
   paintCalendars(); paintTh();
 }
@@ -81,7 +81,7 @@ export function init(){
   };
   // Contabilidad: igual. El libro se sigue anotando aunque no se vea.
   document.getElementById('setBooks').onclick=()=>{
-    state.settings.showBooks=!state.settings.showBooks; save(); paintSettings(); paintBooksTab(); renderBooks();
-    if(!state.settings.showBooks&&uiMode==='books') setMode('ship');
+    state.settings.showLedger=!state.settings.showLedger; save(); paintSettings(); paintBooksTab(); renderBooks();
+    if(!state.settings.showLedger&&uiMode==='books') setMode('ship');
   };
 }

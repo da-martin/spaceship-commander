@@ -27,7 +27,7 @@ const navMode = (m) => SHIP_TABS.includes(m) ? 'ship' : 'commander';
 export function paintVRTab(){ document.getElementById('vrTab').classList.toggle('hidden',!state.settings.showVR); }
 export function setMode(m){
   if(m==='vr'&&!state.settings.showVR) m='ship';
-  if(m==='books'&&!state.settings.showBooks) m='ship';
+  if(m==='books'&&!state.settings.showLedger) m='ship';
   uiMode=m; const ship=m==='ship', focus=m==='focus', alliance=m==='alliance', vr=m==='vr', books=m==='books';
   document.getElementById('commander-view').classList.toggle('hidden',ship||focus||alliance||vr||books);
   document.getElementById('spaceship-view').classList.toggle('hidden',!ship);

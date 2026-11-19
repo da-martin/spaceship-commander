@@ -151,34 +151,44 @@ test('justo: cobra con lo previsto, pero no con el saldo de ahora', () => {
 const books = (since, days = {}, first = since) => { const s = fresh(); s.ship.books = { since, days }; s.ship.activity = { [first]: 1 }; return s; };
 const inn = (o) => ({ in: o, out: {} });
 
-test('cada día prevé lo del mismo día de la semana pasada; dentro de 7 días, el de hace dos semanas', () => {
+test('cada día prevé la media de ese día de la semana en las últimas 4 semanas; el de hoy empieza hace una semana', () => {
   const days = {};
-  for (let i = 1; i <= 14; i++) days[addDays(T, -i)] = inn({ task: i });   // hace i días: i ¢
-  books(addDays(T, -14), days);
+  for (let i = 1; i <= 35; i++) days[addDays(T, -i)] = inn({ task: i });   // hace i días: i ¢
+  books(addDays(T, -35), days);
   const fc = incomeForecast();
   assert.deepEqual(fc.map((p) => p.day), Array.from({ length: 7 }, (_, i) => addDays(T, i + 1)));
-  assert.deepEqual(fc.map((p) => p.ref), ['2026-11-13', '2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17', '2026-11-18', '2026-11-12']);
-  assert.deepEqual(fc.map((p) => p.total), [6, 5, 4, 3, 2, 1, 7]);
-  assert.ok(fc.every((p) => !p.avg && !p.est && !p.none));
-  assert.equal(incomeFn(fc)('2026-11-20'), 6);
+  assert.deepEqual(fc[0].refs.map((r) => r.day), ['2026-11-13', '2026-11-06', '2026-10-30', '2026-10-23']);   // vie 20
+  assert.deepEqual(fc[6].refs.map((r) => r.day), ['2026-11-12', '2026-11-05', '2026-10-29', '2026-10-22']);   // jue 26: hoy no
+  assert.deepEqual(fc.map((p) => p.total), [17, 16, 15, 14, 13, 12, 18]);   // (6+13+20+27)/4 = 16,5…
+  assert.ok(fc.every((p) => !p.avg && !p.est && !p.none && p.mission === 0));
+  assert.equal(incomeFn(fc)('2026-11-20'), 17);
   assert.equal(incomeFn(fc)('2027-01-01'), 0);
 });
 
-test('sin el día de referencia, la media de los días que hay; sin ninguno, nada', () => {
+test('un día muy bueno solo pesa una cuarta parte', () => {
+  books(addDays(T, -28), { '2026-11-13': inn({ task: 200 }), '2026-11-06': inn({ task: 40 }), '2026-10-30': inn({ task: 40 }), '2026-10-23': inn({ task: 40 }) });
+  assert.equal(incomeForecast()[0].total, 80);
+});
+
+test('con menos de 4 semanas, las que haya; sin ningún día igual, la media de los días que hay; sin ninguno, nada', () => {
+  books(addDays(T, -14), { '2026-11-13': inn({ task: 10 }), '2026-11-06': inn({ task: 30 }) });
+  assert.deepEqual([incomeForecast()[0].refs.length, incomeForecast()[0].total], [2, 20]);
   books(Y, { [Y]: inn({ task: 10 }), '2026-11-17': inn({ habit: 20 }) }, '2026-11-17');
   const fc = incomeForecast();
-  assert.equal(fc[5].ref, Y); assert.equal(fc[5].total, 10);   // mié 25 ← mié 18
-  assert.equal(fc[4].ref, '2026-11-17'); assert.equal(fc[4].total, 20);
-  assert.deepEqual([fc[0].avg, fc[0].total, fc[0].refs], [true, 15, ['2026-11-17', Y]]);
-  assert.equal(fc[6].avg, true);   // jue 26 ← jue 12: aún no había partida
+  assert.deepEqual([fc[5].refs.map((r) => r.day), fc[5].total], [[Y], 10]);   // mié 25 ← mié 18
+  assert.equal(fc[4].total, 20);
+  assert.deepEqual([fc[0].avg, fc[0].total, fc[0].refs.map((r) => r.day)], [true, 15, ['2026-11-17', Y]]);   // vie 20: no hay ningún viernes
+  assert.equal(fc[6].avg, true);
   books(T);
   assert.ok(incomeForecast().every((p) => p.none && p.total === 0 && !p.avg));
 });
 
-test('la misión del día de referencia cuenta, y se dice cuánto es', () => {
-  books(addDays(T, -14), { '2026-11-13': inn({ task: 12, mission: 180 }) });
-  const p = incomeForecast()[0];
-  assert.deepEqual([p.total, p.mission], [192, 180]);
+test('las misiones no van en su día de la semana: se reparten entre todos', () => {
+  books(addDays(T, -28), { '2026-11-13': inn({ task: 12, mission: 280 }) });
+  const fc = incomeForecast();
+  assert.deepEqual([fc[0].routine, fc[0].mission, fc[0].total], [3, 10, 13]);   // vie 20: 12/4 de rutina + 280/28
+  assert.deepEqual([fc[1].routine, fc[1].total], [0, 10]);
+  assert.deepEqual([fc[0].missionSum, fc[0].missionDays], [280, 28]);
 });
 
 test('antes del libro se rehace con lo que pagaron tareas, hábitos, libres y misiones', () => {
@@ -232,7 +242,9 @@ test('lo gastado la última semana sale del libro, separando lo que se decide ca
   assert.deepEqual(lastWeekOut(), { from: addDays(T, -3), total: 150, cats: { wages: 90, yard: 60 }, voluntary: 60 });
 });
 
-test('la pestaña Contabilidad viene activada y se puede apagar', () => {
-  assert.equal(normSettings(null).showBooks, true);
-  assert.equal(normSettings({ showBooks: false }).showBooks, false);
+test('la pestaña Contabilidad viene apagada, también en las partidas que la tuvieron encendida por defecto', () => {
+  assert.equal(normSettings(null).showLedger, false);
+  assert.equal(normSettings({ showBooks: true }).showLedger, false);
+  assert.equal(normSettings({ showBooks: true }).showBooks, undefined);
+  assert.equal(normSettings({ showLedger: true }).showLedger, true);
 });

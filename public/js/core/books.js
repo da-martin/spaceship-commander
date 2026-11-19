@@ -2,7 +2,7 @@
  * state.ship.books = {since:'AAAA-MM-DD', days:{'AAAA-MM-DD':{in:{task:40,…}, out:{wages:90,…}}}}
  * Lo que se desmarca se resta del día y la categoría en que se ganó, no de hoy,
  * igual que onUndo con la actividad. Quien llama guarda. */
-import { BOOKS, BOOKS_DAYS, FREE_MC } from '../config.js';
+import { BOOKS, BOOKS_DAYS, BOOKS_WEEKS, FREE_MC } from '../config.js';
 import { state } from '../store.js';
 import { addDays, todayStr } from '../util.js';
 
@@ -72,22 +72,30 @@ export function pastIn(day){
 }
 
 /* ---------- previsión de entradas ---------- */
-// Para cada uno de los próximos `days` días, lo que entró el mismo día de la
-// semana pasada (ref). El día de la semana de hoy está a medias: para ese se
-// usa el de hace dos semanas. Si ese día es anterior a la partida, la media
-// de los días que sí hay (avg). Sin ningún día pasado: none, y todo a 0.
-// Las misiones cuentan igual; `mission` dice cuánto del total es de una.
+// Cada día = rutina + misiones.
+// Rutina: la media de ese mismo día de la semana en las últimas BOOKS_WEEKS
+// semanas (refs), sin misiones, para que un día muy bueno o muy malo no mande.
+// El día de la semana de hoy está a medias: para ese se empieza por el de hace
+// una semana. Solo cuentan las semanas desde el primer día con historial; sin
+// ninguna, la media de los días que hay (avg). Sin ningún día: none, todo a 0.
+// Misiones: no caen siempre el mismo día de la semana. Lo cobrado en misiones
+// esas semanas se reparte a partes iguales entre todos los días (missionDays).
 export function incomeForecast(days=7,t=todayStr()){
-  const start=firstDay(), from=addDays(t,-14)>start?addDays(t,-14):start, have=[];
+  const start=firstDay(), back=addDays(t,-7*BOOKS_WEEKS), from=back>start?back:start, have=[];
   for(let d=from; d<t; d=addDays(d,1)) have.push(pastIn(d));
-  const mean=(k)=>have.length?Math.round(have.reduce((a,p)=>a+p[k],0)/have.length):0;
-  const avg={total:mean('total'),mission:mean('mission'),est:have.some(p=>p.est)};
+  const routine=(p)=>p.total-p.mission, mean=(a)=>a.length?Math.round(a.reduce((x,n)=>x+n,0)/a.length):0;
+  const missionSum=have.reduce((a,p)=>a+p.mission,0), mission=mean(have.map(p=>p.mission));
   const out=[];
   for(let i=1;i<=days;i++){
-    const day=addDays(t,i); let ref=addDays(day,-7);
-    while(ref>=t) ref=addDays(ref,-7);
-    if(ref>=start){ const p=pastIn(ref); out.push({day,ref,total:p.total,mission:p.mission,est:p.est,cats:p.cats,n:p.n,avg:false,none:false}); }
-    else out.push({day,ref:null,...avg,cats:null,n:null,avg:have.length>0,none:!have.length,refs:have.map(p=>p.day)});
+    const day=addDays(t,i), refs=[];
+    for(let k=1; refs.length<BOOKS_WEEKS; k++){
+      const r=addDays(day,-7*k); if(r<start) break;
+      if(r<t) refs.push(pastIn(r));
+    }
+    const src=refs.length?refs:have, base=mean(src.map(routine));
+    out.push({day,total:base+mission,routine:base,mission,missionSum,missionDays:have.length,
+      refs:src.map(p=>({day:p.day,routine:routine(p),cats:p.cats,n:p.n,est:p.est})),
+      est:src.some(p=>p.est)||(mission>0&&have.some(p=>p.est&&p.mission)),avg:!refs.length&&have.length>0,none:!have.length});
   }
   return out;
 }

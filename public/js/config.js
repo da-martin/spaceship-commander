@@ -82,6 +82,7 @@ export const BOOKS = {
   out:{wages:'Sueldos', crew:'Contratos y ascensos', debt:'Deudas', yard:'Astillero', repair:'Reparaciones', buy:'Compra de material', sweep:'Barrido de señal'}
 };
 export const BOOKS_DAYS = 30;
+export const BOOKS_WEEKS = 4;   // la previsión de cada día: media de ese día de la semana en las últimas 4 semanas
 
 /* ---------- rango del comandante: méritos que no se gastan ---------- */
 export const XP_PROGRESS = 1, XP_ROUND = 5, XP_CONTRACT = 25;   // tareas y hábitos: EF_XP por punto de esfuerzo
@@ -130,6 +131,11 @@ export const UPDATES = [
     'Al llegar a 100, 350 y 850 XP aparece la opción de ascender. Pide el rango de comandante del nivel y cuesta lo mismo que el sueldo nuevo, que se cobra a partir de entonces.',
     'Si no hay ¢ para un sueldo, el tripulante ya no se marcha. Se queda en su litera sin trabajar y su deuda sube cada día. Puedes pagarle la deuda y la semana siguiente de una vez, o despedirle sin pagarle: en el Sistema Madre, o al volver si estás de misión.',
     'En VR Training solo entrenan tu tripulación a bordo y los holoperfiles de serie; los antiguos tripulantes ya no aparecen. Quien no cobra puede jugar, pero no gana experiencia.',
+  ]},
+  {id:'ledger-2026-11', kind:'books', title:'Novedad: Contabilidad', lines:[
+    'Una pestaña nueva en Spaceship con los próximos 7 días: lo que prevés ganar, los sueldos que se cobran y el saldo que quedaría. Cada cifra explica de dónde sale.',
+    'Viene apagada. Actívala en Ajustes › Contabilidad.',
+    'El aviso de impago de la tripulación sale siempre, en Nave: en rojo si un sueldo no llega ni con lo que sueles ganar, en ámbar si llega solo si ganas lo de siempre.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).

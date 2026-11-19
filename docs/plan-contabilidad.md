@@ -86,13 +86,16 @@ Los días anteriores al primer día con historial (el libro o la actividad más 
 
 ## Previsión de entradas
 
-Para cada día, **lo que entró el mismo día de la semana pasada**:
+Cada día = **rutina + misiones**:
 
-- Para mañana hasta dentro de 6 días, el día de referencia es D−7, es decir, de hace 6 días a ayer.
-- Para dentro de 7 días el día de la semana es el de hoy. Hoy está a medias, así que se usa el de hace 7 días (D−14).
-- Sin datos de ese día (partida de menos de una semana), se usa la media de los días que sí hay, y se marca «media: aún no hay datos del mismo día».
-- Sin ningún día de historial: «Aún no hay datos · vuelve mañana». Entonces solo hay aviso de impago en el peor caso.
-- Si el día de referencia incluye una misión, cuenta igual, pero el modal lo avisa: «Incluye 180 ¢ de una misión: sin ella serían 12 ¢».
+- **Rutina:** la media de ese mismo día de la semana en las **últimas 4 semanas**, sin misiones. Así un día especialmente bueno o malo solo pesa una cuarta parte.
+  - Para dentro de 7 días el día de la semana es el de hoy, que está a medias: se empieza por el de hace una semana (D−14, D−21, D−28, D−35).
+  - Solo cuentan las semanas desde el primer día con historial. Con menos de 4, las que haya.
+  - Sin ningún día igual (partida de menos de una semana), la media de los días que hay.
+  - Sin ningún día de historial: «Aún no hay datos · vuelve mañana». Entonces solo hay aviso de impago en el peor caso.
+- **Misiones:** no caen siempre el mismo día de la semana. Lo cobrado en misiones en las últimas 4 semanas se reparte a partes iguales entre todos los días.
+
+Antes se usaba solo el mismo día de la semana pasada; un día raro arrastraba la previsión entera y el aviso de impago.
 
 ## Previsión de gastos
 
@@ -108,7 +111,7 @@ Saldo de cada día = saldo del día anterior − sueldos cobrados al empezar el 
 
 ## Pantalla
 
-La pestaña se llama **Cuentas** en el móvil y **Contabilidad** desde `sm`. Se puede ocultar en Ajustes › Contabilidad, como VR Training.
+La pestaña se llama **Cuentas** en el móvil y **Contabilidad** desde `sm`. Se activa en Ajustes › Contabilidad, como VR Training, y viene **apagada**. El ajuste se llamó `showBooks` y salió encendido; ahora es `showLedger`, así que al cargar se apaga también en las partidas de antes. Una novedad en la bitácora avisa de que existe.
 
 ```
 ┌ Contabilidad ──────────────────────────────┐
@@ -192,4 +195,4 @@ GASTOS PREVISTOS // VIE 21
 1. ✅ **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
 2. ✅ **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
 3. ✅ **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar. Hecho en `core/books.js` (`pastIn`, `incomeForecast`, `incomeFn`); `payForecast` marca `tight` y `rely` (lo que hace falta ganar antes).
-4. ✅ **Pestaña Contabilidad y modales**, con el punto de aviso. Se activa u oculta en Ajustes (`settings.showBooks`, activada por defecto), como VR Training; el libro se sigue anotando y el aviso de la tripulación sale igual. La semana se calcula en `core/forecast.js` (`weekPlan`, `lastWeekOut`, `payDetail`).
+4. ✅ **Pestaña Contabilidad y modales**, con el punto de aviso. Se activa u oculta en Ajustes (`settings.showLedger`, apagada por defecto), como VR Training; el libro se sigue anotando y el aviso de la tripulación sale igual. La semana se calcula en `core/forecast.js` (`weekPlan`, `lastWeekOut`, `payDetail`).
