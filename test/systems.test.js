@@ -1,0 +1,108 @@
+// Sistemas estelares (docs/plan-viajes.md, fase 1): la nave está siempre en uno
+// y su ficha decide mercado, astillero, tablón y candidatos.
+import { test, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { MOD_MC, MODS, REPAIR_MC } from '../public/js/config.js';
+import { genCandidates } from '../public/js/core/crew.js';
+import { docked, genOffer, pickMission } from '../public/js/core/missions.js';
+import { here, herePrep } from '../public/js/core/ship.js';
+import { buyPrice, modCost, onSale, priceOf, repairCost, sellOf, yardClosed } from '../public/js/core/shipyard.js';
+import { MISSIONS } from '../public/js/missions.js';
+import { normShip } from '../public/js/store.js';
+import { HOME, SYSTEMS, makeSystem, sysPrep } from '../public/js/systems.js';
+import { clock, seed, fresh, restore } from './helpers.js';
+
+const TEST = makeSystem({
+  id: 'prueba', name: 'Kepler', market: { bio: 2, ale: 0 }, yard: { mult: 0.5, closed: ['engines'] },
+  missions: MISSIONS.slice(0, 2), roles: ['navigator', 'engineer'],
+});
+
+beforeEach(() => { clock('2026-11-14T10:00:00'); seed(); SYSTEMS.prueba = TEST; });
+afterEach(() => { delete SYSTEMS.prueba; restore(); });
+
+// Pone la nave en el sistema de prueba.
+const travel = (s) => { s.ship.system = 'prueba'; return s; };
+
+test('una partida nueva empieza en el Sistema Madre', () => {
+  const s = fresh();
+  assert.equal(s.ship.system, HOME);
+  assert.equal(here().name, 'Sistema Madre');
+  assert.equal(herePrep('en'), 'en el Sistema Madre');
+  assert.equal(herePrep('de'), 'del Sistema Madre');
+  assert.equal(herePrep('a'), 'al Sistema Madre');
+});
+
+test('sin artículo, el nombre va tal cual tras la preposición', () => {
+  assert.equal(sysPrep(TEST, 'de'), 'de Kepler');
+  assert.equal(sysPrep(TEST, 'a'), 'a Kepler');
+});
+
+test('las partidas de antes de los viajes cargan en el Sistema Madre, con misiones normales', () => {
+  const sh = normShip({
+    contract: { id: 'c', mid: MISSIONS[0].id, endsOn: '2026-11-16', endsAt: 1, quota: 4, reward: { mc: 10 }, postedOn: '2026-11-13', diff: 'normal' },
+    board: { offers: [{ id: 'o', quota: 3, reward: { mc: 9 }, postedOn: '2026-11-14', expiresOn: '2026-11-16', days: 2, diff: 'easy' }] },
+  });
+  assert.equal(sh.system, HOME);
+  assert.equal(sh.contract.kind, 'run');
+  assert.equal(sh.board.offers[0].kind, 'run');
+});
+
+test('un sistema que no existe carga como Sistema Madre; uno que existe se conserva', () => {
+  assert.equal(normShip({ system: 'atlantida' }).system, HOME);
+  assert.equal(normShip({ system: 'toString' }).system, HOME);
+  assert.equal(normShip({ system: 'prueba' }).system, 'prueba');
+});
+
+test('en el Sistema Madre todo vale lo mismo que antes', () => {
+  fresh();
+  assert.deepEqual(modCost('bridge'), { mc: Math.round(MOD_MC[0] * MODS.bridge.mcMult) });
+  for (const k of ['ecos', 'nexos', 'ale', 'bio']) assert.ok(onSale(k));
+  assert.equal(yardClosed('engines'), false);
+});
+
+test('el mercado multiplica el precio del día; con ×0 no se comercia', () => {
+  const s = fresh();
+  const base = { bio: priceOf('bio', '2026-11-14'), ecos: priceOf('ecos', '2026-11-14') };
+  travel(s);
+  assert.equal(priceOf('ecos', '2026-11-14'), base.ecos);   // sin multiplicador: ×1
+  assert.ok(Math.abs(priceOf('bio', '2026-11-14') - base.bio * 2) <= 1);   // se redondea una vez
+  assert.equal(sellOf('bio'), Math.floor(priceOf('bio') * 0.6));
+  assert.equal(buyPrice('bio'), priceOf('bio'));
+  assert.equal(onSale('ale'), false);
+  assert.equal(onSale('bio'), true);
+});
+
+test('el astillero aplica el multiplicador del sistema y cierra sus módulos', () => {
+  const s = travel(fresh({ modules: { bridge: { lv: 1, cond: 80 } } }));
+  assert.deepEqual(modCost('cargo'), { mc: Math.round(MOD_MC[0] * 0.5) });
+  assert.equal(repairCost('bridge'), Math.ceil(20 * REPAIR_MC * 0.5));
+  assert.equal(yardClosed('engines'), true);
+  assert.equal(yardClosed('cargo'), false);
+  s.ship.system = HOME;
+  assert.equal(yardClosed('engines'), false);
+});
+
+test('el tablón sortea solo del catálogo del sistema', () => {
+  const s = travel(fresh());
+  const ids = new Set(TEST.missions.map((m) => m.id));
+  for (let i = 0; i < 10; i++) assert.ok(ids.has(pickMission().id));
+  const o = genOffer('2026-11-14');
+  assert.ok(ids.has(o.mid));
+  assert.equal(o.kind, 'run');
+  assert.equal(s.ship.system, 'prueba');
+});
+
+test('los candidatos salen de los roles del sistema', () => {
+  travel(fresh());
+  const roles = genCandidates().map((x) => x.role);
+  assert.deepEqual([...roles].sort(), ['engineer', 'navigator']);
+});
+
+test('con una misión normal en curso no estás atracado', () => {
+  const s = fresh();
+  assert.equal(docked(), true);
+  s.ship.contract = { id: 'c', kind: 'run' };
+  assert.equal(docked(), false);
+  s.ship.contract = { id: 'c' };   // sin tipo: por si acaso, fuera
+  assert.equal(docked(), false);
+});

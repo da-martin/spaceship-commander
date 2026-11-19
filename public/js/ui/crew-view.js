@@ -2,9 +2,9 @@
 import { CREW_DAYS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
 import { incomeFn, incomeForecast } from '../core/books.js';
 import { crewHint, crewUnlocked, dayWage, debtOf, settleOf, hireBlock, nextLv, payDue, payForecast, promoteBlock, working, xpReady } from '../core/crew.js';
-import { atHome, missionsUnlocked } from '../core/missions.js';
+import { docked, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
-import { berths, berthsUsable } from '../core/ship.js';
+import { berths, berthsUsable, herePrep } from '../core/ship.js';
 import { state } from '../store.js';
 import { crewReleasing, hireCrew, promoteCrew, rehireCrew, releaseCrew, settleDebt, toggleCancel } from './actions.js';
 import { btnCls, showHomeTab } from './ship-view.js';
@@ -46,11 +46,11 @@ export function renderRank(){
     ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]} · ${CREW_LV[3].name.toLowerCase()} desde ${RANKS[CREW_LV[3].rank][0]}, solo ascendiendo. Experiencia de la tripulación con contrato: +${CREW_XP_DAY} XP por día de misión · +${CREW_XP_RUN} XP por simulación de VR Training.</p>`:''}`;
 }
 // Sueldo pendiente: ocupa su litera sin trabajar y su deuda crece cada día.
-// Se le paga, o se le despide: ya en el Sistema Madre, o al volver si estás de misión.
+// Se le paga, o se le despide: ya en el sistema, o al volver si estás de misión.
 function owedCard(m,fire){
   const R=ROLES[m.role], debt=debtOf(m), total=settleOf(m), ok=state.wallet.mc>=total;
-  const leave=atHome()?fire:`<button data-crew="cancel" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${m.cancel?'bg-slate-800 border border-amber-600 text-amber-200 hover:border-amber-400':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${m.cancel?'Mantener a bordo':'Despedir al volver'}</button>`;
-  const status=m.cancel?`<span class="text-amber-300">Desembarca al volver al Sistema Madre, sin cobrar</span>`
+  const leave=docked()?fire:`<button data-crew="cancel" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${m.cancel?'bg-slate-800 border border-amber-600 text-amber-200 hover:border-amber-400':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${m.cancel?'Mantener a bordo':'Despedir al volver'}</button>`;
+  const status=m.cancel?`<span class="text-amber-300">Desembarca al volver ${herePrep('a')}, sin cobrar</span>`
     :`<span class="text-red-300">Sin cobrar desde el ${fDate(addDays(m.until,1))} · no trabaja · deuda ${debt} ¢, sube ${dayWage(m)} ¢ al día</span>`;
   return `<div class="rounded-xl border border-dashed ${m.cancel?'border-amber-600':'border-red-700'} bg-slate-900/70 p-3">
       <div class="flex items-start gap-3">
@@ -106,12 +106,12 @@ export function renderCrew(){
   const riskOf={}; for(const p of pays) riskOf[p.id]??=p;
   const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!risks.length&&!tight.length);
   cw.innerHTML=risks.length||tight.length?payWarn(risks,tight):'';
-  const cl=document.getElementById('crewList'), home=atHome();
+  const cl=document.getElementById('crewList'), home=docked();
   cl.innerHTML=sh.crew.map(m=>{
     const R=ROLES[m.role], conf=crewReleasing===m.id;
     const fire=home?`<button data-crew="release" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${conf?'bg-red-900/60 border border-red-700 text-red-200':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${conf?(m.owed?'¿Seguro? Se va sin cobrar':'¿Seguro? Pierdes lo pagado'):(m.owed?'Despedir':'Despedir ya')}</button>`:'';
     if(m.owed) return owedCard(m,fire);
-    const status=m.idle?'<span class="text-slate-400">Sin contrato · desembarca al volver al Sistema Madre</span>'
+    const status=m.idle?`<span class="text-slate-400">Sin contrato · desembarca al volver ${herePrep('a')}</span>`
       :m.cancel?`<span class="text-amber-300">Contrato cancelado · se marcha el ${fDate(addDays(m.until,1))}</span>`
       :riskOf[m.id]?.ok===false?`<span class="text-red-300">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · faltan ${riskOf[m.id].short}&nbsp;¢</span>`
       :riskOf[m.id]?.tight?`<span class="text-amber-300">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · justo: depende de lo que ganes</span>`
@@ -133,9 +133,9 @@ export function renderCrew(){
     </div>`;
   }).join('')+Array.from({length:Math.max(0,berths()-sh.crew.length)},(_,i)=>sh.crew.length+i>=berthsUsable()
     ?`<div class="rounded-xl border border-dashed border-red-900 p-3 grid place-items-center text-center text-sm text-slate-400 min-h-[120px]">Litera dañada · repara los Camarotes</div>`
-    :atHome()
+    :docked()
     ?`<button type="button" data-crew="board" class="rounded-xl border border-dashed border-slate-700 hover:border-cyan-600 p-3 grid place-items-center text-sm text-slate-400 hover:text-cyan-300 min-h-[120px]">Litera libre · ver candidatos</button>`
-    :`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-400 min-h-[120px]">Litera libre · contrata al volver al Sistema Madre</div>`).join('');
+    :`<div class="rounded-xl border border-dashed border-slate-700 p-3 grid place-items-center text-sm text-slate-400 min-h-[120px]">Litera libre · contrata al volver ${herePrep('a')}</div>`).join('');
   const nextSun=addDays(sh.crewBoard.week||weekStart(),7), dn=Math.round((dayParse(nextSun)-dayParse(todayStr()))/864e5);
   document.getElementById('crewBoardNote').textContent=`· nuevos el ${fDate(nextSun)} (en ${dn} ${dn===1?'día':'días'})`;
   const cand=document.getElementById('candList');

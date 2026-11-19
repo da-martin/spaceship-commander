@@ -3,7 +3,7 @@
  * alguna preferencia de localStorage) y exportan init() si tienen botones. */
 import { RANKS } from './config.js';
 import { on } from './core/events.js';
-import { atHome, checkContractEnd, logBoardNews, tickBoard } from './core/missions.js';
+import { docked, checkContractEnd, logBoardNews, tickBoard } from './core/missions.js';
 import { scheduleShare, shareEvent, shareSync } from './features/alliance-share.js';
 import { onLog, onLogged } from './features/log.js';
 import { dailyTick, needsReview } from './features/review.js';
@@ -88,12 +88,12 @@ initCloud().then(allianceBoot);
 // cada minuto avanza la señal: si llega o caduca algo se guarda y se avisa; si no, solo se repinta la barra
 setInterval(()=>{
   // la misión vence a su hora (salvo con el repaso de ayer pendiente: lo marcado allí aún cuenta)
-  if(state.ship.contract&&!needsReview()&&checkContractEnd()){ if(atHome()) logBoardNews(); save(); render(); return; }
+  if(state.ship.contract&&!needsReview()&&checkContractEnd()){ if(docked()) logBoardNews(); save(); render(); return; }
   paintMissionLeft();
   const b=state.ship.board, before=b.offers.map(o=>o.id).join();
   tickBoard();
   if(b.offers.map(o=>o.id).join()!==before){
-    if(atHome()) logBoardNews();
+    if(docked()) logBoardNews();
     save(); renderShip();
-  } else if(uiMode==='ship'&&atHome()) paintSignal();
+  } else if(uiMode==='ship'&&docked()) paintSignal();
 },60000);

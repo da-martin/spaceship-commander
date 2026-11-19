@@ -1,9 +1,9 @@
-import { AGE_BONUS, DIFFS, effOf, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, CONTRACT_KINDS, DIFFS, effOf, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
 import { addW, perk } from './rewards.js';
-import { boardCap, cargoMult, maxDays, mod, repDamaged, signalRate } from './ship.js';
+import { boardCap, cargoMult, here, herePrep, maxDays, mod, repDamaged, signalRate } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { MISSIONS } from '../missions.js';
 import { state } from '../store.js';
@@ -52,11 +52,11 @@ export function pickDiff(keys=Object.keys(DIFFS)){
   for(const k of keys){ r-=DIFFS[k].w; if(r<0) return k; }
   return keys[keys.length-1];
 }
-// La misión se sortea entre las que no han salido hace poco ni están en el tablón o en curso.
+// La misión se sortea del catálogo del sistema, entre las que no han salido hace poco ni están en el tablón o en curso.
 export function pickMission(){
-  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]);
-  const free=MISSIONS.filter(m=>!busy.has(m.id));
-  const m=pick(free.length?free:MISSIONS);
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions;
+  const free=cat.filter(m=>!busy.has(m.id));
+  const m=pick(free.length?free:cat);
   sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
   return m;
 }
@@ -70,7 +70,7 @@ export function genOffer(day,safe=false){
   const mc=Math.round(quota*12*D.pay*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
-  return {id:uid(),mid:m.id,topic,flavor:m.flavor,days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
+  return {id:uid(),kind:'run',mid:m.id,topic,flavor:m.flavor,days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
 }
 // si en el tablón no queda ninguna fácil o normal sin urgencia, la que llega lo es
 export function freshOffer(existing,day=todayStr()){
@@ -121,7 +121,7 @@ export function checkContractEnd(){
   if(!c||Date.now()<c.endsAt) return false;
   if(c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
   tickBoard();
-  const home=['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
+  const home=['De vuelta '+herePrep('en'),returnHome()].filter(Boolean);
   if(c.urgent){
     missionCrewXp(c,true);
     sh.contract=null;
@@ -134,7 +134,8 @@ export function checkContractEnd(){
   }
   return true;
 }
-export const atHome=()=>!state.ship.contract;   // fuera del Sistema Madre no hay tablón, mercado ni astillero
+// Atracado en el sistema: sin contrato, o con uno que no te saca de él. Fuera no hay tablón, mercado ni astillero.
+export const docked=()=>{ const c=state.ship.contract; return !c||CONTRACT_KINDS[c.kind]?.away===false; };
 // Las misiones se abren con la Antena. La segunda condición evita dejar a nadie
 // tirado a mitad de una misión si llegara con la Antena sin mejorar.
 export const missionsUnlocked=()=>mod('comms').lv>=1||!!state.ship.contract;

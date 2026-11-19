@@ -52,6 +52,8 @@ export const HABIT_TYPES = ['daily','weekly','monthly','free','neg'];
 export const XP_BONUS = 0.08, WAGE_CUT = 0.08, YARD_CUT = 0.10, SELFHEAL = 1;
 // tablón: las misiones llegan con la señal y esperan hasta que caducan (días contando el de llegada)
 export const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFFER_TTL = [3,6], AGE_BONUS = 0.05;
+// Tipos de contrato. `away`: mientras dura estás fuera del sistema (sin tablón, mercado ni astillero).
+export const CONTRACT_KINDS = {run:{away:true}};
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
 // dificultad: cuánto pide sobre tu ritmo (push), ¢ por unidad de cuota (pay),
 // material extra (mats) y probabilidad de salir (w)

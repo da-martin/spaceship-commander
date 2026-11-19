@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 const root = new URL('../public/js/', import.meta.url);
 const dir = (d) => readdirSync(new URL(d + '/', root)).map((f) => d + '/' + f);
 const rpg = dir('rpg');
-const pure = ['util.js', 'config.js', 'store.js', 'missions.js', ...dir('core'), ...dir('lib'), ...rpg];
+const pure = ['util.js', 'config.js', 'store.js', 'missions.js', 'systems.js', ...dir('core'), ...dir('lib'), ...rpg];
 const imports = (f) => [...readFileSync(new URL(f, root), 'utf8').matchAll(/^import .* from '(.*)';$/gm)].map((m) => m[1]);
 
 test('el núcleo no importa nada de ui/, features/, sync/ ni integrations/', () => {

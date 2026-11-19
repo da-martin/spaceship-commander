@@ -3,13 +3,13 @@ import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, CREW_XP_DAY, CREW_X
 import { spend } from './books.js';
 import { logShip } from './log.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
-import { berths, berthsUsable, mod } from './ship.js';
+import { berths, berthsUsable, here, herePrep, mod } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { state } from '../store.js';
 import { addDays, dayParse, pick, todayStr, uid } from '../util.js';
 
 export function genCandidates(){
-  const roles=Object.keys(ROLES).sort(()=>Math.random()-0.5).slice(0,CANDS_N);
+  const roles=here().roles.filter(r=>ROLES[r]).sort(()=>Math.random()-0.5).slice(0,CANDS_N);   // los roles de este sistema
   // ni nombres ni apellidos repetidos con la tripulación a bordo ni entre candidatos
   const used=(state.ship.crew||[]).map(m=>String(m.name||'').split(' ')), usedF=new Set(used.map(n=>n[0])), usedL=new Set(used.map(n=>n.slice(1).join(' ')));
   const fresh=(a,u)=>{ const f=a.filter(x=>!u.has(x)), v=pick(f.length?f:a); u.add(v); return v; };
@@ -147,12 +147,12 @@ export function payForecast(days=CREW_DAYS,income=()=>0,t=todayStr()){
 export const payDue=(days=CREW_DAYS,t=todayStr())=>state.ship.crew.filter(m=>working(m)&&!m.cancel)
   .reduce((a,m)=>{ let n=0; for(let u=m.until;u<addDays(t,days);u=addDays(u,CREW_DAYS)) n++; return a+n*wageOf(m.wage); },0);
 
-// Al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato y
+// Al volver al sistema desembarcan los que siguen a bordo sin contrato y
 // los que tienen sueldo pendiente y se despidieron durante la misión (sin cobrar).
 // Las noticias del tablón que esperaban a la vuelta las da quien llama.
 export function returnHome(){
   const sh=state.ship, leaves=(m)=>m.idle||(m.owed&&m.cancel), off=sh.crew.filter(leaves);
   if(!off.length) return null;
   sh.crew=sh.crew.filter(m=>!leaves(m));
-  return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} en el Sistema Madre`;
+  return `${off.map(m=>m.name).join(', ')} ${off.length>1?'desembarcan':'desembarca'} ${herePrep('en')}`;
 }
