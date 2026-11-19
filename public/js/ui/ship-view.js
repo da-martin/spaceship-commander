@@ -1,9 +1,9 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, hasDeadline, isAway, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
-import { agedMc, docked, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
+import { agedMc, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
@@ -23,11 +23,13 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 // La nave no lleva ni una etiqueta encima: todo el texto vive en el panel de al
 // lado. Por eso esta función se puede cambiar por un <img> el día que haya una
 // ilustración de verdad, sin tocar nada más.
-// Fondo según dónde esté la nave. En el Sistema Madre asoma el planeta por la
-// esquina inferior izquierda; en misión no hay planeta y las estrellas pasan
-// hacia abajo, como si la nave avanzara.
-export function shipBackdrop(home){
-  if(home){
+// Fondo según dónde esté la nave (`scene`):
+//   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
+//   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
+//   'jump'  — salto entre sistemas: un túnel de luz violeta delante del morro del que brotan las estrellas.
+export function shipBackdrop(scene){
+  if(scene==='jump') return JUMP_BACKDROP;
+  if(scene==='home'){
     // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
     const P='cx="-20" cy="330" r="120"';
     return `<defs>
@@ -55,11 +57,31 @@ export function shipBackdrop(home){
   return `<g class="warp far">${far}</g><g class="warp">${near}</g>`;
 }
 
+// Túnel del salto: tres capas de trazos que salen de un punto delante del morro
+// y crecen hasta salirse, desfasadas para que no haya hueco. Se calcula una vez,
+// con un azar fijo: el dibujo solo se repinta si cambia, y sería distinto cada vez.
+const JUMP_BACKDROP=(()=>{
+  const VX=150, VY=52, cols=['#bae6fd','#c4b5fd','#a5f3fc'];
+  let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const layer=()=>Array.from({length:26},(_,i)=>{
+    const a=(360*i/26+(rnd()*12-6))*Math.PI/180, r0=18+rnd()*52, L=22+rnd()*38, c=Math.cos(a), sn=Math.sin(a), f=(v)=>v.toFixed(1);
+    return `<line x1="${f(VX+r0*c)}" y1="${f(VY+r0*sn)}" x2="${f(VX+(r0+L)*c)}" y2="${f(VY+(r0+L)*sn)}" stroke="${cols[i%3]}" stroke-width="${(1+rnd()*.8).toFixed(1)}" stroke-linecap="round"/>`;
+  }).join('');
+  const org=`style="transform-origin:${VX}px ${VY}px"`;
+  return `<defs><radialGradient id="tunG" cx="${VX}" cy="${VY}" r="260" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e0e7ff" stop-opacity=".55"/><stop offset=".08" stop-color="#818cf8" stop-opacity=".35"/><stop offset=".35" stop-color="#4338ca" stop-opacity=".18"/><stop offset="1" stop-color="#0b1120" stop-opacity="0"/></radialGradient></defs>
+    <rect width="300" height="300" fill="url(#tunG)"/>
+    <circle cx="${VX}" cy="${VY}" r="26" fill="none" stroke="#a5b4fc" stroke-opacity=".35" stroke-width="1.2" class="jring" ${org}/>
+    <circle cx="${VX}" cy="${VY}" r="46" fill="none" stroke="#a5b4fc" stroke-opacity=".2" stroke-width="1" class="jring r2" ${org}/>
+    <g class="tun" ${org}>${layer()}</g><g class="tun t2" ${org}>${layer()}</g><g class="tun t3" ${org}>${layer()}</g>`;
+})();
+
 // La nave ocupa solo parte del dibujo: deja espacio alrededor (y margen para
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
+// Dónde está la nave para el dibujo: en el sistema, en misión (con plazo o sin él) o saltando a otro sistema.
+export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':c.kind==='jump'?'jump':'away'; };
 export function shipArt(){
-  const m=state.ship.modules, home=docked();
+  const m=state.ship.modules, scene=shipScene();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
   // Todos los módulos existen desde el día uno: una nave necesita puente y
   // motores para volar. El nivel solo decide cuánto crece cada pieza.
@@ -68,20 +90,24 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${home?herePrep('en'):'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='jump'?'saltando a otro sistema':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
     <radialGradient id="skyG"><stop offset="0" stop-color="#1b3a52" stop-opacity=".45"/><stop offset="1" stop-color="#1b3a52" stop-opacity="0"/></radialGradient>
   </defs>
-  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>${shipBackdrop(home)}
+  <circle cx="150" cy="150" r="128" fill="url(#skyG)"/>${shipBackdrop(scene)}
   <g transform="translate(150 150) scale(${SHIP_SCALE}) translate(-150 -150)">`;
 
   // Cada sistema construido añade una pieza visible. Eso sí se nota, a
   // diferencia del 12 % de escala que crecía el casco antes.
   {
     const r=8+2*m.engines.lv;
-    s+=`<g opacity="${op('engines')}"><ellipse cx="150" cy="268" rx="${r+4}" ry="30" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="22" fill="url(#exhG)"/>
+    // En el sistema los motores están apagados: la nave espera a que hagas algo.
+    // En el salto, a tope: la estela se alarga.
+    const big=scene==='jump'?1.65:1;
+    const exh=scene==='home'?'':`<ellipse cx="150" cy="268" rx="${r+4}" ry="${30*big}" fill="url(#exhG)"/><ellipse cx="112" cy="258" rx="${r}" ry="${22*big}" fill="url(#exhG)"/><ellipse cx="188" cy="258" rx="${r}" ry="${22*big}" fill="url(#exhG)"/>`;
+    s+=`<g opacity="${op('engines')}">${exh}
     <path d="M104 206 L90 214 L90 246 L104 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/>
     <path d="M196 206 L210 214 L210 246 L196 252 Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/></g>`;
   }
@@ -149,7 +175,7 @@ export const shortLeft=(c)=>{ const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e
 export const leftTone=(c)=>msLeft(c)<864e5?'text-amber-300':'text-slate-400';
 // repinta cada minuto el tiempo que queda, sin volver a pintar toda la pantalla
 export function paintMissionLeft(){
-  const c=state.ship.contract; if(!c) return;
+  const c=state.ship.contract; if(!hasDeadline(c)) return;
   for(const el of document.querySelectorAll('[data-mission-left]')){
     const k=el.dataset.missionLeft;
     el.textContent=k==='chip'?shortLeft(c):k==='status'?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:`${missionLeftTxt(c)} · ${missionEndTxt(c)}`;
@@ -165,14 +191,14 @@ export function renderMission(c){
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
       <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${diffChip(c.diff)}${c.urgent?URGENT_CHIP:''}
-      <span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>
+      ${hasDeadline(c)?`<span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>`:'<span class="mono text-[11px] text-slate-400">sin plazo</span>'}
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
       <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
-    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
@@ -184,8 +210,11 @@ export function renderMission(c){
       </div>`; }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
-  const ab=el.querySelector('[data-act="abandon"]');
-  ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent=c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago'; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
+  wireAbandon(el.querySelector('[data-act="abandon"]'),c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago');
+}
+// «Abandonar misión» pide un segundo toque en 3 s
+function wireAbandon(ab,sure){
+  ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent=sure; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
 }
 
 export const URGENT_CHIP='<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-600 text-amber-300">URGENTE</span>';
@@ -231,7 +260,7 @@ export function renderShip(){
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
   const chipEl=document.getElementById('shipChip');
   chipEl.style.display=uiMode==='ship'?'':'none';
-  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · <span data-mission-left="chip">${shortLeft(c)}</span></span>`:''}`;
+  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?`<span data-mission-left="chip">${shortLeft(c)}</span>`:'sin plazo'}</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
@@ -243,9 +272,10 @@ export function renderShip(){
 
   // estado: en el Sistema Madre o en misión
   const ss=document.getElementById('shipStatus');
-  ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(c?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
-  ss.textContent=c?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ '+herePrep('En');
-  if(c) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
+  const away=isAway(c);
+  ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(away?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
+  ss.textContent=away?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?missionLeftTxt(c):'sin plazo'}`:'⌂ '+herePrep('En');
+  if(away&&hasDeadline(c)) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
@@ -264,8 +294,8 @@ export function renderShip(){
   const sc=document.getElementById('shipSystems'); sc.innerHTML=shipSystems();
   sc.querySelectorAll('[data-slot]').forEach(g=>g.onclick=()=>{
     const k=g.dataset.slot;
-    if(!sh.contract&&homeTab!=='yard') showHomeTab('yard',false);
-    (document.getElementById((sh.contract?'rep-':'mod-')+k)||document.getElementById('homePanel')).scrollIntoView({behavior:'smooth',block:'center'});
+    if(!away&&homeTab!=='yard') showHomeTab('yard',false);
+    (document.getElementById((away?'rep-':'mod-')+k)||document.getElementById('homePanel')).scrollIntoView({behavior:'smooth',block:'center'});
   });
 
   // el sistema o la misión en curso
@@ -273,9 +303,9 @@ export function renderShip(){
   document.getElementById('homeTitle').textContent='En '+sys.name;
   document.getElementById('homeTabs').setAttribute('aria-label',sys.name);
   document.querySelectorAll('[data-sys]').forEach(e=>{ e.textContent=sys.art+sys.name; });
-  document.getElementById('homeDock').classList.toggle('hidden',!!c);
-  document.getElementById('homeMission').classList.toggle('hidden',!c);
-  if(c) renderMission(c);
+  document.getElementById('homeDock').classList.toggle('hidden',away);
+  document.getElementById('homeMission').classList.toggle('hidden',!away);
+  if(away) renderMission(c);
   document.querySelectorAll('#homeTabs [data-tab]').forEach(t=>{ const on=t.dataset.tab===homeTab; t.setAttribute('aria-selected',on); t.tabIndex=on?0:-1; t.onclick=()=>showHomeTab(t.dataset.tab,false); });
   document.querySelectorAll('#homeDock [data-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.pane!==homeTab));
 
@@ -286,16 +316,16 @@ export function renderShip(){
   const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
   if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   offers.forEach(o=>{
-    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=offerAge(o), el=document.createElement('div');
+    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, open=!hasDeadline(o), el=document.createElement('div');
     el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
-        <span class="mono text-[11px] text-slate-400">${o.days} ${o.days===1?'día':'días'}</span>
+        <span class="mono text-[11px] text-slate-400">${open?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
         <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
       <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">

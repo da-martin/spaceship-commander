@@ -1,4 +1,4 @@
-import { AGE_BONUS, CONTRACT_KINDS, DIFFS, effOf, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, MISSION_BY_ID, OFFER_TTL, OPEN_DAYS, OPEN_P, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
@@ -53,8 +53,10 @@ export function pickDiff(keys=Object.keys(DIFFS)){
   return keys[keys.length-1];
 }
 // La misión se sortea del catálogo del sistema, entre las que no han salido hace poco ni están en el tablón o en curso.
-export function pickMission(){
-  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions;
+// Las marcadas `open: true` solo salen sin plazo, y las demás solo con plazo.
+export const openCatalog=()=>here().missions.filter(m=>m.open);
+export function pickMission(open=false){
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions.filter(m=>!!m.open===open);
   const free=cat.filter(m=>!busy.has(m.id));
   const m=pick(free.length?free:cat);
   sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
@@ -63,22 +65,46 @@ export function pickMission(){
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 export function genOffer(day,safe=false){
+  if(!safe&&OPEN_P>0&&openCatalog().length&&Math.random()<OPEN_P) return genOpenOffer(day);   // con OPEN_P a 0 no se tira el dado
   const m=pickMission(), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
   const quota=Math.max(2,Math.round(days*avgDaily()*D.push));
   const mc=Math.round(quota*12*D.pay*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
-  const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
-  for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
+  const mats=rollMats(days,D);
   return {id:uid(),kind:'run',mid:m.id,topic,flavor:m.flavor,days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
 }
-// si en el tablón no queda ninguna fácil o normal sin urgencia, la que llega lo es
+function rollMats(days,D){
+  const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
+  for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
+  return mats;
+}
+// Misión sin plazo: te saca del sistema como cualquier otra y termina al reunir la cuota (o al abandonarla).
+// Cuota de 4 a 7 días al ritmo medio; la paga por punto es la de una misión de 1 día
+// (sin plazo no hay prisa que pagar) y no sube con la espera. Nunca es urgente.
+export function genOpenOffer(day){
+  if(!openCatalog().length) return genOffer(day);   // sistema sin misiones sin plazo: una normal
+  const m=pickMission(true), [lo,hi]=OPEN_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
+  const diff=pickDiff(), D=DIFFS[diff];
+  const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
+  const mc=Math.round(quota*12*D.pay);
+  const mats=rollMats(span,D), [tlo,thi]=OFFER_TTL;
+  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
+}
+// El contrato que sale de aceptar una oferta. Con plazo, cada día son 24 h desde ahora.
+export function contractFrom(o,now=new Date()){
+  const c={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),progress:0};
+  if(!hasDeadline(o)) return c;
+  const end=new Date(now); end.setDate(end.getDate()+o.days);
+  return {...c,endsOn:todayStr(end),endsAt:end.getTime()};
+}
+// si en el tablón no queda ninguna fácil o normal sin urgencia y con plazo, la que llega lo es
 export function freshOffer(existing,day=todayStr()){
-  const safe=!existing.some(o=>o.diff!=='hard'&&!o.urgent);
+  const safe=!existing.some(o=>hasDeadline(o)&&o.diff!=='hard'&&!o.urgent);
   return genOffer(day,safe);   // pickMission ya evita las del tablón y las recientes
 }
 export const offerAge=(o)=>Math.max(0,Math.round((dayParse(todayStr())-dayParse(o.postedOn))/864e5));
-export const agedMc=(o)=>Math.round(o.reward.mc*(1+AGE_BONUS*offerAge(o)));   // la paga sube cada día que sigue en el tablón
+export const agedMc=(o)=>hasDeadline(o)?Math.round(o.reward.mc*(1+AGE_BONUS*offerAge(o))):o.reward.mc;   // la paga sube cada día que sigue en el tablón (las sin plazo, no)
 // señal en tiempo real, simulada día a día: caducan las viejas y llegan nuevas mientras haya hueco
 export function tickBoard(){
   const b=state.ship.board, now=Date.now();
@@ -118,7 +144,7 @@ export function failUrgent(until){ const b=state.ship.board; if(!b.repUntil||b.r
 // Devuelve true si terminó. Sin repaso de ayer pendiente: lo marcado allí aún puede contar.
 export function checkContractEnd(){
   const sh=state.ship, c=sh.contract;
-  if(!c||Date.now()<c.endsAt) return false;
+  if(!c||!hasDeadline(c)||Date.now()<c.endsAt) return false;
   if(c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
   tickBoard();
   const home=['De vuelta '+herePrep('en'),returnHome()].filter(Boolean);
@@ -135,7 +161,7 @@ export function checkContractEnd(){
   return true;
 }
 // Atracado en el sistema: sin contrato, o con uno que no te saca de él. Fuera no hay tablón, mercado ni astillero.
-export const docked=()=>{ const c=state.ship.contract; return !c||CONTRACT_KINDS[c.kind]?.away===false; };
+export const docked=()=>!isAway(state.ship.contract);
 // Las misiones se abren con la Antena. La segunda condición evita dejar a nadie
 // tirado a mitad de una misión si llegara con la Antena sin mejorar.
 export const missionsUnlocked=()=>mod('comms').lv>=1||!!state.ship.contract;

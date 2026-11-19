@@ -1,9 +1,9 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
-import { CREW_DAYS, CREW_LV, MODS, REP_DAYS, RES } from '../config.js';
+import { CREW_DAYS, CREW_LV, hasDeadline, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
-import { agedMc, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
+import { contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
 import { boardCap, herePrep, mod } from '../core/ship.js';
 import { buyPrice, canAfford, modCost, onSale, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
@@ -73,10 +73,10 @@ export function acceptOffer(id){
   const o=sh.board.offers.find(x=>x.id===id); if(!o) return;
   if(offerSailing!==id){ offerSailing=id; offerDiscarding=null; render(); return; }
   offerSailing=null;
-  const now=new Date(), end=new Date(now); end.setDate(end.getDate()+o.days);   // cada día de plazo son 24 h desde ahora
-  sh.contract={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),progress:0};
+  sh.contract=contractFrom(o);
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
-  save(); render(); scrollTo({top:0,behavior:'smooth'}); toast(`Misión aceptada: ${o.topic} · zarpas ${herePrep('de')}`);
+  save(); render(); scrollTo({top:0,behavior:'smooth'});
+  toast(`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic} · zarpas ${herePrep('de')}`);
 }
 export function abandonContract(){
   const c=state.ship.contract; if(!c) return;
