@@ -53,8 +53,10 @@ export function pickDiff(keys=Object.keys(DIFFS)){
   return keys[keys.length-1];
 }
 // La misión se sortea del catálogo del sistema, entre las que no han salido hace poco ni están en el tablón o en curso.
-export function pickMission(){
-  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions;
+// Las de órbita (`orbit: true`) solo salen como misiones sin plazo, y las demás solo con plazo.
+export const orbitCatalog=()=>here().missions.filter(m=>m.orbit);
+export function pickMission(orbit=false){
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions.filter(m=>!!m.orbit===orbit);
   const free=cat.filter(m=>!busy.has(m.id));
   const m=pick(free.length?free:cat);
   sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
@@ -63,7 +65,7 @@ export function pickMission(){
 // la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 export function genOffer(day,safe=false){
-  if(!safe&&ORBIT_P>0&&Math.random()<ORBIT_P) return genOrbitOffer(day);   // con ORBIT_P a 0 no se tira el dado
+  if(!safe&&ORBIT_P>0&&orbitCatalog().length&&Math.random()<ORBIT_P) return genOrbitOffer(day);   // con ORBIT_P a 0 no se tira el dado
   const m=pickMission(), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
@@ -81,7 +83,8 @@ function rollMats(days,D){
 // Cuota de 7 a 14 días al ritmo medio; la paga por punto es la de una misión de 1 día
 // (sin plazo no hay prisa que pagar) y no sube con la espera. Nunca es urgente.
 export function genOrbitOffer(day){
-  const m=pickMission(), [lo,hi]=ORBIT_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
+  if(!orbitCatalog().length) return genOffer(day);   // sistema sin misiones de órbita: una normal
+  const m=pickMission(true), [lo,hi]=ORBIT_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
   const diff=pickDiff(), D=DIFFS[diff];
   const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
   const mc=Math.round(quota*12*D.pay);

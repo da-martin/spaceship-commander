@@ -83,6 +83,7 @@ Valen para el Sistema Madre y para cualquier otro sistema.
 
 - Llegan al tablón como las demás (`ORBIT_P` en `config.js`; la idea es 1 de cada 6) y caducan en el tablón igual que las otras. **Por ahora `ORBIT_P` es 0**: el código está, pero no llega ninguna.
 - Cuota grande (entre 7 y 14 días al ritmo medio) y **sin plazo**: terminan cuando se cumple la cuota.
+- Salen solo de las misiones marcadas `orbit: true` en el catálogo, las que la nave hace de verdad en órbita de un planeta, una luna o una estación. Esas nunca salen con plazo. En el Sistema Madre son 8: `min-pecio`, `min-gas`, `min-cristal`, `exp-ruinas`, `pat-perimetro`, `pat-minas`, `pat-balizas` y `rec-satelite`, con su final reescrito como un trabajo largo.
 - La paga por punto es la de una misión de 1 día (sin plazo no hay prisa que pagar), y no sube con los días en el tablón. Nunca son urgentes, y no cuentan como la misión fácil que el tablón siempre intenta tener.
 - Se hacen **en órbita**: con una de estas en curso sigues teniendo mercado, astillero y tripulación. Su coste es que ocupan el hueco de misión: mientras la tengas no puedes aceptar otra.
 - Se pueden abandonar sin daño de reputación y sin cobrar nada.
