@@ -27,7 +27,7 @@ Una función pura en `core/books.js` repite `crewPayroll` día a día durante lo
 - **Cuánto falta:** sueldo − saldo previsto ese día. Es la cifra que se puede usar para decidir algo: «Faltan 34 ¢».
 - Si un cobro falla, la simulación sigue como el juego: ese tripulante deja de cobrar y los demás pueden cobrar con el saldo que queda.
 
-Mientras no haya libro de cuentas (ver abajo) no hay entradas previstas: solo existe el rojo, calculado con el saldo de ahora. Es el peor caso y ya sirve.
+Mientras no haya previsión de entradas, el aviso se calcula solo con el saldo de ahora: es el peor caso y ya sirve. Hecho así en la fase 1: `payForecast` en `core/crew.js` y el aviso en `#crewWarn`, en ámbar, con el cobro de mañana en rojo porque ya solo queda lo que se gane hoy.
 
 ### Dónde sale
 
@@ -56,7 +56,7 @@ La partida solo guarda el saldo (`state.wallet.mc`). No hay historial de lo que 
 - Se guarda con la nave (y en la nube). Se borra lo de hace más de 30 días en `processDays`, como `activity`.
 - `normShip` lo normaliza: se descartan las categorías desconocidas y los valores que no sean enteros ≥ 0.
 - `core/books.js` tiene `earn(n,cat,day)`, `unearn(n,cat,day)` y `spend(n,cat,day)`. Al desmarcar algo se resta de la **categoría y el día en que se ganó** (`g.day`), no del día de hoy, igual que hace `onUndo` con la actividad.
-- Se anota lo que de verdad se movió: `subW` no baja de 0, así que tiene que devolver lo que restó.
+- Los gastos solo se hacen si hay saldo para pagarlos enteros, así que se anota la cifra que se cobra. Lo que se desmarca se resta entero de su día (sin bajar de 0).
 
 ### Dónde se anota
 
@@ -187,7 +187,7 @@ GASTOS PREVISTOS // VIE 21
 
 ## Fases
 
-1. **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
-2. **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
+1. ✅ **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
+2. ✅ **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
 3. **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar.
 4. **Pestaña Contabilidad y modales**, con el punto de aviso.

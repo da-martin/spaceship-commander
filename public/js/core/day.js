@@ -1,5 +1,6 @@
 /* El cambio de día: desgaste de los días sin abrir, sueldos y tablón. */
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
+import { trimBooks } from './books.js';
 import { crewPayroll, genCandidates, missionCrewXp } from './crew.js';
 import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
 import { logShip, logUpdates } from './log.js';
@@ -52,5 +53,6 @@ export function processDays(){
   if(sh.crewBoard.week!==weekStart(t)) sh.crewBoard={week:weekStart(t),cands:genCandidates()};
   if(atHome()) logBoardNews();
   const cut=addDays(t,-30); for(const k of Object.keys(sh.activity)) if(k<cut) delete sh.activity[k];
+  trimBooks(t);
   logUpdates();   // novedades del juego, una vez por partida
 }

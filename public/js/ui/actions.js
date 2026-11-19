@@ -1,6 +1,7 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
 import { CREW_DAYS, CREW_LV, MODS, REP_DAYS, RES } from '../config.js';
+import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
 import { agedMc, atHome, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
@@ -19,7 +20,7 @@ export function hireCrew(id){
   const sh=state.ship, x=sh.crewBoard.cands.find(c=>c.id===id); if(!x) return;
   const why=hireBlock(x); if(why){ toast(why); return; }
   const wage=CREW_LV[x.lv-1].wage, paid=wageOf(wage);
-  subW('mc',paid);
+  subW('mc',paid); spend(paid,'crew');
   sh.crew.push({id:x.id,name:x.name,role:x.role,lv:x.lv,xp:CREW_LV[x.lv-1].xp,wage,until:addDays(todayStr(),CREW_DAYS-1),cancel:false,idle:false});
   emit('crewJoined',x);
   sh.crewBoard.cands=sh.crewBoard.cands.filter(c=>c.id!==id);
@@ -31,7 +32,7 @@ export function promoteCrew(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m) return;
   const why=promoteBlock(m); if(why){ toast(why); return; }
   const L=nextLv(m), paid=wageOf(L.wage);
-  subW('mc',paid); m.lv++; m.wage=L.wage;
+  subW('mc',paid); spend(paid,'crew'); m.lv++; m.wage=L.wage;
   emit('crewPromoted',m);
   save(); render(); toast(`${m.name} asciende a ${L.name.toLowerCase()} · −${paid} ¢, cobrará ${paid} ¢/sem`,'win');
 }
@@ -52,7 +53,7 @@ export function rehireCrew(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;
   const due=wageOf(m.wage);
   if(state.wallet.mc<due){ toast('Recursos insuficientes'); return; }
-  subW('mc',due); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
+  subW('mc',due); spend(due,'wages'); Object.assign(m,{until:addDays(todayStr(),CREW_DAYS-1),idle:false,cancel:false});
   save(); render(); toast(`${m.name} vuelve a contrato · −${due} ¢`);
 }
 export let crewReleasing=null;   // primer toque de «Despedir ya» pide confirmación
@@ -90,7 +91,7 @@ export function sweep(){
   const b=state.ship.board, cost=sweepCost();
   if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
   if(state.wallet.mc<cost){ toast('Recursos insuficientes'); return; }
-  subW('mc',cost); b.signal=0; b.offers.push(freshOffer(b.offers));
+  subW('mc',cost); spend(cost,'sweep'); b.signal=0; b.offers.push(freshOffer(b.offers));
   save(); render(); toast(`Barrido de señal: nueva transmisión · −${cost} ¢`);
 }
 export let offerDiscarding=null;   // primer toque de ✕ pide confirmación
@@ -118,7 +119,7 @@ export function buildMod(k){
   const c=modCost(k); if(!c||!atHome()) return;
   if(!canAfford(c)){ toast('Recursos insuficientes'); return; }
   tickBoard();   // la señal acumulada hasta ahora va al ritmo de antes
-  for(const [r,n] of Object.entries(c)) subW(r,n);
+  for(const [r,n] of Object.entries(c)) subW(r,n); spend(c.mc,'yard');
   const m=mod(k); if(m.lv===0) m.cond=100; m.lv++;
   tickBoard();   // con un hueco más entra la transmisión que esperaba
   save(); render(); toast(`${MODS[k].name} Nv.${m.lv} ✓`);
@@ -126,16 +127,16 @@ export function buildMod(k){
 export function repairMod(k){
   const m=mod(k), q=repairQuote(k);
   if(q.pts<=0){ toast('Recursos insuficientes'); return; }
-  subW('mc',q.mc); m.cond+=q.pts; save(); render(); toast(`${MODS[k].name} reparado +${q.pts}%`);
+  subW('mc',q.mc); spend(q.mc,'repair'); m.cond+=q.pts; save(); render(); toast(`${MODS[k].name} reparado +${q.pts}%`);
 }
 export function buyMat(k,n){
   if(!atHome()) return;
   const c=buyPrice(k)*n; if(state.wallet.mc<c){ toast('Recursos insuficientes'); return; }
-  subW('mc',c); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
+  subW('mc',c); spend(c,'buy'); addW(k,n); save(); render(); toast(`+${n} ${RES[k].sym} ${RES[k].name} · −${c} ¢`);
 }
 export function sellMat(k){
   if(state.wallet[k]<1||!atHome()) return;
-  const p=sellOf(k); subW(k,1); addW('mc',p); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ¢`);
+  const p=sellOf(k); subW(k,1); addW('mc',p); earn(p,'sale'); save(); render(); toast(`−1 ${RES[k].sym} · +${p} ¢`);
 }
 
 /* ---------- listas de Commander ---------- */

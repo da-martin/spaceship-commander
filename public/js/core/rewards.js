@@ -1,6 +1,7 @@
 /* Economía de Commander: méritos y rango, monedero, y lo que paga o devuelve
  * completar tareas y marcar hábitos. */
 import { AREA_RES, EF_MC, effOf, FREE_MC, MODS, payRound, RANKS, RES, ROLES, WAGE_CUT, WEAR_NEG, XP_BONUS } from '../config.js';
+import { earn, unearn } from './books.js';
 import { emit } from './events.js';
 import { eff, mod, onComplete, onUndo, wear } from './ship.js';
 import { state } from '../store.js';
@@ -38,23 +39,24 @@ export const gainText=(g)=> `+${g.mc} ¢${g.res?`  +${1+(g.bonus||0)} ${RES[g.re
 // También sirve para las acciones rápidas del Focus (tarea fácil, sin área).
 export function grantTask(x,day=todayStr()){
   const ef=effOf(x), g={mc:payRound(EF_MC*ef*(1+perk('quarter')),ef),res:pickAreaRes(x),ef};
-  addW('mc',g.mc); if(g.res) addW(g.res,1);
+  addW('mc',g.mc); earn(g.mc,'task',day); if(g.res) addW(g.res,1);
   x.grant=g; x.doneOn=day; onComplete(x,g,day); emit('track',x,'task','+',day,ef); return g;
 }
 export function revokeTask(x){
-  emit('track',x,'task','-',x.doneOn||todayStr());
+  const day=x.doneOn||todayStr();
+  emit('track',x,'task','-',day);
   delete x.doneOn;
   if(!x.grant) return;
-  subW('mc',x.grant.mc); if(x.grant.res) subW(x.grant.res,1);
+  subW('mc',x.grant.mc); unearn(x.grant.mc,'task',x.grant.day||day); if(x.grant.res) subW(x.grant.res,1);
   onUndo(x.grant); delete x.grant;
 }
 export function checkHabit(h,k){
   const ef=effOf(h), g={mc:payRound((EF_MC+perk('instructor'))*ef,ef),res:pickAreaRes(h),ef};
-  addW('mc',g.mc); if(g.res) addW(g.res,1);
+  addW('mc',g.mc); earn(g.mc,'habit',k); if(g.res) addW(g.res,1);
   h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); emit('track',h,'habit','+',k,ef); return g;
 }
 export function uncheckHabit(h,k){
-  if(h.g?.[k]){ emit('track',h,'habit','-',k); subW('mc',h.g[k].mc); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
+  if(h.g?.[k]){ emit('track',h,'habit','-',k); subW('mc',h.g[k].mc); unearn(h.g[k].mc,'habit',k); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }
 // El primer toque del día fija lo que vale cada toque ese día (g.tap), para que
 // −1 reste lo mismo aunque la dificultad cambie a media jornada.
@@ -62,7 +64,7 @@ export function freeTap(h,k){ const p=h.g?.[k]; if(p?.tap!==undefined) return p.
 export function tapFree(h,k){
   const first=(h.log?.[k]||0)===0;
   const g={mc:freeTap(h,k),res:null};
-  addW('mc',g.mc);
+  addW('mc',g.mc); earn(g.mc,'free',k);
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
   if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
@@ -96,7 +98,7 @@ export function cleanDays(h){
 export function untapFree(h,k){
   h.log=h.log||{}; if(h.log[k]>0) emit('track',h,'habit','-',k);
   h.log[k]=Math.max(0,(h.log[k]||0)-1);
-  subW('mc',freeTap(h,k));
+  const n=freeTap(h,k); subW('mc',n); unearn(n,'free',k);
   if(h.log[k]>0&&h.g?.[k]) h.g[k].at=Date.now();
   if(h.log[k]===0&&h.g?.[k]){ if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
 }

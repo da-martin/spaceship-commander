@@ -1,6 +1,6 @@
 /* Hoja de servicios: rango y tripulación. */
 import { CREW_DAYS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
-import { crewHint, crewUnlocked, dayWage, debtOf, settleOf, hireBlock, nextLv, promoteBlock, working, xpReady } from '../core/crew.js';
+import { crewHint, crewUnlocked, dayWage, debtOf, settleOf, hireBlock, nextLv, payDue, payForecast, promoteBlock, working, xpReady } from '../core/crew.js';
 import { atHome, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
 import { berths, berthsUsable } from '../core/ship.js';
@@ -67,6 +67,15 @@ function owedCard(m,fire){
       <div class="mono text-[11px] text-slate-400 mt-1">${debt} ¢ de deuda + ${wageOf(m.wage)} ¢ de la semana siguiente</div>
     </div>`;
 }
+// Un cobro en riesgo por línea; el de mañana, en rojo: ya solo queda lo que ganes hoy.
+function payWarn(risks){
+  const t=todayStr(), tom=addDays(t,1), need=payDue()-state.wallet.mc;
+  const when=(d)=>d===tom?'mañana':fDate(d);
+  const lines=risks.map(p=>`<li class="${p.day===tom?'text-red-300':''}">${when(p.day)} · ${escapeHtml(p.name)} · ${p.due}&nbsp;¢ · faltan ${p.short}&nbsp;¢</li>`).join('');
+  return `<span class="block">Con el saldo de ahora (${state.wallet.mc}&nbsp;¢) no llega para ${risks.length>1?'estos sueldos':'este sueldo'}. Quien no cobre dejará de trabajar y acumulará deuda.</span>
+    <ul class="mt-1 space-y-0.5">${lines}</ul>
+    ${risks.length>1&&need>0?`<span class="block mt-1">Para pagar a todos esta semana faltan ${need}&nbsp;¢.</span>`:''}`;
+}
 export function renderCrew(){
   const sh=state.ship;
   // Bloqueada: se rellenan los mismos destinos con la pista y se sale antes de
@@ -81,10 +90,13 @@ export function renderCrew(){
     document.getElementById('candList').innerHTML=pista;
     return;
   }
-  const wages=sh.crew.filter(m=>working(m)&&!m.cancel).reduce((a,m)=>a+wageOf(m.wage),0), short=state.wallet.mc<wages;
+  const wages=sh.crew.filter(m=>working(m)&&!m.cancel).reduce((a,m)=>a+wageOf(m.wage),0);
   const debts=sh.crew.reduce((a,m)=>a+debtOf(m),0);
   document.getElementById('crewBerths').innerHTML=`· literas ${sh.crew.length}/${berths()}${wages?` · sueldos ${wages} ¢/sem`:''}${debts?` · deudas ${debts} ¢`:''}`;
-  const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!short); cw.textContent=short?`Saldo insuficiente para los sueldos de la semana (${wages} ¢): quien no cobre dejará de trabajar y acumulará deuda.`:'';
+  // Aviso de impago: los cobros de los próximos 7 días que no salen del saldo de ahora.
+  const risks=payForecast().filter(p=>!p.ok), riskOf=Object.fromEntries(risks.map(p=>[p.id,p]));
+  const cw=document.getElementById('crewWarn'); cw.classList.toggle('hidden',!risks.length);
+  cw.innerHTML=risks.length?payWarn(risks):'';
   const cl=document.getElementById('crewList'), home=atHome();
   cl.innerHTML=sh.crew.map(m=>{
     const R=ROLES[m.role], conf=crewReleasing===m.id;
@@ -92,6 +104,7 @@ export function renderCrew(){
     if(m.owed) return owedCard(m,fire);
     const status=m.idle?'<span class="text-slate-400">Sin contrato · desembarca al volver al Sistema Madre</span>'
       :m.cancel?`<span class="text-amber-300">Contrato cancelado · se marcha el ${fDate(addDays(m.until,1))}</span>`
+      :riskOf[m.id]?`<span class="text-amber-300">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · faltan ${riskOf[m.id].short}&nbsp;¢</span>`
       :`<span class="text-slate-400">Próximo cobro: ${fDate(addDays(m.until,1))} · ${wageOf(m.wage)} ¢ · se renueva solo</span>`;
     const main=m.idle?`<button data-crew="rehire" data-id="${m.id}" class="${btnCls(state.wallet.mc>=wageOf(m.wage))} flex-1" ${state.wallet.mc>=wageOf(m.wage)?'':'disabled'}>Recontratar ${CREW_DAYS} días · ${wageOf(m.wage)} ¢</button>`
       :`<button data-crew="cancel" data-id="${m.id}" class="flex-1 px-2.5 py-2 rounded-lg text-sm bg-slate-800 border ${m.cancel?'border-amber-600 text-amber-200 hover:border-amber-400':'border-slate-700 text-slate-300 hover:border-slate-500'}">${m.cancel?'Mantener contrato':'Cancelar contrato'}</button>`;

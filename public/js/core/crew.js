@@ -1,5 +1,6 @@
 /* Tripulación: candidatos, contratos semanales, sueldos, experiencia y ascensos. */
 import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, RANKS, ROLES } from '../config.js';
+import { spend } from './books.js';
 import { logShip } from './log.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
 import { berths, berthsUsable, mod } from './ship.js';
@@ -93,7 +94,7 @@ export const settleOf=(m,t=todayStr())=>debtOf(m,t)+wageOf(m.wage);
 export function payDebt(m,t=todayStr()){
   const due=settleOf(m,t);
   if(!m.owed||state.wallet.mc<due) return null;
-  subW('mc',due); Object.assign(m,{owed:false,cancel:false,until:addDays(t,CREW_DAYS)});
+  subW('mc',due); spend(due,'debt',t); Object.assign(m,{owed:false,cancel:false,until:addDays(t,CREW_DAYS)});
   return due;
 }
 // Cobra cada semana vencida mientras haya saldo. Si no alcanza, el tripulante
@@ -106,7 +107,7 @@ export function crewPayroll(t){
     if(m.idle||m.owed) continue;
     while(m.until<t){
       const due=wageOf(m.wage);
-      if(!m.cancel&&state.wallet.mc>=due){ subW('mc',due); paid+=due; m.until=addDays(m.until,CREW_DAYS); continue; }
+      if(!m.cancel&&state.wallet.mc>=due){ subW('mc',due); spend(due,'wages',t); paid+=due; m.until=addDays(m.until,CREW_DAYS); continue; }
       if(!m.cancel){ m.owed=true; notes.push(`${m.name} no ha cobrado: deja de trabajar y su deuda sube ${dayWage(m)} ¢ al día hasta que le pagues o le despidas`); }
       else if(sh.contract){ m.idle=true; notes.push(`${m.name} termina su contrato; sigue a bordo sin contrato hasta volver`); }
       else { m.gone=true; notes.push(`${m.name} termina su contrato y se marcha`); }
@@ -116,6 +117,34 @@ export function crewPayroll(t){
   sh.crew=sh.crew.filter(m=>!m.gone);
   return (paid||notes.length)?{paid,notes,left:notes.length>0}:null;
 }
+/* ---------- aviso de impago ---------- */
+// Repite crewPayroll los próximos `days` días, de mañana en adelante: mismo
+// orden y sueldo entero o nada. Los sueldos se cobran al empezar el día, con el
+// saldo que dejó el anterior; `income(día)` es lo que se prevé ganar ese día.
+// Sin previsión vale 0: el peor caso, solo con el saldo de ahora (lo que se
+// gane hoy queda de margen). Quien no cobra deja de cobrar en la simulación,
+// como en el juego, y los demás siguen con el saldo que queda.
+// Un cobro por tripulante y día: {day,id,name,due,bal,ok,short}.
+export function payForecast(days=CREW_DAYS,income=()=>0,t=todayStr()){
+  let bal=state.wallet.mc; const out=[];
+  const crew=state.ship.crew.filter(m=>working(m)&&!m.cancel).map(m=>({m,until:m.until,out:false}));
+  for(let i=1;i<=days;i++){
+    const day=addDays(t,i);
+    for(const c of crew){
+      while(!c.out&&c.until<day){
+        const due=wageOf(c.m.wage), ok=bal>=due;
+        out.push({day,id:c.m.id,name:c.m.name,due,bal,ok,short:ok?0:due-bal});
+        if(ok){ bal-=due; c.until=addDays(c.until,CREW_DAYS); } else c.out=true;
+      }
+    }
+    bal+=Math.max(0,Math.round(income(day)||0));
+  }
+  return out;
+}
+// Lo que hay que cobrar en esos días si todos cobrasen, para decir cuánto falta en total.
+export const payDue=(days=CREW_DAYS,t=todayStr())=>state.ship.crew.filter(m=>working(m)&&!m.cancel)
+  .reduce((a,m)=>{ let n=0; for(let u=m.until;u<addDays(t,days);u=addDays(u,CREW_DAYS)) n++; return a+n*wageOf(m.wage); },0);
+
 // Al volver al Sistema Madre desembarcan los que siguen a bordo sin contrato y
 // los que tienen sueldo pendiente y se despidieron durante la misión (sin cobrar).
 // Las noticias del tablón que esperaban a la vuelta las da quien llama.
