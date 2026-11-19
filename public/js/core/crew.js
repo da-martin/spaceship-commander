@@ -68,11 +68,12 @@ export function missionCrewXp(c,end=false){
   c.xpDays=days;
   return gainCrewXp(state.ship.crew,(days-done)*CREW_XP_DAY);
 }
-// Simulación de VR Training terminada: XP para los del escuadrón que sigan a
-// bordo. Los holoperfiles de tripulación llevan el id del tripulante tras «c-».
+// Los holoperfiles de VR Training llevan el id del tripulante tras «c-».
+export const profileId=(m)=>'c-'+String(m.id).slice(0,60);
+// Simulación de VR Training terminada: XP para los del escuadrón que sigan a bordo.
 export function trainCrewXp(squadIds){
   const ids=new Set(squadIds);
-  return gainCrewXp(state.ship.crew.filter(m=>ids.has('c-'+String(m.id).slice(0,60))),CREW_XP_RUN);
+  return gainCrewXp(state.ship.crew.filter(m=>ids.has(profileId(m))),CREW_XP_RUN);
 }
 // La tripulación se abre al mejorar el Puente. La segunda condición es una red
 // de seguridad: crewPayroll() corre desde dailyTick sin depender de la interfaz,
