@@ -35,9 +35,12 @@ El Sistema Madre también tiene ficha: es la que hoy está repartida entre `conf
 
 - **Cualquier miembro** propone un viaje desde la vista de alianza, eligiendo el destino. Quien propone vota sí.
 - Solo hay una propuesta abierta a la vez, y no se puede proponer durante una travesía.
+- Cada miembro vota **sí** o **no**, y puede cambiar su voto mientras la votación esté abierta.
 - La votación dura **3 días** (72 h desde que se propone).
 - **Si todos dicen que sí, zarpan en ese momento**, sin esperar al plazo.
-- Al cabo de 3 días, zarpan los que han dicho que sí. **Quien no ha confirmado se queda** en el sistema actual y sale de la alianza, con un aviso en el chat.
+- **Si más de la mitad dice que no, la propuesta se cancela en ese momento** y nadie se mueve. Un empate no cancela.
+- Al cabo de 3 días, zarpan los que han dicho que sí. **Quien ha dicho que no o no ha votado se queda** en el sistema actual y sale de la alianza, con un aviso en el chat.
+- Quien entra en la alianza con una votación abierta también vota, y cuenta para la mayoría.
 - Quien propone puede retirar la propuesta mientras esté abierta.
 - Las votaciones y las salidas se anuncian en el chat como hitos (como los ascensos y las misiones).
 
@@ -65,6 +68,14 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 - **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta.
 - Cuando se acaba la historia se puede seguir en el sistema todo el tiempo que se quiera, con sus misiones normales.
 
+## Invitaciones entre sistemas
+
+- Se puede invitar a alguien que está en otro sistema. La invitación dice dónde está la alianza.
+- **Aceptar una invitación desde otro sistema lanza tu propia travesía** hasta el sistema de la alianza, con los días de ese destino. Tu misión en curso se cancela sin penalización, igual que al zarpar.
+- Si la alianza está de travesía, viajas a su destino.
+- Quien está de travesía no puede aceptar invitaciones hasta llegar.
+- Durante tu travesía ya eres miembro: tienes chat y votas, pero no puedes proponer viajes hasta llegar.
+
 ## Misiones sin plazo
 
 Valen para el Sistema Madre y para cualquier otro sistema.
@@ -89,8 +100,8 @@ La alianza deja de ser solo «quién está con quién»: pasa a tener ubicación
 
 - `alliances.system`: dónde está la alianza; `NULL` es el Sistema Madre.
 - Tabla nueva `alliance_trips`: id, alianza, destino, quién la propone, `created_at`, `closes_at`, estado (`open`, `sailing`, `done`, `withdrawn`), `departed_at` y `arrives_at`.
-- Tabla nueva `alliance_trip_votes`: viaje y jugador.
-- **La votación se resuelve sin relojes**: cada petición a `/api/alliance` comprueba si todos han votado o si ha pasado `closes_at`, y si toca hace la salida (saca de la alianza a quien no votó, fija `departed_at` y `arrives_at` y escribe los hitos en el chat). No hace falta un cron.
+- Tabla nueva `alliance_trip_votes`: viaje, jugador y voto (sí o no). El estado de `alliance_trips` admite también `cancelled`.
+- **La votación se resuelve sin relojes**: cada petición a `/api/alliance` comprueba si todos han votado que sí, si más de la mitad ha votado que no o si ha pasado `closes_at`. Si hay mayoría de no, cancela; si toca zarpar, hace la salida (saca de la alianza a quien no votó, fija `departed_at` y `arrives_at` y escribe los hitos en el chat). No hace falta un cron.
 - La foto de `GET /api/alliance` incluye la propuesta abierta y la travesía en curso.
 
 En el cliente:
@@ -114,8 +125,6 @@ En el cliente:
 ## Por decidir
 
 - **Nombre.** En este plan, «viaje» para lo que se propone y se vota y «travesía» para la misión de ir. Alternativas: «expedición», «salto».
-- **Votar que no.** Hoy solo se vota sí o se calla. ¿Hace falta un «no» explícito? Si vota que no la mayoría, ¿se cancela la propuesta en vez de quedarse todos y zarpar quien propuso?
-- **Invitaciones entre sistemas.** Si te invitan desde otro sistema, ¿aceptar lanza tu propia travesía hasta ellos, o solo se puede invitar a quien está en el mismo sistema?
 - **Quien sale de la alianza en otro sistema** se queda allí. Puede crear una alianza de uno y proponer un viaje de vuelta. ¿Basta con eso?
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan la travesía, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
