@@ -81,11 +81,13 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 Valen para el Sistema Madre y para cualquier otro sistema.
 
-- Llegan al tablón como las demás (más o menos 1 de cada 6) y caducan en el tablón igual que las otras.
+- Llegan al tablón como las demás (`ORBIT_P` en `config.js`; la idea es 1 de cada 6) y caducan en el tablón igual que las otras. **Por ahora `ORBIT_P` es 0**: el código está, pero no llega ninguna.
 - Cuota grande (entre 7 y 14 días al ritmo medio) y **sin plazo**: terminan cuando se cumple la cuota.
-- La paga es fija: no sube con los días en el tablón.
+- La paga por punto es la de una misión de 1 día (sin plazo no hay prisa que pagar), y no sube con los días en el tablón. Nunca son urgentes, y no cuentan como la misión fácil que el tablón siempre intenta tener.
 - Se hacen **en órbita**: con una de estas en curso sigues teniendo mercado, astillero y tripulación. Su coste es que ocupan el hueco de misión: mientras la tengas no puedes aceptar otra.
 - Se pueden abandonar sin daño de reputación y sin cobrar nada.
+- La tripulación gana su XP por día de misión, como en las demás. En órbita, quien termina su contrato se marcha al momento, como en el sistema.
+- En pantalla, la misión en curso va dentro del sistema, encima de sus pestañas, y el tablón sigue a la vista con «Ya tienes una misión» en cada oferta.
 
 «Tener misión» significaba «estar fuera del sistema» (`atHome()`). Desde la fase 1 lo decide `docked()` según el tipo de contrato (`CONTRACT_KINDS` en `config.js`):
 
@@ -118,7 +120,7 @@ En el cliente:
 ## Fases
 
 1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles. Pendiente para la fase 3: `normShip` descarta los contratos con cuota 0, y la travesía los necesita.
-2. **Misiones sin plazo** en el Sistema Madre: el tipo `orbit`, su oferta en el tablón y abandonarlas.
+2. **Misiones sin plazo** (hecha, sin activar): el tipo `orbit`, su oferta en el tablón (`genOrbitOffer`), aceptarlas (`contractFrom`) y abandonarlas. Para que lleguen al tablón basta con subir `ORBIT_P`; entonces tocará anunciarlo en las novedades.
 3. **Travesía**: el contrato `travel`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
 5. **Contenido**: el primer sistema con su historia, su catálogo y su mercado, como se hizo con las holocubiertas.

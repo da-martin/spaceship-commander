@@ -1,5 +1,5 @@
 /* Tripulación: candidatos, contratos semanales, sueldos, experiencia y ascensos. */
-import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, RANKS, ROLES } from '../config.js';
+import { CANDS_N, CREW_DAYS, isAway, CREW_FIRST, CREW_LAST, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, RANKS, ROLES } from '../config.js';
 import { spend } from './books.js';
 import { logShip } from './log.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
@@ -109,7 +109,7 @@ export function crewPayroll(t){
       const due=wageOf(m.wage);
       if(!m.cancel&&state.wallet.mc>=due){ subW('mc',due); spend(due,'wages',t); paid+=due; m.until=addDays(m.until,CREW_DAYS); continue; }
       if(!m.cancel){ m.owed=true; notes.push(`${m.name} no ha cobrado: deja de trabajar y su deuda sube ${dayWage(m)} ¢ al día hasta que le pagues o le despidas`); }
-      else if(sh.contract){ m.idle=true; notes.push(`${m.name} termina su contrato; sigue a bordo sin contrato hasta volver`); }
+      else if(isAway(sh.contract)){ m.idle=true; notes.push(`${m.name} termina su contrato; sigue a bordo sin contrato hasta volver`); }
       else { m.gone=true; notes.push(`${m.name} termina su contrato y se marcha`); }
       break;
     }
