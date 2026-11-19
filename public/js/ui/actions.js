@@ -1,6 +1,6 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
-import { CREW_DAYS, CREW_LV, hasDeadline, isAway, MODS, REP_DAYS, RES } from '../config.js';
+import { CREW_DAYS, CREW_LV, hasDeadline, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
 import { contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
@@ -76,12 +76,10 @@ export function acceptOffer(id){
   sh.contract=contractFrom(o);
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
   save(); render(); scrollTo({top:0,behavior:'smooth'});
-  toast(isAway(o)?`Misión aceptada: ${o.topic} · zarpas ${herePrep('de')}`:`Misión sin plazo aceptada: ${o.topic} · en órbita, sin salir ${herePrep('de')}`);
+  toast(`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic} · zarpas ${herePrep('de')}`);
 }
 export function abandonContract(){
   const c=state.ship.contract; if(!c) return;
-  // sin plazo: se deja sin cobrar y sin daño de reputación; no se había salido del sistema
-  if(!hasDeadline(c)){ state.ship.contract=null; save(); render(); toast('Misión sin plazo abandonada · sin cobro'); return; }
   tickBoard();
   if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
   state.ship.contract=null; const r=[returnHome(),boardNews()].filter(Boolean).join(' · '); save(); render();

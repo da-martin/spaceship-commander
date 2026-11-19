@@ -25,30 +25,10 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 // ilustración de verdad, sin tocar nada más.
 // Fondo según dónde esté la nave (`scene`):
 //   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
-//   'orbit' — misión sin plazo: el planeta, de cerca, ocupa todo el lateral izquierdo.
 //   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
 //   'jump'  — salto entre sistemas: un túnel de luz violeta delante del morro del que brotan las estrellas.
 export function shipBackdrop(scene){
   if(scene==='jump') return JUMP_BACKDROP;
-  if(scene==='orbit'){
-    // Borde derecho en x=88, a un palmo de la nave. No se corre con --planet-x:
-    // en el recuadro alto taparía los módulos de babor.
-    const C='cx="-340" cy="150"', R=428;
-    return `<defs>
-      <radialGradient id="bigG" cx="54" cy="90" r="492" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a8db0"/><stop offset=".22" stop-color="#1d5878"/><stop offset=".55" stop-color="#0f2f49"/><stop offset="1" stop-color="#081422"/></radialGradient>
-      <radialGradient id="bigAtmo" ${C} r="${R+22}" gradientUnits="userSpaceOnUse"><stop offset=".94" stop-color="#38bdf8" stop-opacity="0"/><stop offset=".954" stop-color="#38bdf8" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
-      <clipPath id="bigC"><circle ${C} r="${R}"/></clipPath>
-    </defs>
-    <circle cx="236" cy="86" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="212" cy="238" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="262" cy="160" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="150" cy="26" r="1.3" fill="#7dd3fc" opacity=".5"/>
-    <circle cx="280" cy="40" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="196" cy="276" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="250" cy="12" r="1.3" fill="#7dd3fc" opacity=".5"/><circle cx="290" cy="210" r="1.3" fill="#7dd3fc" opacity=".5"/>
-    <circle ${C} r="${R+22}" fill="url(#bigAtmo)"/>
-    <circle ${C} r="${R}" fill="url(#bigG)"/>
-    <g clip-path="url(#bigC)">
-      <g fill="#2f8f7a" opacity=".45"><path d="M18 40 q22 -14 44 -4 q14 10 2 22 q-20 10 -38 2 q-16 -6 -8 -20Z"/><path d="M-4 128 q26 -12 52 -2 q12 12 -4 22 q-26 10 -44 -2Z"/><path d="M30 196 q18 -8 30 4 q2 12 -14 14 q-18 0 -16 -18Z"/><path d="M-10 250 q30 -10 60 4 q8 12 -10 18 q-30 6 -50 -6Z"/></g>
-      <g fill="none" stroke="#e0f2fe" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"><path d="M-20 84 q50 -10 104 6"/><path d="M-20 176 q50 -8 108 4"/><path d="M-20 232 q40 -6 96 2"/></g>
-    </g>
-    <circle ${C} r="${R}" fill="none" stroke="#7dd3fc" stroke-opacity=".5" stroke-width="1.3"/>`;
-  }
   if(scene==='home'){
     // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
     const P='cx="-20" cy="330" r="120"';
@@ -98,8 +78,8 @@ const JUMP_BACKDROP=(()=>{
 // La nave ocupa solo parte del dibujo: deja espacio alrededor (y margen para
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
-// Dónde está la nave para el dibujo: en el sistema, en órbita (misión sin plazo), en misión o saltando a otro sistema.
-export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':c.kind==='jump'?'jump':isAway(c)?'away':'orbit'; };
+// Dónde está la nave para el dibujo: en el sistema, en misión (con plazo o sin él) o saltando a otro sistema.
+export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':c.kind==='jump'?'jump':'away'; };
 export function shipArt(){
   const m=state.ship.modules, scene=shipScene();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
@@ -110,7 +90,7 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='orbit'?'en órbita, '+herePrep('en'):scene==='jump'?'saltando a otro sistema':'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='jump'?'saltando a otro sistema':'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
@@ -211,14 +191,14 @@ export function renderMission(c){
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
       <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${diffChip(c.diff)}${c.urgent?URGENT_CHIP:''}
-      <span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>
+      ${hasDeadline(c)?`<span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>`:'<span class="mono text-[11px] text-slate-400">sin plazo</span>'}
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
       <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
-    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:'si expira, cobro parcial'}</div>
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
@@ -235,25 +215,6 @@ export function renderMission(c){
 // «Abandonar misión» pide un segundo toque en 3 s
 function wireAbandon(ab,sure){
   ab.onclick=()=>{ if(ab.dataset.sure){ abandonContract(); return; } ab.dataset.sure='1'; ab.textContent=sure; ab.classList.add('text-red-300','border-red-700'); setTimeout(()=>{ if(ab.isConnected){ delete ab.dataset.sure; ab.textContent='Abandonar misión'; ab.classList.remove('text-red-300','border-red-700'); } },3000); };
-}
-// Misión sin plazo en curso: se hace en órbita, así que va dentro del sistema, encima de sus pestañas.
-export function renderOrbit(c){
-  const pct=Math.min(100,Math.round(c.progress/c.quota*100)), el=document.getElementById('homeOrbit');
-  el.innerHTML=`
-    <div class="rounded-xl border border-cyan-800 bg-cyan-950/20 p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="sys-label">Misión sin plazo</span>
-        <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${diffChip(c.diff)}
-      </div>
-      <div class="text-slate-200 mt-1">${c.flavor}</div>
-      <div class="flex items-center gap-2 mt-3">
-        <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
-        <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
-      </div>
-      <div class="mono text-[11px] text-slate-400 mt-1.5">Recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · termina al reunir la cuota · en órbita: mercado, astillero y tripulación siguen abiertos, pero no puedes aceptar otra misión</div>
-      <div class="flex mt-2.5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>
-    </div>`;
-  wireAbandon(el.querySelector('[data-act="abandon"]'),'¿Seguro? Sin pago');
 }
 
 export const URGENT_CHIP='<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-amber-600 text-amber-300">URGENTE</span>';
@@ -313,8 +274,8 @@ export function renderShip(){
   const ss=document.getElementById('shipStatus');
   const away=isAway(c);
   ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(away?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
-  ss.textContent=away?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:'⌂ '+herePrep('En')+(c?` · misión ${fmtEf(c.progress)}/${c.quota}`:'');
-  if(away) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
+  ss.textContent=away?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?missionLeftTxt(c):'sin plazo'}`:'⌂ '+herePrep('En');
+  if(away&&hasDeadline(c)) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
   // esquema: tocar un módulo lleva al astillero (o a las reparaciones a bordo en misión)
@@ -345,9 +306,6 @@ export function renderShip(){
   document.getElementById('homeDock').classList.toggle('hidden',away);
   document.getElementById('homeMission').classList.toggle('hidden',!away);
   if(away) renderMission(c);
-  const orbit=!!c&&!away;
-  document.getElementById('homeOrbit').classList.toggle('hidden',!orbit);
-  if(orbit) renderOrbit(c);
   document.querySelectorAll('#homeTabs [data-tab]').forEach(t=>{ const on=t.dataset.tab===homeTab; t.setAttribute('aria-selected',on); t.tabIndex=on?0:-1; t.onclick=()=>showHomeTab(t.dataset.tab,false); });
   document.querySelectorAll('#homeDock [data-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.pane!==homeTab));
 
@@ -358,24 +316,23 @@ export function renderShip(){
   const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
   if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   offers.forEach(o=>{
-    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, orb=!isAway(o), el=document.createElement('div');
+    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, long=!hasDeadline(o), el=document.createElement('div');
     el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
         <span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
-        <span class="mono text-[11px] text-slate-400">${orb?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
+        <span class="mono text-[11px] text-slate-400">${long?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
         <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
       </div>
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">${orb?`Reúne ${o.quota} puntos de esfuerzo, sin plazo · en órbita, sin salir ${herePrep('de')}`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${long?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
       <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">
         <span class="mono text-xs text-amber-300">${rewardText({mc:Math.floor(agedMc(o)*cargoMult()),mats:o.reward.mats})}</span>
-        ${c?`<button data-offer="${o.id}" class="ml-auto ${btnCls(false)} px-3" disabled>Ya tienes una misión</button>`
-          :`<button data-offer="${o.id}" class="ml-auto py-1.5 px-3 rounded-lg text-sm font-semibold ${sure?'bg-cyan-500 text-slate-950 hover:bg-cyan-400':'bg-cyan-700 hover:bg-cyan-600 text-white'}">${sure?(orb?'¿Aceptar? Confirmar':'¿Zarpar? Confirmar'):(orb?'Aceptar':'Aceptar y zarpar')}</button>`}
+        <button data-offer="${o.id}" class="ml-auto py-1.5 px-3 rounded-lg text-sm font-semibold ${sure?'bg-cyan-500 text-slate-950 hover:bg-cyan-400':'bg-cyan-700 hover:bg-cyan-600 text-white'}">${sure?'¿Zarpar? Confirmar':'Aceptar y zarpar'}</button>
       </div>`;
-    if(!c) el.querySelector('[data-offer]').onclick=()=>acceptOffer(o.id);
+    el.querySelector('[data-offer]').onclick=()=>acceptOffer(o.id);
     el.querySelector('[data-drop]').onclick=()=>discardOffer(o.id);
     ol.appendChild(el);
   });
