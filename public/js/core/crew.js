@@ -1,5 +1,6 @@
-/* Tripulación: candidatos, contratos semanales y sueldos. */
-import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, RANKS, ROLES } from '../config.js';
+/* Tripulación: candidatos, contratos semanales, sueldos, experiencia y ascensos. */
+import { CANDS_N, CREW_DAYS, CREW_FIRST, CREW_LAST, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, RANKS, ROLES } from '../config.js';
+import { logShip } from './log.js';
 import { rankIdx, subW, wageOf } from './rewards.js';
 import { berths, berthsUsable, mod } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
@@ -21,6 +22,54 @@ export function hireBlock(x){
   if(state.ship.crew.length>=berthsUsable()) return 'Camarotes dañados · repáralos';
   if(state.wallet.mc<wageOf(L.wage)) return 'Recursos insuficientes';
   return null;
+}
+
+/* ---------- experiencia y ascensos ---------- */
+// La experiencia es la acumulada desde que entró de aprendiz: al contratar a
+// alguien de más nivel empieza con la de su nivel. Se gana solo a bordo y con
+// contrato, y nunca asciende sola: el comandante decide si paga el ascenso.
+export const nextLv=(m)=>CREW_LV[m.lv]||null;
+export const xpReady=(m)=>!m.idle&&!!nextLv(m)&&m.xp>=nextLv(m).xp;
+// por qué no se puede ascender (null si se puede); cuesta lo mismo que el sueldo nuevo
+export function promoteBlock(m){
+  const L=nextLv(m);
+  if(!L) return 'Nivel máximo';
+  if(m.idle) return 'Sin contrato';
+  if(m.xp<L.xp) return `Faltan ${L.xp-m.xp} XP`;
+  if(rankIdx()<L.rank) return 'Requiere rango '+RANKS[L.rank][0];
+  if(state.wallet.mc<wageOf(L.wage)) return 'Recursos insuficientes';
+  return null;
+}
+// Suma `n` XP a quien siga con contrato y avisa en la bitácora de quien acaba
+// de poder ascender. Devuelve a quién se le ha sumado.
+export function gainCrewXp(members,n){
+  const got=[], ready=[];
+  for(const m of members){
+    if(m.idle||n<=0) continue;
+    const was=xpReady(m); m.xp+=n; got.push(m);
+    if(!was&&xpReady(m)) ready.push(m);
+  }
+  if(ready.length) logShip({kind:'crew',tone:'win',title:ready.length>1?'Tripulantes listos para ascender':'Tripulante listo para ascender',
+    lines:ready.map(m=>`${m.name} puede ascender a ${nextLv(m).name.toLowerCase()} · ascenso y sueldo: ${wageOf(nextLv(m).wage)} ¢`)});
+  return got;
+}
+// Días de misión: cada 24 h desde que zarpó suman CREW_XP_DAY. Al terminar
+// (`end`) cuenta también el día empezado, sin pasar de los días del plazo.
+// c.xpDays lleva los ya pagados, para no darlos dos veces.
+export function missionCrewXp(c,end=false){
+  if(!c||!Number.isFinite(+c.acceptedAt)) return [];
+  const ms=Math.max(0,Math.min(Date.now(),+c.endsAt||Infinity)-c.acceptedAt)/864e5;
+  const days=Math.min(+c.days||Infinity,end?Math.max(1,Math.ceil(ms-1e-9)):Math.floor(ms+1e-9));
+  const done=Number.isFinite(+c.xpDays)?+c.xpDays:0;
+  if(days<=done) return [];
+  c.xpDays=days;
+  return gainCrewXp(state.ship.crew,(days-done)*CREW_XP_DAY);
+}
+// Simulación de VR Training terminada: XP para los del escuadrón que sigan a
+// bordo. Los holoperfiles de tripulación llevan el id del tripulante tras «c-».
+export function trainCrewXp(squadIds){
+  const ids=new Set(squadIds);
+  return gainCrewXp(state.ship.crew.filter(m=>ids.has('c-'+String(m.id).slice(0,60))),CREW_XP_RUN);
 }
 // La tripulación se abre al mejorar el Puente. La segunda condición es una red
 // de seguridad: crewPayroll() corre desde dailyTick sin depender de la interfaz,

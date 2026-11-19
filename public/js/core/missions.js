@@ -1,5 +1,5 @@
 import { AGE_BONUS, DIFFS, effOf, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
-import { returnHome } from './crew.js';
+import { missionCrewXp, returnHome } from './crew.js';
 import { logShip } from './log.js';
 import { addW, perk } from './rewards.js';
 import { boardCap, cargoMult, maxDays, mod, repDamaged, signalRate } from './ship.js';
@@ -21,6 +21,7 @@ export function finishContract(frac){
   const p={mc:Math.floor(c.reward.mc*frac*cargoMult()*(1+perk('navigator'))),mats:{}};
   addW('mc',p.mc);
   for(const [k,n] of Object.entries(c.reward.mats||{})){ const q=Math.floor(n*frac); if(q){ addW(k,q); p.mats[k]=q; } }
+  missionCrewXp(c,true);
   state.ship.contract=null;
   return p;
 }
@@ -121,6 +122,7 @@ export function checkContractEnd(){
   tickBoard();
   const home=['De vuelta en el Sistema Madre',returnHome()].filter(Boolean);
   if(c.urgent){
+    missionCrewXp(c,true);
     sh.contract=null;
     logShip({kind:'mission',big:true,tone:'bad',title:`Misión urgente ${c.topic} fallida`,story:missionStory(c,'fail'),
       lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: sin cobro.`,`Reputación dañada hasta el ${fDate(sh.board.repUntil)}: la señal llega a la mitad y no hay misiones urgentes.`,...home]});

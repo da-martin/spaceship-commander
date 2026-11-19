@@ -8,7 +8,8 @@
  *   rankUp(i)             ascenso al rango RANKS[i]
  *   missionWon(c)         la misión `c` se ha completado con éxito
  *   track(x, kind, op, day, ef)   algo se ha marcado o desmarcado (cola de TaskHero)
- *   crewJoined(m)         se ha contratado al tripulante `m` (holoperfil de VR Training) */
+ *   crewJoined(m)         se ha contratado al tripulante `m` (holoperfil de VR Training)
+ *   crewPromoted(m)       el tripulante `m` ha ascendido (sube su holoperfil) */
 const listeners = {};
 export function on(name, fn){ (listeners[name] ||= []).push(fn); }
 export function emit(name, ...args){ for(const fn of listeners[name] || []) fn(...args); }

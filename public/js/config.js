@@ -83,17 +83,22 @@ export const RANKS = [['Cadete',0],['Guardiamarina',100],['Alférez',250],['Teni
 /* ---------- tripulación: contratos semanales prepagados ---------- */
 // BERTHS: literas de serie; los Camarotes suman una más por nivel
 export const BERTHS = 2, CANDS_N = 4, CREW_DAYS = 7;
-// nivel del tripulante: salario semanal y rango mínimo del comandante para contratarlo
-export const CREW_LV = [{name:'Aprendiz',wage:45,rank:0},{name:'Oficial',wage:90,rank:2},{name:'Élite',wage:150,rank:4}];
+// nivel del tripulante: salario semanal, rango mínimo del comandante para contratarlo
+// o ascenderlo, y experiencia acumulada desde la que puede ascender a él.
+// Se contrata hasta CREW_HIRE_MAX: a Élite solo se llega ascendiendo.
+export const CREW_LV = [{name:'Aprendiz',wage:45,rank:0,xp:0},{name:'Veterano',wage:90,rank:2,xp:100},{name:'Oficial',wage:150,rank:4,xp:350},{name:'Élite',wage:225,rank:6,xp:850}];
+export const CREW_HIRE_MAX = 3;
+// experiencia del tripulante: por día de misión con contrato y por simulación de VR Training terminada
+export const CREW_XP_DAY = 10, CREW_XP_RUN = 2;
 export const ROLES = {
-  quarter:   {code:'INT', name:'Intendencia',   eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ en tareas completadas`},
-  instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3],      desc:(v)=>`+${v} ¢ por punto de esfuerzo en hábitos diarios o semanales`},
-  engineer:  {code:'ING', name:'Ingeniería',    eff:[.25,.4,.55], desc:(v)=>`−${pctTxt(v)} de desgaste en los módulos`},
-  medic:     {code:'MNT', name:'Mantenimiento', eff:[1,2,3],      desc:(v)=>`+${v}% de reparación extra al completar`},
-  navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar misiones`},
-  prospector:{code:'PRO', name:'Prospección',   eff:[.15,.25,.35],desc:(v)=>`${pctTxt(v)} de prob. de material extra`},
-  trader:    {code:'COM', name:'Comercio',      eff:[.1,.15,.2],  desc:(v)=>`−${pctTxt(v)} al comprar en el mercado`},
-  pilot:     {code:'PIL', name:'Pilotaje',      eff:[1,2,3],      desc:(v)=>`+${v} ¢ por Progreso en el Protocolo Forster`}
+  quarter:   {code:'INT', name:'Intendencia',   eff:[.15,.25,.4,.55], desc:(v)=>`+${pctTxt(v)} ¢ en tareas completadas`},
+  instructor:{code:'INS', name:'Instrucción',   eff:[1,2,3,4],      desc:(v)=>`+${v} ¢ por punto de esfuerzo en hábitos diarios o semanales`},
+  engineer:  {code:'ING', name:'Ingeniería',    eff:[.25,.4,.55,.7], desc:(v)=>`−${pctTxt(v)} de desgaste en los módulos`},
+  medic:     {code:'MNT', name:'Mantenimiento', eff:[1,2,3,4],      desc:(v)=>`+${v}% de reparación extra al completar`},
+  navigator: {code:'NAV', name:'Navegación',    eff:[.15,.25,.4,.55], desc:(v)=>`+${pctTxt(v)} ¢ al cobrar misiones`},
+  prospector:{code:'PRO', name:'Prospección',   eff:[.15,.25,.35,.45],desc:(v)=>`${pctTxt(v)} de prob. de material extra`},
+  trader:    {code:'COM', name:'Comercio',      eff:[.1,.15,.2,.25],  desc:(v)=>`−${pctTxt(v)} al comprar en el mercado`},
+  pilot:     {code:'PIL', name:'Pilotaje',      eff:[1,2,3,4],      desc:(v)=>`+${v} ¢ por Progreso en el Protocolo Forster`}
 };
 export const CREW_FIRST = [
   'Lina','Tomás','Aiko','Rafa','Noor','Iker','Sasha','Marta','Kofi','Elena','Darío','Yuki','Inés','Omar','Vega','Leo','Nadia','Bruno','Zara','Hugo','Mei','Pau','Ada','Teo',

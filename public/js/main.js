@@ -42,6 +42,7 @@ on('rankUp',i=>toast(`★ Ascenso: ahora eres ${RANKS[i][0]}`,'win'));
 on('track',thTrack);
 // VR Training: cada contratación deja un holoperfil (lo guarda el save() de la contratación).
 on('crewJoined',m=>addProfile(state.rpg,m));
+on('crewPromoted',m=>addProfile(state.rpg,m));
 // Lo que comparte tu juego con la alianza: hitos al chat y el porcentaje del día.
 on('rankUp',i=>shareEvent({kind:'rank',rank:i}));
 on('missionWon',c=>shareEvent({kind:'mission',topic:c.topic}));

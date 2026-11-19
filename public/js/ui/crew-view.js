@@ -1,16 +1,32 @@
 /* Hoja de servicios: rango y tripulación. */
-import { CREW_DAYS, CREW_LV, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
-import { crewHint, crewUnlocked, hireBlock } from '../core/crew.js';
+import { CREW_DAYS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
+import { crewHint, crewUnlocked, hireBlock, nextLv, promoteBlock, xpReady } from '../core/crew.js';
 import { atHome, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
 import { berths, berthsUsable } from '../core/ship.js';
 import { state } from '../store.js';
-import { crewReleasing, hireCrew, rehireCrew, releaseCrew, toggleCancel } from './actions.js';
+import { crewReleasing, hireCrew, promoteCrew, rehireCrew, releaseCrew, toggleCancel } from './actions.js';
 import { btnCls, showHomeTab } from './ship-view.js';
 import { addDays, dayParse, escapeHtml, fDate, todayStr, weekStart } from '../util.js';
 
 /* ---------- render: rango y tripulación ---------- */
-export const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300'];
+export const CREW_LV_CHIP=['border-slate-600 text-slate-300','border-cyan-700 text-cyan-300','border-amber-600 text-amber-300','border-violet-600 text-violet-300'];
+// Experiencia del tripulante hacia el siguiente nivel y, si ya le llega, la propuesta de ascenso.
+function crewXp(m){
+  const L=nextLv(m);
+  if(!L) return `<div class="mono text-[11px] text-violet-300 mt-1.5">${m.xp} XP · nivel máximo</div>`;
+  const base=CREW_LV[m.lv-1].xp, pct=Math.max(0,Math.min(100,Math.round((m.xp-base)/(L.xp-base)*100)));
+  const bar=`<div class="flex items-center gap-2 mt-1.5">
+      <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Experiencia hacia ${L.name}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full ${pct>=100?'bg-amber-400':'bg-cyan-400'} rounded-full" style="width:${pct}%"></div></div>
+      <span class="mono text-[11px] text-slate-400">${Math.min(m.xp,L.xp)}/${L.xp} XP · ${L.name}</span>
+    </div>`;
+  if(!xpReady(m)) return bar;
+  const why=promoteBlock(m), cost=wageOf(L.wage), R=ROLES[m.role];
+  return bar+`<div class="rounded-lg border border-amber-600 p-2.5 mt-2">
+      <div class="text-sm text-amber-200">Listo para ascender a ${L.name}: ${R.desc(R.eff[m.lv])}</div>
+      <button data-crew="promote" data-id="${m.id}" class="${btnCls(!why)} w-full mt-2" ${why?'disabled':''}>${why||`Ascender · ${cost} ¢ · sueldo ${cost} ¢/sem`}</button>
+    </div>`;
+}
 export const roleTile=(role)=>`<span class="w-10 h-10 shrink-0 rounded-lg grid place-items-center border border-cyan-800 bg-cyan-950/40 mono text-[11px] font-bold text-cyan-300" aria-hidden="true">${ROLES[role].code}</span>`;
 export function renderRank(){
   const xp=state.cmd.xp, i=rankIdx(), next=RANKS[i+1], base=RANKS[i][1], st=state.cmd.stats;
@@ -26,7 +42,7 @@ export function renderRank(){
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">${stats.map(([k,v])=>`<div class="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"><div class="text-xl font-bold">${v}</div><div class="mono text-[11px] text-slate-400">${k}</div></div>`).join('')}</div>
     <p class="mono text-[11px] text-slate-400 mt-3">Méritos: +${EF_XP} por punto de esfuerzo (micro +${payRound(EF_XP*EFFORT.micro,EFFORT.micro)} · fácil +${payRound(EF_XP*EFFORT.easy,EFFORT.easy)} · normal +${EF_XP} · difícil +${EF_XP*EFFORT.hard} · épica +${EF_XP*EFFORT.epic}) · progreso +${XP_PROGRESS} · ronda Forster +${XP_ROUND}${missionsUnlocked()?` · misión +${XP_CONTRACT}`:''}. Nunca se gastan.</p>
-    ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]}.</p>`:''}`;
+    ${crewUnlocked()?`<p class="mono text-[11px] text-slate-400 mt-1">Tripulación ${CREW_LV[1].name.toLowerCase()} desde ${RANKS[CREW_LV[1].rank][0]} · ${CREW_LV[2].name.toLowerCase()} desde ${RANKS[CREW_LV[2].rank][0]} · ${CREW_LV[3].name.toLowerCase()} desde ${RANKS[CREW_LV[3].rank][0]}, solo ascendiendo. Experiencia de la tripulación con contrato: +${CREW_XP_DAY} XP por día de misión · +${CREW_XP_RUN} XP por simulación de VR Training.</p>`:''}`;
 }
 export function renderCrew(){
   const sh=state.ship;
@@ -64,6 +80,7 @@ export function renderCrew(){
       </div>
       <div class="text-sm mt-2 ${m.idle?'text-slate-400 line-through':'text-cyan-200'}">${R.desc(R.eff[m.lv-1])}</div>
       <div class="mono text-[11px] mt-1">${status}</div>
+      ${m.idle?'':crewXp(m)}
       <div class="flex flex-wrap items-center gap-1.5 mt-2.5">${main}${m.idle?'':fire}</div>
     </div>`;
   }).join('')+Array.from({length:Math.max(0,berths()-sh.crew.length)},(_,i)=>sh.crew.length+i>=berthsUsable()
@@ -90,6 +107,6 @@ export function renderCrew(){
     </div>`;
   }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-4 text-center sm:col-span-2">Ya contrataste a todos los candidatos de esta semana.</div>';
   const act=(e)=>{ const b=e.target.closest('[data-crew]'); if(!b||b.disabled) return; const id=b.dataset.id, a=b.dataset.crew;
-    if(a==='hire') hireCrew(id); else if(a==='cancel') toggleCancel(id); else if(a==='rehire') rehireCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
+    if(a==='hire') hireCrew(id); else if(a==='cancel') toggleCancel(id); else if(a==='rehire') rehireCrew(id); else if(a==='promote') promoteCrew(id); else if(a==='release') releaseCrew(id); else if(a==='board') showHomeTab('crew'); };
   cl.onclick=act; cand.onclick=act;
 }

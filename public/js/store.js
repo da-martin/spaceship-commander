@@ -1,6 +1,6 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
  * en localStorage. save() avisa con `saved` (la nube programa la subida). */
-import { AREAS, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
+import { AREAS, CREW_HIRE_MAX, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
@@ -35,9 +35,9 @@ export function normShip(s){
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
     rot:clampInt(s?.rot,0,1e9,0),
     crew:(Array.isArray(s?.crew)?s.crew:[]).filter(m=>m&&ROLES[m.role]&&typeof m.name==='string'&&typeof m.until==='string')
-      .map(m=>({id:String(m.id||uid()),name:m.name,role:m.role,lv:clampInt(m.lv,1,3,1),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,idle:!!m.idle})),
+      .map(m=>{ const lv=clampInt(m.lv,1,CREW_LV.length,1); return {id:String(m.id||uid()),name:m.name,role:m.role,lv,xp:Math.max(CREW_LV[lv-1].xp,clampInt(m.xp,0,1e7,0)),wage:clampInt(m.wage,0,1e6,CREW_LV[0].wage),until:m.until,cancel:!!m.cancel,idle:!!m.idle}; }),
     crewBoard:(s?.crewBoard&&typeof s.crewBoard.week==='string'&&Array.isArray(s.crewBoard.cands))
-      ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,3,1)}))}
+      ?{week:s.crewBoard.week,cands:s.crewBoard.cands.filter(x=>x&&ROLES[x.role]&&typeof x.name==='string').map(x=>({id:String(x.id||uid()),name:x.name,role:x.role,lv:clampInt(x.lv,1,CREW_HIRE_MAX,1)}))}
       :{week:null,cands:[]},
     log:normLog(s?.log),
     recentMissions:(Array.isArray(s?.recentMissions)?s.recentMissions:[]).filter(id=>typeof id==='string'&&MISSION_BY_ID[id]).slice(-RECENT_MAX)

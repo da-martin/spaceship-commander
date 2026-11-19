@@ -1,6 +1,6 @@
 /* El cambio de día: desgaste de los días sin abrir, sueldos y tablón. */
 import { effOf, MODS, WEAR_HABIT, WEAR_TASK } from '../config.js';
-import { crewPayroll, genCandidates } from './crew.js';
+import { crewPayroll, genCandidates, missionCrewXp } from './crew.js';
 import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
 import { logShip } from './log.js';
 import { atHome, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
@@ -44,6 +44,7 @@ export function processDays(){
   for(;day<t;day=addDays(day,1)){ decayDay(day,miss); selfHeal(); }   // la Enfermería recupera algo cada día
   sh.lastTick=y;
   logWear(before,miss);
+  missionCrewXp(sh.contract);   // experiencia de la tripulación por los días de misión cumplidos
   if(!checkContractEnd()) tickBoard();   // si vence, ya avanza la señal tras dañar la reputación
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
   const pay=crewPayroll(t);

@@ -2,7 +2,8 @@
  * Se pinta sola (como la alianza): entrada con cargas y escenarios, elección
  * de escuadrón y la simulación sala a sala. Las reglas están en rpg/; aquí
  * solo se pinta, se guarda y se avisa. */
-import { ROLES } from '../config.js';
+import { CREW_XP_RUN, ROLES } from '../config.js';
+import { trainCrewXp } from '../core/crew.js';
 import { save, state } from '../store.js';
 import { escapeHtml, fmtEf, plural, todayStr } from '../util.js';
 import { HP_MAX, ITEMS_MAX, ROOMS, SQUAD } from '../rpg/config.js';
@@ -390,7 +391,12 @@ export function init() {
         resetPick(); save(); ui.rolled = true; renderVR(); break;
       }
       case 'reroll': { const err = reroll(r, b.dataset.how); if (err) { toast(err); return; } save(); ui.rolled = true; renderVR(); break; }
-      case 'continue': { let notes; act(() => { notes = resolve(r); }); notify(notes); scrollTo(0, 0); break; }
+      case 'continue': {
+        // Al terminar la simulación (ganada o perdida), XP para la tripulación que siga a bordo.
+        let notes; act(() => { const was = r.run?.stage; notes = resolve(r);
+          if (was !== 'end' && r.run?.stage === 'end') { const got = trainCrewXp(r.run.squad.map((m) => m.id)); if (got.length) notes.push(`${got.map((m) => m.name.split(' ')[0]).join(', ')}: +${CREW_XP_RUN} XP de tripulación`); } });
+        notify(notes); scrollTo(0, 0); break;
+      }
       case 'rest': { let notes; act(() => { notes = rest(r, id); }); notify(notes); break; }
       case 'use': { let msg; act(() => { msg = useItem(r, id); }); if (msg) toast(msg); break; }
       case 'quit': ui.confirm = 'quit'; renderVR(); break;

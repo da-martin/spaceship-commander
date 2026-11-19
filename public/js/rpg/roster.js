@@ -2,12 +2,12 @@
  * uno (nombre, rol y nivel) que se queda aunque se marche. Si vuelve alguien
  * con el mismo nombre y rol, se guarda el nivel más alto.
  * Recibe los datos del tripulante: no lee la nave por su cuenta. */
-import { ROLES } from '../config.js';
+import { CREW_LV, ROLES } from '../config.js';
 import { ROSTER_MAX } from './config.js';
 
 export function addProfile(r, m) {
   if (!m || typeof m.name !== 'string' || !m.name.trim() || !ROLES[m.role]) return false;
-  const lv = Math.max(1, Math.min(3, Math.floor(+m.lv) || 1));
+  const lv = Math.max(1, Math.min(CREW_LV.length, Math.floor(+m.lv) || 1));
   const same = r.roster.find((x) => x.src === 'crew' && x.name === m.name && x.role === m.role);
   if (same) { if (lv > same.lv) { same.lv = lv; return true; } return false; }
   r.roster.push({ id: 'c-' + String(m.id || m.name).slice(0, 60), name: m.name.slice(0, 40), role: m.role, lv, src: 'crew' });
