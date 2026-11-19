@@ -1,18 +1,49 @@
 # Contabilidad
 
-Una pestaña nueva en Spaceship, junto a Nave, Alianza y VR Training. Muestra los próximos 7 días con las entradas y los gastos de ¢ previstos para cada día y el saldo que quedaría. Al pulsar una cifra se abre un modal que explica de dónde sale.
+Una pestaña nueva en Spaceship, junto a Nave, Alianza y VR Training. Muestra los próximos 7 días, **de mañana a dentro de 7 días**, con las entradas y los gastos de ¢ previstos para cada día y el saldo que quedaría. Al pulsar una cifra se abre un modal que explica de dónde sale.
+
+Lo primero que se hace es el **aviso de impago**: decir con días de antelación qué tripulante no podrá cobrar y cuánto falta para pagarle.
 
 Solo cuenta los Megacréditos (¢). Los materiales no entran.
 
-## Lo que falta hoy
+## Aviso de impago
 
-La partida solo guarda el saldo (`state.wallet.mc`). No hay historial de lo que entró ni de lo que se gastó cada día. Lo más parecido es `state.ship.activity`, que cuenta puntos de esfuerzo y no ¢.
+### Qué pasa hoy
 
-Con lo que hay se puede reconstruir una parte de las entradas: `x.grant` de las tareas, `h.g[día]` de los hábitos y `rew` de las misiones en la bitácora. Pero se pierde lo de las tareas borradas, los toques de hábitos libres que no son el primero del día, lo que da el Pilotaje en el Protocolo Forster, las ventas del mercado y las misiones que ya han salido de la bitácora.
+`crewPayroll` cobra los sueldos al cambiar de día, la primera vez que se abre la app. Recorre la tripulación en orden y a cada uno le cobra el sueldo entero si hay saldo. Si no hay, ese tripulante queda con sueldo pendiente: deja de trabajar (sin bono ni experiencia) y su deuda sube cada día. El siguiente de la lista puede cobrar si su sueldo es más bajo y aún alcanza.
 
-Por eso el primer paso es un **libro de cuentas**.
+El único aviso que hay ahora es `#crewWarn` en el panel de tripulación. Sale solo si el saldo de ahora no llega a los sueldos de toda la semana juntos. No dice quién ni cuándo, y avisa aunque el primer cobro sea dentro de 6 días.
+
+### Qué calcula
+
+Una función pura en `core/books.js` repite `crewPayroll` día a día durante los próximos 7 días, con el mismo orden y la misma regla (sueldo entero o nada):
+
+- **Cuándo cobra cada uno:** el día `addDays(m.until,1)` y de nuevo cada 7 días. Solo los que tienen contrato y no lo han cancelado (ni `idle`, ni `owed`, ni `cancel`). El sueldo es `wageOf(m.wage)`, con el descuento del Salón de ahora.
+- **Con qué saldo cuenta ese día:** el sueldo se cobra al empezar el día, antes de ganar nada. Así que para un cobro el día D cuenta el saldo de ahora + las entradas previstas de mañana a D−1 − lo ya cobrado. Lo que se gane hoy desde ahora no cuenta: es margen a favor.
+- **Dos escenarios para cada cobro:**
+  - **No alcanza** (rojo): no hay saldo ni con las entradas previstas.
+  - **Justo** (ámbar): con las entradas previstas alcanza, pero con el saldo de ahora solo no. Depende de lo que ganes.
+  - Sin marca: alcanza con el saldo de ahora.
+- **Cuánto falta:** sueldo − saldo previsto ese día. Es la cifra que se puede usar para decidir algo: «Faltan 34 ¢».
+- Si un cobro falla, la simulación sigue como el juego: ese tripulante deja de cobrar y los demás pueden cobrar con el saldo que queda.
+
+Mientras no haya libro de cuentas (ver abajo) no hay entradas previstas: solo existe el rojo, calculado con el saldo de ahora. Es el peor caso y ya sirve.
+
+### Dónde sale
+
+- **Pestaña Contabilidad:** banda arriba, antes de los días:
+  > ⚠ **vie 21 · Lina Okafor no cobrará** — sueldo 90 ¢, saldo previsto 56 ¢. Faltan 34 ¢.
+
+  Un aviso por cobro en riesgo, primero el más cercano. El día también se marca en la lista y su gasto sale en rojo o ámbar.
+- **Panel de tripulación (Nave):** `#crewWarn` deja de comparar con la semana entera y usa este cálculo: «Lina Okafor cobra el vie 21 (90 ¢) y faltan 34 ¢». En la tarjeta del tripulante, una línea «Próximo cobro: vie 21 · en riesgo».
+- **Punto en la pestaña** Contabilidad (como `data-logdot` en Nave) si hay algún cobro en rojo. Se enciende también el del botón Spaceship desde Commander, porque es donde más tiempo se pasa.
+- No hay aviso emergente: se ve al entrar, igual que la bitácora.
+
+El modal del gasto de ese día (abajo) explica el cálculo paso a paso.
 
 ## Libro de cuentas
+
+La partida solo guarda el saldo (`state.wallet.mc`). No hay historial de lo que entró ni de lo que se gastó cada día, y hace falta para prever las entradas.
 
 - Nuevo `state.ship.books`: un total de ¢ por día, separado por categoría y por sentido:
   ```js
@@ -22,9 +53,9 @@ Por eso el primer paso es un **libro de cuentas**.
                             out:{wages:90, yard:125} } }
   }
   ```
-- Se guarda con la nave (y en la nube). Como `activity`, se borra lo de hace más de 30 días en `processDays`.
+- Se guarda con la nave (y en la nube). Se borra lo de hace más de 30 días en `processDays`, como `activity`.
 - `normShip` lo normaliza: se descartan las categorías desconocidas y los valores que no sean enteros ≥ 0.
-- Módulo puro nuevo `core/books.js` con `earn(n,cat,day)`, `unearn(n,cat,day)` y `spend(n,cat,day)`. Al desmarcar algo se resta de la **categoría y el día en que se ganó** (`g.day`), no del día de hoy, igual que hace `onUndo` con la actividad.
+- `core/books.js` tiene `earn(n,cat,day)`, `unearn(n,cat,day)` y `spend(n,cat,day)`. Al desmarcar algo se resta de la **categoría y el día en que se ganó** (`g.day`), no del día de hoy, igual que hace `onUndo` con la actividad.
 - Se anota lo que de verdad se movió: `subW` no baja de 0, así que tiene que devolver lo que restó.
 
 ### Dónde se anota
@@ -49,77 +80,76 @@ Un test recorre todos los `addW('mc'…)` y `subW('mc'…)` de `public/js` y fal
 
 ### Partidas que ya existían
 
-Durante la primera semana el libro tiene menos de 7 días. Para los días anteriores a `books.since`, las entradas se reconstruyen con lo que hay (tareas, hábitos y misiones de la bitácora) y el modal los marca como **estimados**. A los 7 días ya no hace falta.
+Antes de `books.since` no hay libro. Para esos días, las entradas se reconstruyen con lo que hay (`x.grant` de las tareas, `h.g[día]` de los hábitos y `rew` de las misiones de la bitácora) y el modal las marca como **estimadas**. Se pierden las tareas borradas, los toques de libres que no son el primero del día, el Pilotaje y las ventas. A las dos semanas ya no hace falta.
 
-## Previsión
+## Previsión de entradas
 
-Funciones puras en `core/books.js`, sin DOM, como pide `architecture.test.js`.
+Para cada día, **lo que entró el mismo día de la semana pasada**:
 
-### Entradas: media de los 7 días anteriores
+- Para mañana hasta dentro de 6 días, el día de referencia es D−7, es decir, de hace 6 días a ayer.
+- Para dentro de 7 días el día de la semana es el de hoy. Hoy está a medias, así que se usa el de hace 7 días (D−14).
+- Sin datos de ese día (partida de menos de una semana), se usa la media de los días que sí hay, y se marca «media: aún no hay datos del mismo día».
+- Sin ningún día de historial: «Aún no hay datos · vuelve mañana». Entonces solo hay aviso de impago en el peor caso.
+- Si el día de referencia incluye una misión, cuenta igual, pero el modal lo avisa: «Incluye 180 ¢ de una misión: sin ella serían 12 ¢».
 
-- Se suman las entradas de los 7 días anteriores a hoy. Hoy no cuenta porque está a medias.
-- Se divide entre los días que hay historial, como hace `avgDaily`: quien empezó hace 3 días divide entre 3. Un día sin actividad dentro de ese tramo cuenta como 0.
-- Las entradas previstas son las mismas para los 7 días: esa media redondeada.
-- Sin ningún día de historial no hay previsión: «Aún no hay datos · vuelve mañana».
+## Previsión de gastos
 
-### Gastos: lo comprometido
+Solo los **sueldos**, que son el único gasto con fecha. Son los mismos cobros que usa el aviso de impago.
 
-Las mejoras, reparaciones, compras y barridos son gastos que se deciden cada vez y no se pueden prever. Lo único fijo son los **sueldos**:
-
-- Cada tripulante con contrato (ni `idle`, ni `owed`, ni `cancel`) cobra `wageOf(m.wage)` el día `addDays(m.until,1)` y de nuevo cada 7 días. En 7 días cobra una vez, o dos si cobra hoy.
-- El descuento del Salón es el de ahora. Si el Salón se daña o mejora, la cifra cambia.
+- Las mejoras, reparaciones, compras y barridos se deciden cada vez y no se prevén. El modal lo dice y muestra cuánto se gastó en eso la semana pasada.
 - Los que tienen el contrato cancelado no cobran: se marchan ese día (sale como nota, sin cifra).
-- Los que tienen sueldo pendiente no se cobran solos. No van en ningún día: salen como aviso arriba («Deuda pendiente con Lina Okafor: 26 ¢ y sube 7 ¢ al día»).
+- Los que tienen sueldo pendiente no van en ningún día. Salen arriba, junto al aviso de impago: «Deuda pendiente con Lina Okafor: 26 ¢ y sube 13 ¢ al día».
 
-### Saldo previsto
+## Saldo previsto
 
-- Saldo de cada día = saldo del día anterior + entradas previstas − gastos previstos. El primero parte del saldo de ahora.
-- Como `crewPayroll` solo cobra si hay saldo para el sueldo entero, la previsión comprueba lo mismo. Si un día no alcanza, ese sueldo se marca en rojo: «Saldo insuficiente: Lina Okafor dejaría de trabajar». Es el aviso más útil de la pestaña.
+Saldo de cada día = saldo del día anterior − sueldos cobrados al empezar el día + entradas previstas. El primero parte del saldo de ahora.
 
 ## Pantalla
 
+La pestaña se llama **Cuentas** en el móvil y **Contabilidad** desde `sm`.
+
 ```
-┌ Contabilidad ─────────────────────────────┐
-│ Saldo  420 ¢   ·  en 7 días  ≈ 611 ¢      │
-│ Media de entradas 38 ¢/día (13–19 nov)    │
-│ Gastado la última semana: 215 ¢           │
-├───────────────────────────────────────────┤
-│ jue 20   +38 ¢              458 ¢         │
-│ vie 21   +38 ¢   −90 ¢      406 ¢         │
-│ sáb 22   +38 ¢              444 ¢         │
-│ dom 23   +38 ¢              482 ¢         │
-│ lun 24   +38 ¢              520 ¢         │
-│ mar 25   +38 ¢              558 ¢         │
-│ mié 26   +38 ¢   −45 ¢      551 ¢   ⚠     │
-└───────────────────────────────────────────┘
+┌ Contabilidad ──────────────────────────────┐
+│ ⚠ vie 21 · Lina Okafor no cobrará          │
+│   sueldo 90 ¢ · saldo previsto 56 ¢        │
+│   Faltan 34 ¢                              │
+├────────────────────────────────────────────┤
+│ Saldo 20 ¢   ·  en 7 días ≈ 287 ¢          │
+│ Gastado la última semana: 215 ¢            │
+├────────────────────────────────────────────┤
+│ jue 20   +36 ¢                    56 ¢     │
+│ vie 21   +41 ¢   −90 ¢ ⚠          97 ¢     │
+│ sáb 22   +12 ¢                   109 ¢     │
+│ dom 23    +8 ¢                   117 ¢     │
+│ lun 24   +60 ¢                   177 ¢     │
+│ mar 25   +52 ¢                   229 ¢     │
+│ mié 26   +58 ¢                   287 ¢     │
+└────────────────────────────────────────────┘
 ```
 
-- En el móvil es una lista de 7 filas. Desde `sm` es una rejilla de 7 columnas con una barra pequeña por día (verde la entrada, ámbar el gasto).
-- **+38 ¢** y **−90 ¢** son botones: abren el modal de ese día. Un día sin gastos muestra «—» sin botón.
+En el ejemplo, el cobro del viernes falla: 90 ¢ no salen del saldo de 56 ¢. Por eso el saldo de ese día sigue subiendo.
+
+- En el móvil es una lista de 7 filas. Desde `sm` es una rejilla de 7 columnas con una barra pequeña por día (verde la entrada, ámbar el gasto, rojo el que no se cobra).
+- **+41 ¢** y **−90 ¢** son botones que abren el modal de ese día. Un día sin gastos muestra «—» sin botón.
 - Mismos estilos que la Nave: `mono` para las cifras y ámbar para los ¢.
 
 ### Modal de entradas
 
 ```
 ENTRADAS PREVISTAS // VIE 21
-≈ 38 ¢ — media de los 7 días anteriores
+≈ 41 ¢ — lo que entró el vie 14
 
- jue 13    52 ¢
- vie 14    20 ¢
- …
- mié 19    41 ¢
+ Tareas       20 ¢   2 tareas
+ Hábitos      15 ¢   3 hábitos
+ Libres        6 ¢   3 toques
  ──────────────
- Total    266 ¢ ÷ 7 días = 38 ¢
+ Total        41 ¢
 
- Por origen (7 días)
- Tareas       120 ¢  45 %
- Hábitos       96 ¢  36 %
- Misiones      40 ¢  15 %
- Libres        10 ¢   4 %
+ Semana pasada: jue 36 · vie 41 · sáb 12 · dom 8 · lun 60 · mar 52 · mié 58
 ```
 
-- Los días reconstruidos llevan la marca «estimado».
-- Si entre los 7 días hay una misión, se avisa: «Incluye 180 ¢ de una misión: sin ella, la media sería 12 ¢».
+- La línea de la semana marca el día de referencia y los días reconstruidos («est.»).
+- El número de tareas y hábitos se saca de sus `grant` y `g[día]`. Del libro solo sale el total por categoría.
 
 ### Modal de gastos
 
@@ -130,22 +160,34 @@ GASTOS PREVISTOS // VIE 21
  Lina Okafor · Intendencia · Veterano
    90 ¢/sem − 0 % Salón = 90 ¢ · pagado hasta el jue 20
 
+ ⚠ No alcanza
+   Saldo ahora                      20 ¢
+   + entradas previstas jue 20      36 ¢
+   = saldo al empezar el vie 21     56 ¢
+   Faltan 34 ¢. Si no cobra, deja de trabajar y su
+   deuda sube 13 ¢ al día.
+
  No incluye gastos voluntarios: astillero, reparaciones,
  mercado ni barridos (215 ¢ la última semana).
 ```
 
 ## Código
 
-- `index.html`: cuarto botón en `#shipTabs` (`data-stab="books"`) y `<main id="books-view">`, más un modal `#booksModal`.
+- `index.html`: cuarto botón en `#shipTabs` (`data-stab="books"`, «Cuentas» / «Contabilidad»), `<main id="books-view">` y el modal `#booksModal`.
 - `ui/mode.js`: `books` es una pestaña más de Spaceship (`navMode`, la pestaña recordada en `STABKEY`, `setMode`).
-- `ui/books-view.js`: pinta la pestaña y el modal.
-- `core/books.js`: libro, previsión y desglose. Lo usan las funciones de `core/` y `ui/actions.js` de la tabla de arriba.
+- `ui/books-view.js`: pinta la pestaña, el aviso y el modal.
+- `ui/crew-view.js`: `#crewWarn` y la línea de próximo cobro usan el cálculo del impago.
+- `core/books.js`: cobros previstos, impago, libro, previsión y desglose. Lo usan las funciones de `core/` y `ui/actions.js` de la tabla.
 - `store.js`: `books` en `normShip` y en `freshState`.
-- Tests nuevos en `test/books.test.js`: anotar y desmarcar en su día, media con menos de 7 días, sueldos que caen dos veces en la semana, cancelados, deudas, saldo que no alcanza y recorte a 30 días.
+- `test/books.test.js`:
+  - Impago: orden de cobro, sueldo entero o nada, un sueldo más bajo que cobra tras uno que falla, dos cobros del mismo tripulante en la semana, cancelados, deudas, Salón.
+  - Escenarios rojo y ámbar, y lo que falta.
+  - Libro: anotar y desmarcar en su día, y el recorte a 30 días.
+  - Previsión: mismo día de la semana pasada, D−14 para dentro de 7 días, la media cuando falta el día, y la misión en el día de referencia.
 
 ## Fases
 
-1. **Libro**: `core/books.js`, anotaciones en todas las llamadas, normalización y tests. Se puede publicar sin la pestaña para que el libro ya tenga días cuando llegue.
-2. **Previsión**: entradas, sueldos y saldo, con tests.
-3. **Pestaña y modales**.
-4. **Reconstrucción** de los días anteriores al libro, si hace falta. Con la fase 1 publicada una semana antes, sobra.
+1. **Aviso de impago (peor caso)**: cobros previstos y simulación con el saldo de ahora, el aviso en el panel de tripulación (sustituye al `#crewWarn` de ahora) y tests. No necesita el libro y se puede publicar ya.
+2. **Libro de cuentas**: anotaciones en todas las llamadas, normalización y tests. Cuanto antes se publique, antes habrá una semana de datos reales.
+3. **Previsión de entradas**: mismo día de la semana pasada, con la reconstrucción para los días sin libro. El aviso de impago gana el ámbar.
+4. **Pestaña Contabilidad y modales**, con el punto de aviso.
