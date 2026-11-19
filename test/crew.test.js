@@ -1,7 +1,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { BERTHS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, MODS, RANKS, SHIP_LV_MAX } from '../public/js/config.js';
-import { crewPayroll, dayWage, debtOf, gainCrewXp, genCandidates, hireBlock, missionCrewXp, payDebt, promoteBlock, returnHome, trainCrewXp, xpReady } from '../public/js/core/crew.js';
+import { crewPayroll, dayWage, debtOf, settleOf, gainCrewXp, genCandidates, hireBlock, missionCrewXp, payDebt, promoteBlock, returnHome, trainCrewXp, xpReady } from '../public/js/core/crew.js';
 import { perk } from '../public/js/core/rewards.js';
 import { checkContractEnd, finishContract } from '../public/js/core/missions.js';
 import { berths, berthsUsable } from '../public/js/core/ship.js';
@@ -153,16 +153,19 @@ test('sin ¢ para el sueldo no se marcha: deja de trabajar y acumula deuda', () 
   assert.equal(m.xp, 100);
 });
 
-test('pagar la deuda le devuelve al trabajo y mañana cobra la semana', () => {
+test('pagar la deuda y el salario de una vez le devuelve al trabajo con la semana pagada', () => {
   const s = fresh({ wallet: { mc: 1000 } });
   const m = member({ wage: 45, until: '2026-11-11', owed: true });
   s.ship.crew = [m];
-  assert.equal(payDebt(m, '2026-11-14'), 3 * 7);
-  assert.deepEqual([m.owed, m.until, s.wallet.mc], [false, '2026-11-14', 1000 - 21]);
+  assert.equal(settleOf(m, '2026-11-14'), 3 * 7 + 45);
+  assert.equal(payDebt(m, '2026-11-14'), 66);
+  assert.deepEqual([m.owed, m.until, s.wallet.mc], [false, '2026-11-21', 1000 - 66]);
   assert.equal(perk('pilot'), 1);
-  crewPayroll('2026-11-15');
-  assert.deepEqual([m.until, s.wallet.mc], ['2026-11-21', 1000 - 21 - 45]);
-  s.wallet.mc = 5;
+  crewPayroll('2026-11-21');   // la semana ya está pagada
+  assert.equal(s.wallet.mc, 1000 - 66);
+  crewPayroll('2026-11-22');
+  assert.deepEqual([m.until, s.wallet.mc], ['2026-11-28', 1000 - 66 - 45]);
+  s.wallet.mc = 65;
   assert.equal(payDebt(member({ until: '2026-11-11', owed: true }), '2026-11-14'), null);
 });
 

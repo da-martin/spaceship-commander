@@ -85,12 +85,14 @@ export const crewHint=()=>`Mejora el Puente a nivel 1 para contratar tripulació
 export const dayWage=(m)=>Math.ceil(wageOf(m.wage)/CREW_DAYS-1e-9);
 export const debtDays=(m,t=todayStr())=>m.owed?Math.max(1,Math.round((dayParse(t)-dayParse(m.until))/864e5)):0;
 export const debtOf=(m,t=todayStr())=>debtDays(m,t)*dayWage(m);
-// Pagar la deuda: vuelve al trabajo y el sueldo semanal se cobra de nuevo desde mañana.
-// Devuelve lo pagado, o null si no alcanza.
+// Pagar la deuda (que cuenta hasta hoy) y, de una vez, el sueldo de la semana
+// siguiente: vuelve al trabajo con el contrato renovado. Devuelve lo pagado, o
+// null si no alcanza.
+export const settleOf=(m,t=todayStr())=>debtOf(m,t)+wageOf(m.wage);
 export function payDebt(m,t=todayStr()){
-  const due=debtOf(m,t);
+  const due=settleOf(m,t);
   if(!m.owed||state.wallet.mc<due) return null;
-  subW('mc',due); Object.assign(m,{owed:false,cancel:false,until:t});
+  subW('mc',due); Object.assign(m,{owed:false,cancel:false,until:addDays(t,CREW_DAYS)});
   return due;
 }
 // Cobra cada semana vencida mientras haya saldo. Si no alcanza, el tripulante

@@ -1,6 +1,6 @@
 /* Hoja de servicios: rango y tripulación. */
 import { CREW_DAYS, CREW_LV, CREW_XP_DAY, CREW_XP_RUN, EF_XP, EFFORT, payRound, RANKS, ROLES, SHIP_LV_MAX, XP_CONTRACT, XP_PROGRESS, XP_ROUND } from '../config.js';
-import { crewHint, crewUnlocked, dayWage, debtOf, hireBlock, nextLv, promoteBlock, working, xpReady } from '../core/crew.js';
+import { crewHint, crewUnlocked, dayWage, debtOf, settleOf, hireBlock, nextLv, promoteBlock, working, xpReady } from '../core/crew.js';
 import { atHome, missionsUnlocked } from '../core/missions.js';
 import { rankIdx, wageOf } from '../core/rewards.js';
 import { berths, berthsUsable } from '../core/ship.js';
@@ -47,7 +47,7 @@ export function renderRank(){
 // Sueldo pendiente: ocupa su litera sin trabajar y su deuda crece cada día.
 // Se le paga, o se le despide: ya en el Sistema Madre, o al volver si estás de misión.
 function owedCard(m,fire){
-  const R=ROLES[m.role], debt=debtOf(m), ok=state.wallet.mc>=debt;
+  const R=ROLES[m.role], debt=debtOf(m), total=settleOf(m), ok=state.wallet.mc>=total;
   const leave=atHome()?fire:`<button data-crew="cancel" data-id="${m.id}" class="px-2.5 py-2 rounded-lg text-sm ${m.cancel?'bg-slate-800 border border-amber-600 text-amber-200 hover:border-amber-400':'text-slate-400 hover:text-red-300 underline underline-offset-2'}">${m.cancel?'Mantener a bordo':'Despedir al volver'}</button>`;
   const status=m.cancel?`<span class="text-amber-300">Desembarca al volver al Sistema Madre, sin cobrar</span>`
     :`<span class="text-red-300">Sin cobrar desde el ${fDate(addDays(m.until,1))} · no trabaja · deuda ${debt} ¢, sube ${dayWage(m)} ¢ al día</span>`;
@@ -62,8 +62,9 @@ function owedCard(m,fire){
       <div class="text-sm mt-2 text-slate-400 line-through">${R.desc(R.eff[m.lv-1])}</div>
       <div class="mono text-[11px] mt-1">${status}</div>
       <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
-        <button data-crew="debt" data-id="${m.id}" class="${btnCls(ok)} flex-1" ${ok?'':'disabled'}>Pagar deuda · ${debt} ¢</button>${leave}
+        <button data-crew="debt" data-id="${m.id}" class="${btnCls(ok)} flex-1" ${ok?'':'disabled'}>Pagar deuda y salario · ${total} ¢</button>${leave}
       </div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${debt} ¢ de deuda + ${wageOf(m.wage)} ¢ de la semana siguiente</div>
     </div>`;
 }
 export function renderCrew(){

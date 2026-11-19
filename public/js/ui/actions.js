@@ -46,7 +46,7 @@ export function toggleCancel(id){
 export function settleDebt(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m?.owed) return;
   const paid=payDebt(m); if(paid===null){ toast('Recursos insuficientes'); return; }
-  save(); render(); toast(`${m.name} cobra lo que se le debía · −${paid} ¢ · vuelve al trabajo; mañana cobra la semana, ${wageOf(m.wage)} ¢`);
+  save(); render(); toast(`${m.name} cobra la deuda y la semana · −${paid} ¢ · vuelve al trabajo; próximo cobro el ${fDate(addDays(m.until,1))}`);
 }
 export function rehireCrew(id){
   const m=state.ship.crew.find(c=>c.id===id); if(!m||!m.idle) return;
