@@ -27,12 +27,12 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 // ilustración de verdad, sin tocar nada más.
 // Fondo según dónde esté la nave (`scene`):
 //   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
-//   'orbit' — capítulo de la historia de un sistema: el planeta, de cerca, ocupa todo el lateral izquierdo.
+//   'orbit' — capítulo de la historia de un sistema: el planeta del sistema, de cerca, ocupa todo el lateral izquierdo.
 //   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
 //   'jump'  — salto entre sistemas: un túnel de luz violeta delante del morro del que brotan las estrellas.
 export function shipBackdrop(scene){
   if(scene==='jump') return JUMP_BACKDROP;
-  if(scene==='orbit') return ORBIT_BACKDROP;
+  if(scene==='orbit') return orbitBackdrop(state.ship.system);
   if(scene==='home'){
     // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
     const P='cx="-20" cy="330" r="120"';
@@ -61,25 +61,57 @@ export function shipBackdrop(scene){
   return `<g class="warp far">${far}</g><g class="warp">${near}</g>`;
 }
 
-// Planeta grande, de cerca. Borde derecho en x=88, a un palmo de la nave. No se
-// corre con --planet-x: en el recuadro alto taparía los módulos de babor.
-const ORBIT_BACKDROP=(()=>{
-  const C='cx="-340" cy="150"', R=428;
-  const star=([x,y])=>`<circle cx="${x}" cy="${y}" r="1.3" fill="#7dd3fc" opacity=".5"/>`;
-  return `<defs>
-    <radialGradient id="bigG" cx="54" cy="90" r="492" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a8db0"/><stop offset=".22" stop-color="#1d5878"/><stop offset=".55" stop-color="#0f2f49"/><stop offset="1" stop-color="#081422"/></radialGradient>
-    <radialGradient id="bigAtmo" ${C} r="${R+22}" gradientUnits="userSpaceOnUse"><stop offset=".94" stop-color="#38bdf8" stop-opacity="0"/><stop offset=".954" stop-color="#38bdf8" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
-    <clipPath id="bigC"><circle ${C} r="${R}"/></clipPath>
+// Planeta grande, de cerca, con el aspecto del sistema en el que se está. Borde
+// derecho en x=88, a un palmo de la nave. No se corre con --planet-x: en el
+// recuadro alto taparía los módulos de babor.
+//   g     — degradado del planeta, de la cara iluminada a la de sombra
+//   atmo  — halo de la atmósfera; edge, el filo del disco
+//   blots — manchas (continentes, hielo, dunas, humo) y su color
+//   bands — trazos anchos: nubes, vetas, bandas de un gigante gaseoso
+//   extra — algo propio (tormentas, el ojo del gigante)
+const PLANETS={
+  // Sistema Madre: océano y continentes verdes
+  madre:{ g:['#3a8db0','#1d5878','#0f2f49','#081422'], atmo:'#38bdf8', edge:'#7dd3fc', star:'#7dd3fc',
+    blots:{fill:'#2f8f7a',op:.45,d:['M18 40 q22 -14 44 -4 q14 10 2 22 q-20 10 -38 2 q-16 -6 -8 -20Z','M-4 128 q26 -12 52 -2 q12 12 -4 22 q-26 10 -44 -2Z','M30 196 q18 -8 30 4 q2 12 -14 14 q-18 0 -16 -18Z','M-10 250 q30 -10 60 4 q8 12 -10 18 q-30 6 -50 -6Z']},
+    bands:[{c:'#e0f2fe',op:.16,w:4,d:['M-20 84 q50 -10 104 6','M-20 176 q50 -8 108 4','M-20 232 q40 -6 96 2']}] },
+  // el Umbral: mar sin orillas y casquetes de hielo, azules celestes y claros
+  umbral:{ g:['#c7ecff','#8fd0f2','#3f8fc0','#123553'], atmo:'#bae6fd', edge:'#e0f2fe', star:'#bae6fd',
+    blots:{fill:'#f0f9ff',op:.6,d:['M-20 -6 q40 4 76 -2 q14 10 -2 20 q-40 8 -74 -2Z','M-20 290 q44 -10 80 0 q10 12 -8 18 l-72 0Z','M34 112 q12 -6 22 0 q4 8 -8 10 q-14 2 -14 -10Z']},
+    bands:[{c:'#ffffff',op:.22,w:3,d:['M-20 70 q50 -8 104 6','M-20 150 q54 -6 108 2','M-20 214 q46 -8 100 4']},{c:'#e0f2fe',op:.14,w:7,d:['M-20 182 q50 -6 106 4']}] },
+  // Canopo: desierto, todo arena, con dunas y sin una nube
+  canopo:{ g:['#f2d39b','#d4a463','#8a5a2b','#2a1a0c'], atmo:'#fcd9a0', edge:'#fde5b8', star:'#fde68a',
+    blots:{fill:'#a0692f',op:.4,d:['M10 50 q30 -10 56 2 q8 10 -10 14 q-30 4 -46 -16Z','M-10 140 q40 -8 70 4 q6 10 -14 14 q-36 4 -56 -18Z','M24 232 q24 -6 40 4 q0 10 -18 10 q-20 0 -22 -14Z']},
+    bands:[{c:'#fff3d6',op:.22,w:1.6,d:['M-20 96 q20 -6 36 0 q20 6 40 0 q18 -5 34 2','M-20 108 q20 -6 36 0 q20 6 40 0 q18 -5 34 2','M-20 186 q22 -6 38 0 q20 6 40 0 q16 -4 32 2','M-20 198 q22 -6 38 0 q20 6 40 0 q16 -4 32 2','M-20 270 q24 -6 40 0 q18 5 36 0']}] },
+  // Zeta Reticuli: gris industrial con tintes verdosos, humo y tormentas
+  zeta:{ g:['#9aa69a','#5f6b62','#2f3833','#101512'], atmo:'#a3b899', edge:'#c4d1bd', star:'#a7b5a4',
+    blots:{fill:'#3a4a36',op:.55,d:['M0 30 q30 -8 52 4 q10 14 -12 18 q-28 4 -40 -22Z','M-14 120 q36 -12 64 2 q10 12 -10 18 q-36 6 -54 -20Z','M20 214 q26 -8 44 4 q4 12 -16 14 q-24 2 -28 -18Z']},
+    bands:[{c:'#b5c98f',op:.2,w:6,d:['M-20 76 q50 -14 104 4','M-20 168 q46 -12 106 2','M-20 258 q40 -10 98 0']},{c:'#e2e8dc',op:.12,w:3,d:['M-20 92 q50 -10 100 6','M-20 186 q50 -8 104 6']}],
+    extra:`<g fill="none" stroke="#d9e6c8" stroke-linecap="round"><path d="M44 132 q14 -8 20 4 q4 12 -10 14 q-16 0 -16 -14 q2 -20 26 -18" stroke-opacity=".3" stroke-width="2.4"/><path d="M14 280 q10 -6 16 2 q2 8 -8 10 q-12 0 -10 -12" stroke-opacity=".22" stroke-width="2"/></g>
+      <path d="M58 44 l-6 12 l6 -2 l-5 12" fill="none" stroke="#d9f99d" stroke-opacity=".45" stroke-width="1.2" stroke-linejoin="round"/>` },
+  // Betelgeuse: gigante gaseoso en rojos, con alguna banda naranja y un ojo de tormenta
+  betelgeuse:{ g:['#f0715a','#c23b2b','#6e1818','#22070a'], atmo:'#f87171', edge:'#fca5a5', star:'#fca5a5',
+    bands:[{c:'#7f1d1d',op:.55,w:16,d:['M-20 44 q50 -6 110 2','M-20 152 q50 -4 112 2','M-20 246 q50 -6 110 2']},{c:'#fb923c',op:.4,w:9,d:['M-20 92 q50 -6 112 2','M-20 206 q50 -4 112 2']},{c:'#fecaca',op:.16,w:3,d:['M-20 70 q50 -6 110 2','M-20 124 q50 -4 112 2','M-20 182 q50 -4 112 2','M-20 276 q50 -6 110 2']}],
+    extra:'<ellipse cx="38" cy="228" rx="18" ry="8" fill="#fdba74" fill-opacity=".45" stroke="#fed7aa" stroke-opacity=".4" stroke-width="1.2"/><ellipse cx="38" cy="228" rx="9" ry="3.5" fill="#9a3412" fill-opacity=".5"/>' },
+};
+const orbitCache={};
+export function orbitBackdrop(sys){
+  if(orbitCache[sys]) return orbitCache[sys];
+  if(!PLANETS[sys]) sys='madre';
+  const P=PLANETS[sys], C='cx="-340" cy="150"', R=428;
+  const star=([x,y])=>`<circle cx="${x}" cy="${y}" r="1.3" fill="${P.star}" opacity=".5"/>`;
+  const blots=P.blots?`<g fill="${P.blots.fill}" opacity="${P.blots.op}">${P.blots.d.map(d=>`<path d="${d}"/>`).join('')}</g>`:'';
+  const bands=(P.bands||[]).map(b=>`<g fill="none" stroke="${b.c}" stroke-opacity="${b.op}" stroke-width="${b.w}" stroke-linecap="round">${b.d.map(d=>`<path d="${d}"/>`).join('')}</g>`).join('');
+  return orbitCache[sys]=`<defs>
+    <radialGradient id="bigG-${sys}" cx="54" cy="90" r="492" gradientUnits="userSpaceOnUse">${[0,.22,.55,1].map((o,i)=>`<stop offset="${o}" stop-color="${P.g[i]}"/>`).join('')}</radialGradient>
+    <radialGradient id="bigAtmo-${sys}" ${C} r="${R+22}" gradientUnits="userSpaceOnUse"><stop offset=".94" stop-color="${P.atmo}" stop-opacity="0"/><stop offset=".954" stop-color="${P.atmo}" stop-opacity=".35"/><stop offset="1" stop-color="${P.atmo}" stop-opacity="0"/></radialGradient>
+    <clipPath id="bigC-${sys}"><circle ${C} r="${R}"/></clipPath>
   </defs>
   ${[[236,86],[212,238],[262,160],[150,26],[280,40],[196,276],[250,12],[290,210]].map(star).join('')}
-  <circle ${C} r="${R+22}" fill="url(#bigAtmo)"/>
-  <circle ${C} r="${R}" fill="url(#bigG)"/>
-  <g clip-path="url(#bigC)">
-    <g fill="#2f8f7a" opacity=".45"><path d="M18 40 q22 -14 44 -4 q14 10 2 22 q-20 10 -38 2 q-16 -6 -8 -20Z"/><path d="M-4 128 q26 -12 52 -2 q12 12 -4 22 q-26 10 -44 -2Z"/><path d="M30 196 q18 -8 30 4 q2 12 -14 14 q-18 0 -16 -18Z"/><path d="M-10 250 q30 -10 60 4 q8 12 -10 18 q-30 6 -50 -6Z"/></g>
-    <g fill="none" stroke="#e0f2fe" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"><path d="M-20 84 q50 -10 104 6"/><path d="M-20 176 q50 -8 108 4"/><path d="M-20 232 q40 -6 96 2"/></g>
-  </g>
-  <circle ${C} r="${R}" fill="none" stroke="#7dd3fc" stroke-opacity=".5" stroke-width="1.3"/>`;
-})();
+  <circle ${C} r="${R+22}" fill="url(#bigAtmo-${sys})"/>
+  <circle ${C} r="${R}" fill="url(#bigG-${sys})"/>
+  <g clip-path="url(#bigC-${sys})">${blots}${bands}${P.extra||''}</g>
+  <circle ${C} r="${R}" fill="none" stroke="${P.edge}" stroke-opacity=".5" stroke-width="1.3"/>`;
+}
 
 // Túnel del salto: tres capas de trazos que salen de un punto delante del morro
 // y crecen hasta salirse, desfasadas para que no haya hueco. Se calcula una vez,
