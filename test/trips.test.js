@@ -126,19 +126,54 @@ test('al cabo de 3 días zarpan los del sí; los demás se quedan y salen de la 
   const [ana, bea, cai, dan] = ['Ana', 'Bea', 'Cai', 'Dan'].map(player);
   await allianceOf(ana, bea, cai, dan);
   const { alliance: { trip } } = await bea.post('/trip', { to: 'betelgeuse' });
-  await cai.post('/trip/vote', { tripId: trip.id, vote: 'no' });   // Ana (la fundadora) y Dan no votan
+  await ana.post('/trip/vote', { tripId: trip.id, vote: 'yes' });   // la fundadora va
+  await cai.post('/trip/vote', { tripId: trip.id, vote: 'no' });    // Dan no vota
   later(3 * DAY - 1);
   assert.equal((await bea.get()).alliance.trip.id, trip.id);
   later(5 * DAY);   // nadie abrió la app al cerrar: se resuelve con la hora del cierre
   const r = await bea.get();
-  assert.deepEqual(names(r.alliance), ['Bea']);
-  assert.equal(r.alliance.founderId, bea.id);   // la fundadora se quedó: hereda el más antiguo de los que van
+  assert.deepEqual(names(r.alliance), ['Ana', 'Bea']);
+  assert.equal(r.alliance.founderId, ana.id);
   assert.equal(r.alliance.system, 'betelgeuse');
   assert.equal(r.alliance.jump.departedAt, T0 + 3 * DAY);
   assert.equal(r.alliance.jump.arrivesAt, T0 + 8 * DAY);
-  for (const p of [ana, cai, dan]) assert.equal((await p.get()).alliance, null);
+  for (const p of [cai, dan]) assert.equal((await p.get()).alliance, null);
   const kinds = (await chat(bea)).sort();
-  assert.deepEqual(kinds, ['trip_propose:Bea:betelgeuse', 'trip_sail::betelgeuse', 'trip_stay:Ana:madre', 'trip_stay:Cai:madre', 'trip_stay:Dan:madre']);
+  assert.deepEqual(kinds, ['trip_propose:Bea:betelgeuse', 'trip_sail::betelgeuse', 'trip_stay:Cai:madre', 'trip_stay:Dan:madre']);
+});
+
+test('el fundador tiene la última palabra: si vota que no, se cancela al momento', async () => {
+  const [ana, bea, cai] = ['Ana', 'Bea', 'Cai'].map(player);
+  await allianceOf(ana, bea, cai);
+  const { alliance: { trip } } = await bea.post('/trip', { to: 'zeta' });
+  await cai.post('/trip/vote', { tripId: trip.id, vote: 'yes' });
+  const r = await ana.post('/trip/vote', { tripId: trip.id, vote: 'no' });
+  assert.equal(r.alliance.trip, null);
+  assert.equal(r.alliance.system, 'madre');
+  assert.deepEqual(names(r.alliance), ['Ana', 'Bea', 'Cai']);
+  assert.deepEqual(await chat(bea), ['trip_propose:Bea:zeta', 'trip_cancel:Ana:zeta']);
+});
+
+test('sin el voto del fundador, al cerrar se cancela y no sale nadie', async () => {
+  const [ana, bea, cai] = ['Ana', 'Bea', 'Cai'].map(player);
+  await allianceOf(ana, bea, cai);
+  const { alliance: { trip } } = await bea.post('/trip', { to: 'zeta' });
+  await cai.post('/trip/vote', { tripId: trip.id, vote: 'yes' });
+  later(3 * DAY);
+  const r = await bea.get();
+  assert.equal(r.alliance.trip, null);
+  assert.equal(r.alliance.jump, null);
+  assert.deepEqual(names(r.alliance), ['Ana', 'Bea', 'Cai']);
+  assert.deepEqual(await chat(bea), ['trip_propose:Bea:zeta', 'trip_cancel::zeta']);
+});
+
+test('si el fundador sale, la última palabra pasa a quien hereda el cargo', async () => {
+  const [ana, bea, cai] = ['Ana', 'Bea', 'Cai'].map(player);
+  await allianceOf(ana, bea, cai);
+  const { alliance: { trip } } = await cai.post('/trip', { to: 'zeta' });
+  await ana.post('/leave');   // hereda Bea
+  const r = await bea.post('/trip/vote', { tripId: trip.id, vote: 'no' });
+  assert.equal(r.alliance.trip, null);
 });
 
 test('al cerrar sin ningún sí, se cancela', async () => {

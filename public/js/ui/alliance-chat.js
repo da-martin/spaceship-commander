@@ -60,7 +60,7 @@ function msgHtml(m,prev){
   const TRIP={ trip_propose:`✈ ${name} propone viajar ${sys('a')}`, trip_sail:`✈ La alianza zarpa ${sys('a')}` };
   if(TRIP[m.kind])
     return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border border-violet-800 bg-violet-950/40 text-violet-200 break-words">${TRIP[m.kind]}</div></div>`;
-  const TRIP_NOTE={ trip_withdraw:`${name} retira la propuesta de viajar ${sys('a')}`, trip_cancel:`Votación cerrada: la alianza no viaja ${sys('a')}`, trip_stay:`${name} se queda ${sys('en')} y sale de la alianza` };
+  const TRIP_NOTE={ trip_withdraw:`${name} retira la propuesta de viajar ${sys('a')}`, trip_cancel:m.userId?`${name}, el fundador, vota que no: la alianza no viaja ${sys('a')}`:`Votación cerrada: la alianza no viaja ${sys('a')}`, trip_stay:`${name} se queda ${sys('en')} y sale de la alianza` };
   if(TRIP_NOTE[m.kind]) return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${TRIP_NOTE[m.kind]}</div>`;
   if(m.kind!=='text')
     return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${name} ${NOTICE[m.kind]||''}</div>`;

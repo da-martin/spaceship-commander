@@ -208,11 +208,11 @@ function tripPanel(a){
       <h3 class="text-lg font-bold mt-1.5">Viaje ${escapeHtml(sysPrep(sysOf(t.to),'a'))}</h3>
       <p class="mono text-[11px] text-slate-400 mt-0.5">propuesto por ${escapeHtml(by?.name||'alguien que ya no está')} · salto de ${plural(sysOf(t.to).days||sysOf(t.from).days||1,'día','días')} · se cierra en ${hoursLeft(t.closesAt)}</p>
       ${sysOf(t.to).desc?`<p class="text-sm text-slate-300 mt-2">${escapeHtml(sysOf(t.to).desc)}</p>`:''}
-      <ul class="mt-3 space-y-1.5">${a.members.map(m=>`<li class="flex items-center gap-2 text-sm"><span class="text-slate-100 break-words min-w-0">${escapeHtml(m.name)}</span>${t.votes[m.id]?voteTag[t.votes[m.id]]:'<span class="mono text-[11px] text-slate-500">sin votar</span>'}</li>`).join('')}</ul>
+      <ul class="mt-3 space-y-1.5">${a.members.map(m=>`<li class="flex items-center gap-2 text-sm"><span class="text-slate-100 break-words min-w-0">${escapeHtml(m.name)}</span>${m.id===a.founderId?tag('FUNDADOR','border-amber-700 text-amber-300'):''}${t.votes[m.id]?voteTag[t.votes[m.id]]:'<span class="mono text-[11px] text-slate-500">sin votar</span>'}</li>`).join('')}</ul>
       <div class="flex flex-wrap items-center gap-2 mt-4">${vb('yes','Sí, viajo')}${vb('no','No')}
         ${t.proposedBy===me?`<span class="ml-auto">${confirmBtns('withdraw','Retirar propuesta','¿Retirar la propuesta?')}</span>`:''}</div>
       ${mine==='yes'&&c?`<p class="text-[12px] text-amber-200 mt-3">Tu misión ${escapeHtml(c.topic)} se cancelará al zarpar: cobras la parte hecha.</p>`:''}
-      <p class="text-slate-400 text-xs mt-3">Si todos dicen que sí, zarpáis en ese momento; si más de la mitad dice que no, se cancela. Al cerrarse zarpan los del sí: quien diga que no o no vote se queda ${escapeHtml(sysPrep(sysOf(t.from),'en'))} y sale de la alianza.</p>
+      <p class="text-slate-400 text-xs mt-3">${a.founderId===me?'Tienes la última palabra: si votas que no, no hay viaje.':'Sin el sí del fundador no hay viaje.'} Si todos dicen que sí, zarpáis en ese momento; si más de la mitad dice que no, se cancela. Al cerrarse, si el fundador ha dicho que sí, zarpan los del sí: quien diga que no o no vote se queda ${escapeHtml(sysPrep(sysOf(t.from),'en'))} y sale de la alianza.</p>
     </section>`;
   }
   const dest=destinations(a.system);
@@ -226,7 +226,7 @@ function tripPanel(a){
     </li>`).join('');
   return `<section class="panel p-4 sm:p-5">
       <div class="sys-label">Viajar</div>
-      <p class="text-slate-400 text-xs mt-2">${jumping()?'Podrás proponer viajes cuando llegues.':`Cualquier miembro propone un viaje y la alianza vota durante 3 días. Viajar es mudarse: ${a.system==='madre'?'para volver hará falta otro viaje.':'desde aquí solo se vuelve al Sistema Madre.'}`}</p>
+      <p class="text-slate-400 text-xs mt-2">${jumping()?'Podrás proponer viajes cuando llegues.':`Cualquier miembro propone un viaje y la alianza vota durante 3 días; sin el sí del fundador no se viaja. Viajar es mudarse: ${a.system==='madre'?'para volver hará falta otro viaje.':'desde aquí solo se vuelve al Sistema Madre.'}`}</p>
       <ul class="mt-3 space-y-2">${cards}</ul>
     </section>`;
 }

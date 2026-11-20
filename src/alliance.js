@@ -14,7 +14,7 @@
  * tope es el tamaño del mensaje y los que se conservan por alianza.
  *
  * Viajes (docs/plan-viajes.md, fase 4): la alianza está en un sistema y puede
- * votar un viaje a otro. La votación se resuelve sin relojes: cada foto
+ * votar un viaje a otro; sin el sí del fundador no se viaja. La votación se resuelve sin relojes: cada foto
  * (`overview`) mira antes si toca zarpar o cancelar (`settle`). Las rutas de
  * viaje responden 404 mientras la variable TRAVEL_ON del Worker no sea "1".
  */
@@ -384,28 +384,36 @@ async function settle(env, allianceId, now = Date.now()) {
   const trip = await openTrip(env, allianceId);
   if (!trip) return false;
   const { results } = await env.DB.prepare(
-    `SELECT m.user_id AS id, v.vote FROM alliance_members m
+    `SELECT m.user_id AS id, v.vote, m.user_id = a.founder_id AS founder FROM alliance_members m
+       JOIN alliances a ON a.id = m.alliance_id
        LEFT JOIN alliance_trip_votes v ON v.trip_id = ? AND v.user_id = m.user_id
       WHERE m.alliance_id = ?`
   ).bind(trip.id, allianceId).all();
   const yes = results.filter((r) => r.vote === 'yes'), no = results.filter((r) => r.vote === 'no');
+  const founder = results.find((r) => r.founder);
+  // El fundador tiene la última palabra: si dice que no, no hay viaje, y nunca
+  // se queda fuera de su propia alianza.
+  if (founder?.vote === 'no') return cancel(env, allianceId, trip, founder.id);
   // Todos que sí: se zarpa ya. Más de la mitad que no: se cancela ya (un empate no).
   if (yes.length === results.length) return sail(env, allianceId, trip, [], now);
   if (no.length * 2 > results.length) return cancel(env, allianceId, trip);
   if (now < trip.closesAt) return false;
-  // Plazo cumplido: zarpan los que dijeron que sí, a la hora del cierre.
-  if (!yes.length) return cancel(env, allianceId, trip);
+  // Plazo cumplido: sin el sí del fundador no se va nadie; con él, zarpan los
+  // que dijeron que sí, a la hora del cierre.
+  if (founder?.vote !== 'yes') return cancel(env, allianceId, trip);
   return sail(env, allianceId, trip, results.filter((r) => r.vote !== 'yes').map((r) => r.id), trip.closesAt);
 }
 
-async function cancel(env, allianceId, trip) {
+// `by`: el fundador, si se cancela porque votó que no.
+async function cancel(env, allianceId, trip, by = null) {
   const res = await env.DB.prepare(`UPDATE alliance_trips SET status = 'cancelled' WHERE id = ? AND status = 'open'`).bind(trip.id).run();
-  if (res.meta.changes) await notice(env, allianceId, 'trip_cancel', null, trip.to).run();
+  if (res.meta.changes) await notice(env, allianceId, 'trip_cancel', by, trip.to).run();
   return !!res.meta.changes;
 }
 
 // Zarpa: la alianza pasa a estar en el destino y quien no dijo que sí (`stay`)
-// se queda en el sistema de origen, fuera de la alianza.
+// se queda en el sistema de origen, fuera de la alianza. El fundador nunca está
+// entre ellos (sin su sí no se zarpa); `heir` queda por si acaso.
 async function sail(env, allianceId, trip, stay, at) {
   const arrives = at + jumpDays(trip.from, trip.to) * DAY;
   const res = await env.DB.prepare(`UPDATE alliance_trips SET status = 'sailing', departed_at = ?, arrives_at = ? WHERE id = ? AND status = 'open'`)
