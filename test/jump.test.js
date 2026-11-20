@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { CREW_XP_DAY } from '../public/js/config.js';
 import { checkContractEnd, contractFrom, docked, onAccepted, slotsUsed, STORY_TTL, tickBoard } from '../public/js/core/missions.js';
 import { addEffort } from '../public/js/core/ship.js';
-import { arrive, jumping, startJump } from '../public/js/core/travel.js';
+import { allianceTarget, arrive, followJump, joinAlliance, jumping, startJump } from '../public/js/core/travel.js';
 import { normShip } from '../public/js/store.js';
 import { HOME, SYSTEMS, canJump, jumpDays, jumpRoute, routeText } from '../public/js/systems.js';
 import { clock, seed, fresh, restore } from './helpers.js';
@@ -247,4 +247,70 @@ test('la partida guarda el salto en curso y la historia; descarta lo que no exis
   assert.equal(normShip({ contract: { ...s.ship.contract, to: 'atlantida' } }).contract, null);
   const bad = { id: 'b', kind: 'open', story: true, mid: 'exp-nebulosa', quota: 5, reward: { mc: 1 }, postedOn: '2026-11-14', expiresOn: STORY_TTL };
   assert.deepEqual(normShip({ board: { offers: [bad] } }).board.offers, []);
+});
+
+/* ---------- la alianza lanza el salto (fase 4) ---------- */
+
+const T = () => Date.now();
+const jumpOf = (over = {}) => ({ id: 't1', from: HOME, to: 'zeta', departedAt: T(), arrivesAt: T() + 3 * 24 * H, ...over });
+
+test('followJump: aplica una vez el salto de la alianza, con la llegada del servidor', () => {
+  const s = ready();
+  s.ship.contract = contractFrom(run());
+  const j = jumpOf({ arrivesAt: T() + 3 * 24 * H - 5 * 60e3 });
+  const c = followJump(j, T() - 24 * H);
+  assert.equal(c.kind, 'jump');
+  assert.equal(c.to, 'zeta');
+  assert.equal(c.endsAt, j.arrivesAt);           // la misma hora para todos
+  assert.equal(s.ship.trip, 't1');
+  assert.ok(s.ship.log.some((e) => e.lines?.some((l) => /cancelada/.test(l))));   // la misión en curso se cancela cobrando la parte hecha
+  assert.equal(followJump(j, T() - 24 * H), null);   // ya aplicado
+});
+
+test('followJump: con la app cerrada al zarpar, sale a su hora y puede llegar al momento', () => {
+  const s = ready();
+  const j = jumpOf({ departedAt: T() - 4 * 24 * H, arrivesAt: T() - 24 * H });
+  followJump(j, T() - 10 * 24 * H);
+  assert.equal(s.ship.contract.acceptedAt, j.departedAt);
+  assert.ok(arrive());
+  assert.equal(s.ship.system, 'zeta');
+  assert.equal(travelLog(s).filter((e) => /día/.test(e.title)).length, 2);   // los fragmentos de los días 2 y 3
+});
+
+test('followJump: quien entró después de zarpar no lo aplica, pero lo da por visto', () => {
+  const s = ready();
+  assert.equal(followJump(jumpOf(), T() + 1), null);
+  assert.equal(s.ship.contract, null);
+  assert.equal(s.ship.trip, 't1');
+});
+
+test('followJump: si aún vas de camino hacia la alianza, espera a que llegues', () => {
+  const s = ready();
+  startJump('umbral');
+  assert.equal(followJump(jumpOf({ from: 'umbral', to: HOME }), T() - 24 * H), null);
+  assert.equal(s.ship.trip, null);
+});
+
+test('joinAlliance: saltas hasta donde está la alianza, o hasta su destino si está saltando', () => {
+  const s = ready();
+  assert.equal(joinAlliance({ system: HOME, jump: null }), null);   // ya estás allí
+  const c = joinAlliance({ system: 'canopo', jump: jumpOf({ to: 'canopo', departedAt: T() - 9 * 24 * H, arrivesAt: T() - 5 * 24 * H }) });
+  assert.equal(c.to, 'canopo');
+  assert.equal(c.days, 4);                        // tus propios días, no los de ella
+  assert.equal(s.ship.trip, 't1');                // su último salto no es tuyo
+  assert.equal(allianceTarget({ system: 'zeta', jump: jumpOf() }), 'zeta');
+  assert.equal(allianceTarget({ system: HOME, bound: 'umbral' }), 'umbral');   // invitación de una alianza en pleno salto
+});
+
+test('joinAlliance: entre dos sistemas sin ruta directa, el rodeo por el Sistema Madre', () => {
+  const s = ready();
+  s.ship.system = 'umbral';
+  const c = joinAlliance({ system: 'zeta', jump: null });
+  assert.equal(c.days, 1 + 3);
+  assert.equal(c.via, HOME);
+});
+
+test('partidas: el último salto aplicado se conserva; si no es texto, se descarta', () => {
+  assert.equal(normShip({ trip: 't9' }).trip, 't9');
+  assert.equal(normShip({ trip: 4 }).trip, null);
 });

@@ -2,6 +2,7 @@
  * cada pocos segundos. La lista se va completando sin repintarse entera, para
  * no mover el desplazamiento ni borrar lo que se está escribiendo. */
 import { RANKS } from '../config.js';
+import { sysOf, sysPrep } from '../systems.js';
 import { ally, fetchMessages, markRead, sendMessage } from '../sync/alliance.js';
 import { cloud } from '../sync/cloud.js';
 import { escapeHtml, todayStr, addDays } from '../util.js';
@@ -54,6 +55,13 @@ function msgHtml(m,prev){
     const txt=m.kind==='rank'?`★ ${name} asciende a ${escapeHtml(RANKS[+m.body]?.[0]||'un nuevo rango')}`:`◆ ${name} ha completado una misión de ${escapeHtml(m.body)}`;
     return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border border-amber-800 bg-amber-950/40 text-amber-200 break-words">${txt}</div></div>`;
   }
+  // Los viajes: la propuesta y la salida destacan; lo demás es un aviso.
+  const sys=(p)=>escapeHtml(sysPrep(sysOf(m.body),p));
+  const TRIP={ trip_propose:`✈ ${name} propone viajar ${sys('a')}`, trip_sail:`✈ La alianza zarpa ${sys('a')}` };
+  if(TRIP[m.kind])
+    return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border border-violet-800 bg-violet-950/40 text-violet-200 break-words">${TRIP[m.kind]}</div></div>`;
+  const TRIP_NOTE={ trip_withdraw:`${name} retira la propuesta de viajar ${sys('a')}`, trip_cancel:`Votación cerrada: la alianza no viaja ${sys('a')}`, trip_stay:`${name} se queda ${sys('en')} y sale de la alianza` };
+  if(TRIP_NOTE[m.kind]) return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${TRIP_NOTE[m.kind]}</div>`;
   if(m.kind!=='text')
     return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${name} ${NOTICE[m.kind]||''}</div>`;
   // Seguidos de la misma persona: el nombre solo va en el primero.
@@ -137,7 +145,7 @@ function append(fresh){
   el.innerHTML=listHtml();
   if(stick) toBottom(el); else el.scrollTop=top;
   if(stick) seen();
-  if(fresh.some(m=>NOTICE[m.kind])) onRoster();
+  if(fresh.some(m=>NOTICE[m.kind]||m.kind.startsWith('trip_'))) onRoster();   // quién está, o cómo va un viaje
 }
 async function loadOlder(){
   if(chat.busy||!chat.msgs.length) return;

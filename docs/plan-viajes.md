@@ -141,22 +141,28 @@ Cada sistema tiene su planeta (`PLANETS` en `ui/ship-view.js`), el mismo en la e
 
 ## Servidor
 
-La alianza deja de ser solo «quién está con quién»: pasa a tener ubicación y votaciones.
+La alianza deja de ser solo «quién está con quién»: pasa a tener ubicación y votaciones (migración `0009_alliance_trips.sql`, código en `src/alliance.js`).
 
-- `alliances.system`: dónde está la alianza; `NULL` es el Sistema Madre.
-- Tabla nueva `alliance_trips`: id, alianza, destino, quién la propone, `created_at`, `closes_at`, estado (`open`, `sailing`, `done`, `withdrawn`), `departed_at` y `arrives_at`.
-- Tabla nueva `alliance_trip_votes`: viaje, jugador y voto (sí o no). El estado de `alliance_trips` admite también `cancelled`.
-- **La votación se resuelve sin relojes**: cada petición a `/api/alliance` comprueba si todos han votado que sí, si más de la mitad ha votado que no o si ha pasado `closes_at`. Si hay mayoría de no, cancela; si toca zarpar, hace la salida (saca de la alianza a quien no votó, fija `departed_at` y `arrives_at` y escribe los hitos en el chat). No hace falta un cron.
-- La foto de `GET /api/alliance` incluye la propuesta abierta y el salto en curso.
+- `alliances.system`: dónde está la alianza, con el id del sistema (`'madre'` por defecto). Nace donde está quien la funda (o adonde va, si está saltando) y cambia al zarpar.
+- Tabla nueva `alliance_trips`: id, alianza, origen, destino, quién la propone, `created_at`, `closes_at`, estado (`open`, `sailing`, `done`, `withdrawn`, `cancelled`), `departed_at` y `arrives_at`. Un índice único impide dos votaciones abiertas a la vez.
+- Tabla nueva `alliance_trip_votes`: viaje, jugador y voto (sí o no). Solo cuentan los de quien sigue en la alianza.
+- El servidor tiene su copia de los días de salto (`SYSTEM_DAYS`); un test comprueba que coincide con `systems.js`.
+- Rutas: `POST /api/alliance/trip` (`{to}`: propone y vota sí), `/trip/vote` (`{tripId, vote}`) y `/trip/withdraw`. Responden 404 mientras la variable del Worker `TRAVEL_ON` no sea `"1"`.
+- **La votación se resuelve sin relojes** (`settle`): cada foto comprueba si todos han votado que sí (zarpan ya), si más de la mitad ha votado que no (se cancela ya) o si ha pasado `closes_at`. Al cerrar zarpan los del sí, con la hora del cierre aunque nadie abriera la app entonces; sin ningún sí, se cancela. Al zarpar saca de la alianza a quien no votó que sí, pasa el cargo de fundador si hace falta y escribe los avisos. Cada cambio de estado es condicional, así que dos peticiones a la vez no zarpan dos veces. No hace falta un cron.
+- Avisos en el chat: `trip_propose` y `trip_sail` destacan; `trip_withdraw`, `trip_cancel` y `trip_stay` (quien se queda y sale) van como avisos. Llevan en `body` el sistema.
+- La foto de `GET /api/alliance` incluye `system`, la votación abierta (`trip`, con los votos) y el último salto (`jump`), aunque ya haya llegado. Las invitaciones dicen dónde está la alianza (`system`) y adónde salta si está saltando (`bound`).
 
 En el cliente:
 
-- Al recibir una salida que todavía no ha aplicado, la aplica: cancela la misión, vacía el tablón y crea el contrato de salto con el `arrives_at` del servidor. Así funciona aunque la app estuviera cerrada cuando zarpó la alianza.
+- Al recibir una salida que todavía no ha aplicado (`followJump`, en `core/travel.js`), la aplica: cancela la misión, vacía el tablón y crea el contrato de salto que sale a la hora del servidor y llega con su `arrives_at`. Así funciona aunque la app estuviera cerrada cuando zarpó la alianza: puede llegar al momento, con todos los fragmentos. `state.ship.trip` guarda el último salto aplicado. Quien entró después de zarpar no lo aplica, y quien aún va de camino hacia la alianza lo aplica al llegar.
+- Al entrar en una alianza que está en otro sistema, `joinAlliance` lanza tu salto hasta ella. Antes de aceptar, la invitación avisa de la ruta y de la misión que se cancela, y el botón pasa a «Unirme y zarpar». Saltando no se puede aceptar.
+- En la vista de alianza: la votación abierta (votos de cada uno, Sí / No y retirar) o el salto en curso van arriba, antes del chat; la lista de destinos para proponer, debajo de los miembros. Todo esto solo con `TRAVEL_ON`.
 - Votar necesita conexión; el salto en sí corre sin conexión, como cualquier misión.
 
 ## Partidas guardadas
 
 - Sin `system` → `'madre'`.
+- Sin `trip` → `null`.
 - Contratos sin `kind` → `'run'`.
 
 ## Fases
@@ -164,8 +170,8 @@ En el cliente:
 1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles.
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
 3. **Salto** (hecha, oculta): `core/travel.js` con `startJump`, los fragmentos diarios y la llegada; la historia del sistema en el tablón; la vista del salto y los informes con cita. No hay ningún botón para viajar: lo lanzará la votación de la fase 4, y la alianza de uno se prueba allí.
-4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
-5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia; los capítulos llegan al tablón desde la fase 3. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
+4. **Votación en el servidor** (hecha, oculta): tablas, propuesta, votos, salida perezosa e hitos en el chat; en el cliente, aplicar la salida, saltar al entrar en una alianza de otro sistema y la parte de viajes de la vista de alianza.
+5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia; los capítulos llegan al tablón desde la fase 3. Para abrir los viajes hacen falta dos interruptores: `TRAVEL_ON` a `true` en `config.js` y la variable `TRAVEL_ON` a `"1"` en el Worker (`vars` en `wrangler.jsonc`), con la migración `0009` aplicada. Entonces tocará anunciarlo en las novedades.
 
 ## Decidido
 
