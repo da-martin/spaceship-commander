@@ -68,6 +68,7 @@ export function normShip(s){
     log:normLog(s?.log),
     books:normBooks(s?.books),
     updates:(Array.isArray(s?.updates)?s.updates:[]).filter(x=>typeof x==='string').slice(-100),
+    tripId:typeof s?.tripId==='string'?s.tripId.slice(0,64):null,   // último viaje de la alianza ya aplicado en esta partida
     recentMissions:(Array.isArray(s?.recentMissions)?s.recentMissions:[]).filter(id=>typeof id==='string'&&MISSION_BY_ID[id]).slice(-RECENT_MAX)
   };
 }

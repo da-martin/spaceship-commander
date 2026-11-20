@@ -5,7 +5,13 @@ import { ally, allyAct, loadAlly, searchPlayers } from '../sync/alliance.js';
 import { openAuthModal } from '../sync/auth.js';
 import { cloud } from '../sync/cloud.js';
 import { onShareShown, shareSync } from '../features/alliance-share.js';
-import { escapeHtml, plural, todayStr } from '../util.js';
+import { applyAllianceTrip } from '../features/alliance-trip.js';
+import { TRAVEL_ON } from '../config.js';
+import { isJump, startJump } from '../core/travel.js';
+import { save, state } from '../store.js';
+import { destinations, jumpDays, routeText, sysOf, sysPrep } from '../systems.js';
+import { escapeHtml, fDate, plural, todayStr } from '../util.js';
+import { render } from './commander.js';
 import { chatPanel, initChat, keepChatScroll, syncChat } from './alliance-chat.js';
 import { uiMode } from './mode.js';
 import { toast } from './toast.js';
@@ -21,6 +27,10 @@ const ERR={
   not_member:'Ese jugador ya no está en la alianza.',
   no_alliance:'Ya no estás en esa alianza.',
   throttled:'Demasiados intentos. Espera unos minutos.',
+  bad_destination:'No se puede viajar a ese sistema desde aquí.',
+  trip_busy:'Ya hay una propuesta de viaje abierta o un salto en curso.',
+  no_trip:'Esa votación ya está cerrada.',
+  not_proposer:'Solo quien propuso el viaje puede retirarlo.',
   network:'No se pudo conectar. Inténtalo de nuevo.',
 };
 
@@ -89,9 +99,13 @@ function lobby(invites){
   const inv=invites.length?`<section class="panel p-4 sm:p-5">
       <div class="sys-label">Invitaciones</div>
       <ul class="mt-3 space-y-2">${invites.map(i=>`<li class="${row}">
-        <span class="min-w-0 flex-1 basis-40"><span class="block text-sm text-slate-100 break-words">${escapeHtml(i.name)}</span><span class="mono text-[11px] text-slate-400">te invita ${escapeHtml(i.invitedBy)} · ${plural(i.members,'miembro','miembros')}</span></span>
-        <button type="button" data-ally="accept" data-id="${i.allianceId}" class="btn-primary h-11 px-3.5 rounded-lg text-sm font-medium">Unirme</button>
-        <button type="button" data-ally="decline" data-id="${i.allianceId}" class="${btn}">Rechazar</button>
+        <span class="min-w-0 flex-1 basis-40"><span class="block text-sm text-slate-100 break-words">${escapeHtml(i.name)}</span><span class="mono text-[11px] text-slate-400">te invita ${escapeHtml(i.invitedBy)} · ${plural(i.members,'miembro','miembros')}${farAway(i)?` · ${escapeHtml(sysPrep(sysOf(i.system),'en'))}`:''}</span></span>
+        ${ui.confirm==='join:'+i.allianceId
+          ? `<span class="basis-full text-sm text-amber-200">${escapeHtml(routeText(state.ship.system,i.system))}${state.ship.contract?' Tu misión en curso se cancelará: cobrarás la parte hecha, sin daño a la reputación.':''}</span>
+             <button type="button" data-ally="join" data-id="${i.allianceId}" class="btn-primary h-11 px-3.5 rounded-lg text-sm font-medium">Unirme y saltar</button>
+             <button type="button" data-ally="no" class="${btn}">Cancelar</button>`
+          : `<button type="button" data-ally="accept" data-id="${i.allianceId}" class="btn-primary h-11 px-3.5 rounded-lg text-sm font-medium">Unirme</button>
+             <button type="button" data-ally="decline" data-id="${i.allianceId}" class="${btn}">Rechazar</button>`}
       </li>`).join('')}</ul>
     </section>`:'';
   return `<section class="panel corner p-5">
@@ -134,6 +148,7 @@ function alliancePanel(a){
       </div>
     </section>
     ${chatPanel()}
+    ${tripPanel(a)}
     <section class="panel p-4 sm:p-5">
       <div class="sys-label">Miembros</div>
       <ul class="mt-3 space-y-2">${members}</ul>
@@ -147,6 +162,47 @@ function alliancePanel(a){
       ${confirmBtns('leave','Salir de la alianza',a.members.length===1?'Eres el último: la alianza desaparecerá. ¿Salir?':founder?'El cargo de fundador pasará al más antiguo. ¿Salir?':'¿Salir de la alianza?')}
       ${founder&&a.members.length>1?confirmBtns('disband','Disolver','Se disolverá para todos. ¿Seguro?'):''}
     </section>`;
+}
+
+/* ---------- viajes (ocultos mientras TRAVEL_ON sea false) ---------- */
+// La alianza que te invita está en otro sistema: aceptar lanza tu propio salto.
+const farAway=(i)=>TRAVEL_ON&&i.system&&i.system!==state.ship.system;
+const when=(ms)=>{ const d=new Date(ms); return `${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const daysTxt=(n)=>n===1?'1 día':`${n} días`;
+const cap=(t)=>t.charAt(0).toUpperCase()+t.slice(1);
+const VOTE_TXT={yes:tag('SÍ','border-emerald-700 text-emerald-300'),no:tag('NO','border-red-800 text-red-300')};
+function tripPanel(a){
+  if(!TRAVEL_ON||!a.system) return '';
+  const me=cloud.user.id, t=a.trip, sh=state.ship, myJump=isJump(sh.contract), here=sysOf(a.system);
+  const head=`<div class="sys-label">Viajes</div>`;
+  if(t&&t.status==='sailing') return `<section class="panel p-4 sm:p-5">${head}
+      <p class="text-sm text-slate-200 mt-2">La alianza está saltando ${escapeHtml(sysPrep(sysOf(t.to),'a'))}. Llegada: ${when(t.arrivesAt)}.</p></section>`;
+  if(t&&t.status==='open'){
+    const mine=t.votes.find(v=>v.userId===me)?.vote, dest=sysOf(t.to);
+    const voteBtn=(v,label)=>`<button type="button" data-ally="vote" data-id="${t.id}" data-vote="${v}" aria-pressed="${mine===v}" class="${mine===v?'btn-primary':btn} h-11 px-3.5 rounded-lg text-sm font-medium">${label}</button>`;
+    return `<section class="panel p-4 sm:p-5 border-violet-800">${head}
+      <h3 class="text-lg font-semibold text-violet-100 mt-1.5">Propuesta: viajar ${escapeHtml(sysPrep(dest,'a'))}</h3>
+      <p class="mono text-[11px] text-slate-400 mt-1">propuesta de ${escapeHtml(t.proposerName||'alguien')} · salto de ${daysTxt(jumpDays(t.from,t.to))} · la votación se cierra el ${when(t.closesAt)}</p>
+      ${dest.quote?`<p class="text-sm italic text-violet-200 mt-3">«${escapeHtml(dest.quote)}»</p>`:''}
+      ${dest.desc?`<p class="text-sm text-slate-300 mt-1.5">${escapeHtml(dest.desc)}</p>`:''}
+      <p class="text-xs text-slate-400 mt-3">Si todos decís que sí, zarpáis en ese momento. Si más de la mitad dice que no, se cancela. Al cerrarse la votación zarpan los que hayan dicho que sí; quien diga que no o no vote se queda ${escapeHtml(sysPrep(here,'en'))} y sale de la alianza.</p>
+      ${sh.contract&&!myJump?'<p class="text-xs text-amber-200 mt-2">Tienes una misión en curso: si zarpáis, se cancelará. Cobrarás la parte hecha, sin daño a la reputación.</p>':''}
+      <ul class="mt-3 space-y-1.5">${a.members.map(m=>{ const v=t.votes.find(x=>x.userId===m.id)?.vote;
+        return `<li class="flex items-center gap-2 text-sm"><span class="text-slate-200 min-w-0 break-words">${escapeHtml(m.name)}</span><span class="ml-auto">${VOTE_TXT[v]||'<span class="mono text-[11px] text-slate-500">sin votar</span>'}</span></li>`; }).join('')}</ul>
+      <div class="flex flex-wrap items-center gap-2 mt-4">${voteBtn('yes','Sí, zarpo')}${voteBtn('no','No, me quedo')}
+        ${t.proposedBy===me?`<span class="ml-auto">${confirmBtns('withdraw:'+t.id,'Retirar propuesta','¿Retirar la propuesta?')}</span>`:''}</div>
+    </section>`;
+  }
+  const list=destinations(a.system);
+  if(!list.length) return '';
+  return `<section class="panel p-4 sm:p-5">${head}
+    <p class="text-sm text-slate-300 mt-2">La alianza está ${escapeHtml(sysPrep(here,'en'))}. Cualquiera puede proponer un viaje, y la alianza vota durante 3 días.</p>
+    ${myJump?'<p class="text-sm text-slate-400 mt-2">Estás en pleno salto: podrás proponer viajes al llegar.</p>':''}
+    <ul class="mt-3 space-y-2">${list.map(d=>`<li class="${row}">
+      <span class="min-w-0 flex-1 basis-48"><span class="block text-sm text-slate-100">${escapeHtml(cap(d.art+d.name))}</span><span class="block text-xs text-slate-400 mt-0.5">${escapeHtml(d.desc||'Volver a casa.')}</span><span class="mono text-[11px] text-slate-400">salto de ${daysTxt(jumpDays(a.system,d.id))}</span></span>
+      ${myJump?'':confirmBtns('trip:'+d.id,'Proponer viaje','¿Proponer el viaje?').replace(btnDanger,btn)}
+    </li>`).join('')}</ul>
+  </section>`;
 }
 
 // El día de cada uno: solo el porcentaje. Si lo publicado no es de hoy, aún no ha abierto el juego.
@@ -197,6 +253,7 @@ async function act(path,body,done){
   ui.busy=true;
   const res=await allyAct(path,body);
   ui.busy=false; ui.confirm=null;
+  if(res.ok&&applyAllianceTrip()) render();   // zarpáis: el salto empieza en tu partida
   if(!res.ok){
     toast(ERR[res.error]||ERR.network);
     // Lo que se ve ya no es verdad (otro se adelantó): se vuelve a pedir.
@@ -214,6 +271,7 @@ export async function refreshAlliance(){
   const pending=loadAlly();
   if(ally.status==='loading') renderAlliance();
   const changed=await pending;
+  if(applyAllianceTrip()) render();   // la alianza zarpó mientras no mirabas
   paintDots(); paintProgress();   // sin leer y progreso: cambian sin que cambie nada más
   shareSync();                    // y lo tuyo: hitos en cola y tu porcentaje, si no están al día
   if(changed){
@@ -251,9 +309,23 @@ export function init(){
       if(k==='leave'){ if(await act('/leave',null,'Has salido de la alianza')) resetSearch(); }
       else if(k==='disband'){ if(await act('/disband',null,'Alianza disuelta')) resetSearch(); }
       else if(k.startsWith('kick:')) await act('/kick',{userId:k.slice(5)},'Expulsado de la alianza');
+      else if(k.startsWith('trip:')){ if(await act('/trip',{to:k.slice(5)})) toast(isJump(state.ship.contract)?'¡Zarpáis!':'Viaje propuesto: la alianza vota'); }
+      else if(k.startsWith('withdraw:')) await act('/trip/withdraw',{tripId:k.slice(9)},'Propuesta retirada');
       return;
     }
-    if(a==='accept') return act('/accept',{allianceId:id},'Te has unido a la alianza ✓');
+    if(a==='vote') return act('/trip/vote',{tripId:id,vote:b.dataset.vote},b.dataset.vote==='yes'?'Has votado que sí':'Has votado que no');
+    if(a==='accept'||a==='join'){
+      const inv=ally.data&&ally.data.invites.find(x=>x.allianceId===id);
+      if(inv&&farAway(inv)){
+        if(isJump(state.ship.contract)){ toast('Estás en pleno salto: podrás unirte al llegar'); return; }
+        if(a==='accept'){ ui.confirm='join:'+id; return renderAlliance(); }   // primero, el aviso del salto
+        if(await act('/accept',{allianceId:id},'Te has unido a la alianza ✓')){
+          if(startJump(inv.system,new Date(),{invite:true})){ save(); render(); toast(`Te has unido a la alianza · salto ${sysPrep(sysOf(inv.system),'a')}`); }
+        }
+        return;
+      }
+      return act('/accept',{allianceId:id},'Te has unido a la alianza ✓');
+    }
     if(a==='decline') return act('/decline',{allianceId:id},'Invitación rechazada');
     if(a==='cancel'){
       if(await act('/invite/cancel',{userId:id},'Invitación retirada')&&ui.results){
@@ -273,6 +345,6 @@ export function init(){
     e.preventDefault();
     const name=document.getElementById('allyName').value.trim();
     if(name.length<3){ toast(ERR.bad_name); return; }
-    await act('',{name},'Alianza fundada ✓');
+    await act('',{name,system:state.ship.system},'Alianza fundada ✓');   // nace donde está tu nave
   });
 }

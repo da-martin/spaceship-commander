@@ -4,6 +4,7 @@
 import { RANKS } from '../config.js';
 import { ally, fetchMessages, markRead, sendMessage } from '../sync/alliance.js';
 import { cloud } from '../sync/cloud.js';
+import { sysOf, sysPrep } from '../systems.js';
 import { escapeHtml, todayStr, addDays } from '../util.js';
 import { uiMode } from './mode.js';
 import { toast } from './toast.js';
@@ -45,6 +46,14 @@ function dayLabel(t){
   return new Date(t).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
 }
 const NOTICE={ join:'se ha unido a la alianza', leave:'ha salido de la alianza', kick:'ya no está en la alianza' };
+// Avisos de viaje: `body` es el sistema del que hablan. Cambian la alianza, así que piden la foto nueva.
+const TRIP={
+  trip:(n,s)=>`◆ ${n} propone viajar ${s('a')}. La alianza vota durante 3 días`,
+  trip_go:(n,s)=>`◆ La alianza zarpa hacia ${s('')}`,
+  trip_cancel:(n,s)=>`La mayoría ha dicho que no: se cancela el viaje ${s('a')}`,
+  trip_withdraw:(n,s)=>`${n} retira la propuesta de viajar ${s('a')}`,
+  trip_stay:(n,s)=>`${n} se queda ${s('en')} y sale de la alianza`,
+};
 function msgHtml(m,prev){
   const me=cloud.user&&m.userId===cloud.user.id, name=escapeHtml(m.name||'Alguien');
   const day=!prev||todayStr(new Date(prev.createdAt))!==todayStr(new Date(m.createdAt))
@@ -53,6 +62,10 @@ function msgHtml(m,prev){
   if(m.kind==='rank'||m.kind==='mission'){
     const txt=m.kind==='rank'?`★ ${name} asciende a ${escapeHtml(RANKS[+m.body]?.[0]||'un nuevo rango')}`:`◆ ${name} ha completado una misión de ${escapeHtml(m.body)}`;
     return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border border-amber-800 bg-amber-950/40 text-amber-200 break-words">${txt}</div></div>`;
+  }
+  if(TRIP[m.kind]){
+    const sys=sysOf(m.body), txt=TRIP[m.kind](name,(prep)=>escapeHtml(prep?sysPrep(sys,prep):sys.art+sys.name)), big=m.kind==='trip'||m.kind==='trip_go';
+    return `${day}<div data-mid="${m.id}" class="flex justify-center my-3"><div class="max-w-[90%] text-center text-[13px] px-3 py-1.5 rounded-lg border ${big?'border-violet-800 bg-violet-950/40 text-violet-200':'border-slate-700 text-slate-300'} break-words">${txt}</div></div>`;
   }
   if(m.kind!=='text')
     return `${day}<div data-mid="${m.id}" class="text-center mono text-[11px] text-slate-400 my-2">${name} ${NOTICE[m.kind]||''}</div>`;
@@ -137,7 +150,7 @@ function append(fresh){
   el.innerHTML=listHtml();
   if(stick) toBottom(el); else el.scrollTop=top;
   if(stick) seen();
-  if(fresh.some(m=>NOTICE[m.kind])) onRoster();
+  if(fresh.some(m=>NOTICE[m.kind]||TRIP[m.kind])) onRoster();
 }
 async function loadOlder(){
   if(chat.busy||!chat.msgs.length) return;

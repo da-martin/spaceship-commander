@@ -252,6 +252,22 @@ cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
 | Envíos a TaskHero           | 300 por cuenta cada hora        |
 | Intentos de conectar        | 10 por cuenta cada hora         |
 
+## Viajes a otros sistemas (ocultos)
+
+La versión con la votación de viajes trae la migración `0009_alliance_trips.sql`,
+pero **no hace falta aplicarla mientras los viajes estén apagados**: sin la
+variable `TRAVEL_ON`, el Worker no toca sus tablas ni la columna nueva.
+
+Para activarlos (todo a la vez):
+
+1. `npm run db:remote` para aplicar la migración.
+2. La variable `TRAVEL_ON` con valor `1` en el Worker (Cloudflare → Workers →
+   spaceship-commander → Settings → Variables, o `"vars"` en `wrangler.jsonc`).
+3. `TRAVEL_ON = true` en `public/js/config.js`, y su entrada en las novedades.
+
+Para probarlo en local: `npm run db:local` y
+`npx wrangler dev --var TRAVEL_ON:1`.
+
 ## Límites conocidos
 
 1. **El progreso es falsificable.** Cualquiera puede editar `localStorage` o
