@@ -100,6 +100,7 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 - Se puede invitar a alguien que está en otro sistema. La invitación dice dónde está la alianza.
 - **Aceptar una invitación desde otro sistema lanza tu propio salto** hasta el sistema de la alianza, con los días de ese destino. Tu misión en curso se cancela sin penalización, igual que al zarpar.
+- Si no hay ruta directa (estás en un sistema y la alianza en otro, y ninguno es el Sistema Madre), el salto da el rodeo por el Sistema Madre en un solo viaje que suma los dos tramos: primero los fragmentos de regreso y luego los del destino. **Antes de aceptar se avisa** de la duración y del rodeo (`routeText`). Es el único caso en que se salta entre dos sistemas sin pasar por el Sistema Madre como parada (`startJump(to, now, {invite:true})`).
 - Si la alianza está en pleno salto, saltas a su destino.
 - Quien está saltando no puede aceptar invitaciones hasta llegar.
 - Durante tu salto ya eres miembro: tienes chat y votas, pero no puedes proponer viajes hasta llegar.
@@ -167,6 +168,5 @@ En el cliente:
 - **Quien sale de la alianza en otro sistema** se queda allí. Puede crear una alianza de uno y proponer un viaje de vuelta. ¿Basta con eso?
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
-- **Invitaciones sin ruta directa.** Con el Sistema Madre como centro, quien está en Zeta Reticuli no puede saltar directamente a una alianza que está en Canopo. Opciones: un salto que pasa por el Sistema Madre y suma los días de los dos tramos, o no poder aceptar hasta volver al Sistema Madre.
 - **Misiones en grupo**: plan aparte.
 - **Escena de planeta**: el dibujo del planeta grande (estaba en el commit `27d0f7e`) podría volver para las misiones que pasan claramente en un planeta o en su órbita. Se decidirá con todas las misiones escritas.
