@@ -111,6 +111,10 @@
   /* Hábito negativo: el mismo círculo, en rojo mientras hay caídas hoy. */
   .row-mark.neg{border-color:#991b1b;background:#1c0d10;color:#fca5a5}
   .row-mark.off{border-style:dashed;border-color:#64748b;background:transparent;color:#94a3b8}
+  /* Botón −1 de los contadores: mismo círculo que el control, en neutro. */
+  .row-mark.minus{border-radius:999px;border-color:#475569;background:transparent;color:#cbd5e1;font-size:11px;letter-spacing:-.5px}
+  .row--lg .row-mark.minus{font-size:14px}
+  .row-minus:hover .row-mark.minus{border-color:#0891b2;color:#67e8f9}
   .row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;padding:7px 0;margin:-7px 0;border-radius:8px}
   .row-body:hover .row-title{color:#f1f5f9}
   .row-gear{flex:none;box-sizing:content-box;display:grid;place-items:center;width:20px;height:20px;padding:12px;margin:-12px -2px;border-radius:12px;color:#94a3b8}
