@@ -13,7 +13,7 @@ import { emit } from './events.js';
 import { logShip } from './log.js';
 import { finishContract } from './missions.js';
 import { state } from '../store.js';
-import { HOME, SYSTEMS, jumpDays, sysOf, sysPrep } from '../systems.js';
+import { HOME, SYSTEMS, canJump, jumpDays, sysOf, sysPrep } from '../systems.js';
 import { fmtEf, todayStr, uid } from '../util.js';
 
 export const isJump=(c)=>c?.kind==='jump';
@@ -26,10 +26,11 @@ export function jumpFragment(c,i){
 const jumpTitle=(c)=>'Salto '+sysPrep(sysOf(c.to),'a');
 
 // Zarpa hacia `to`. Devuelve el contrato de salto, o null si no se puede
-// (sistema desconocido, ya estás allí o ya estás saltando). No guarda.
+// (sistema desconocido, ya estás allí, ya estás saltando o no hay ruta: entre
+// dos sistemas que no son el Sistema Madre hay que pasar por él). No guarda.
 export function startJump(to,now=new Date()){
   const sh=state.ship, c=sh.contract;
-  if(!Object.hasOwn(SYSTEMS,to)||to===sh.system||isJump(c)) return null;
+  if(!canJump(sh.system,to)||isJump(c)) return null;
   const lines=[];
   let rew=null;
   if(c){

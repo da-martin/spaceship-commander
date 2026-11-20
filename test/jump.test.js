@@ -7,7 +7,7 @@ import { checkContractEnd, contractFrom, docked, onAccepted, slotsUsed, STORY_TT
 import { addEffort } from '../public/js/core/ship.js';
 import { arrive, jumping, startJump } from '../public/js/core/travel.js';
 import { normShip } from '../public/js/store.js';
-import { HOME, SYSTEMS, jumpDays } from '../public/js/systems.js';
+import { HOME, SYSTEMS, canJump, jumpDays } from '../public/js/systems.js';
 import { clock, seed, fresh, restore } from './helpers.js';
 
 beforeEach(() => { clock('2026-11-14T10:00:00'); seed(); });
@@ -40,6 +40,18 @@ test('el salto dura los días del destino; para volver al Sistema Madre, los del
   assert.equal(s.ship.system, HOME);   // sigue en el origen hasta llegar
   assert.ok(jumping());
   assert.equal(docked(), false);
+});
+
+test('el Sistema Madre es el centro: desde él a cualquiera, y desde los demás solo de vuelta', () => {
+  assert.ok(canJump(HOME, 'zeta'));
+  assert.ok(canJump('zeta', HOME));
+  assert.equal(canJump('zeta', 'canopo'), false);
+  assert.equal(canJump('zeta', 'zeta'), false);
+  assert.equal(canJump(HOME, 'atlantida'), false);
+  const s = ready();
+  s.ship.system = 'zeta';
+  assert.equal(startJump('canopo'), null);
+  assert.ok(startJump(HOME));
 });
 
 test('no se salta a un sistema que no existe, al actual ni en pleno salto', () => {

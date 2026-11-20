@@ -57,9 +57,13 @@ export const SYSTEMS = Object.fromEntries([
 export const sysOf = (id) => SYSTEMS[id]||SYSTEMS[HOME];
 export const marketMult = (sys,k) => sys.market[k]??1;
 // Días de salto de `from` a `to`: los del destino; para volver al Sistema Madre, los del origen.
+// (Con canJump, uno de los dos es siempre el Sistema Madre.)
 export const jumpDays = (from,to) => Math.max(1,sysOf(to).days||sysOf(from).days||1);
+// El Sistema Madre es el centro: desde él se va a cualquier sistema, y desde
+// cualquier otro solo se vuelve a él (los días de salto son la distancia al Sistema Madre).
+export const canJump = (from,to) => Object.hasOwn(SYSTEMS,to)&&to!==from&&(from===HOME||to===HOME);
 // Adónde se puede viajar desde `from`. Vacío mientras los viajes estén cerrados.
-export const destinations = (from) => TRAVEL_ON?Object.values(SYSTEMS).filter(s=>s.id!==from):[];
+export const destinations = (from) => TRAVEL_ON?Object.values(SYSTEMS).filter(s=>canJump(from,s.id)):[];
 // «en el Sistema Madre», «del Sistema Madre», «al Sistema Madre»; sin artículo, «en Kepler».
 export function sysPrep(sys,prep){
   const a=sys.art||'';

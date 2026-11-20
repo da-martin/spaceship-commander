@@ -28,6 +28,8 @@ Cada sistema es una ficha en `public/js/systems.js`, como el catálogo de `missi
 
 El Sistema Madre también tiene ficha, con el catálogo de `missions.js`. Cada uno de los demás vive en `public/js/systems/<id>.js` (solo datos, con su catálogo y su historia); `missions.js` los junta todos en `MISSIONS`, marcados con `system`, para que una misión aceptada encuentre su relato esté donde esté.
 
+**El Sistema Madre es el centro** (`canJump`): desde él se puede viajar a cualquier sistema, y desde cualquier otro solo se vuelve a él. Los días de salto de cada sistema son su distancia al Sistema Madre; para ir de uno a otro hay que hacer dos viajes.
+
 **Los viajes están cerrados** mientras `TRAVEL_ON` (en `config.js`) sea `false`: `destinations()` no ofrece ningún destino. La interfaz de viajes, cuando exista, tiene que pasar por ahí.
 
 - `priceOf(k, día)` multiplica por `market[k]` del sistema en el que estás, antes de redondear; `onSale(k)` dice si allí se comercia.
@@ -165,5 +167,6 @@ En el cliente:
 - **Quien sale de la alianza en otro sistema** se queda allí. Puede crear una alianza de uno y proponer un viaje de vuelta. ¿Basta con eso?
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
+- **Invitaciones sin ruta directa.** Con el Sistema Madre como centro, quien está en Zeta Reticuli no puede saltar directamente a una alianza que está en Canopo. Opciones: un salto que pasa por el Sistema Madre y suma los días de los dos tramos, o no poder aceptar hasta volver al Sistema Madre.
 - **Misiones en grupo**: plan aparte.
 - **Escena de planeta**: el dibujo del planeta grande (estaba en el commit `27d0f7e`) podría volver para las misiones que pasan claramente en un planeta o en su órbita. Se decidirá con todas las misiones escritas.
