@@ -132,12 +132,12 @@ Se probó primero una variante «en órbita», sin salir del sistema y con merca
 
 | Estado | Fondo | Motores |
 |---|---|---|
-| En el sistema | Planeta en la esquina, todo quieto | Apagados: la nave espera |
+| En el sistema | El planeta del sistema asoma por la esquina, todo quieto | Apagados: la nave espera |
 | Capítulo de la historia de un sistema | El planeta del sistema, de cerca, ocupa todo el lateral izquierdo: la nave está en órbita | Encendidos |
 | Otra misión (con plazo o sin él) | Sin planeta; las estrellas caen como trazos cortos | Encendidos |
 | Salto | Túnel de luz violeta delante del morro del que brotan las estrellas | A tope, estela larga |
 
-Cada sistema tiene su planeta (`PLANETS` en `ui/ship-view.js`): el Umbral, azul celeste de mar y hielo; Canopo, desierto color arena; Zeta Reticuli, gris verdoso industrial con tormentas; Betelgeuse, gigante gaseoso en rojos con alguna banda naranja.
+Cada sistema tiene su planeta (`PLANETS` en `ui/ship-view.js`), el mismo en la esquina y en órbita: el Umbral, azul celeste de mar y hielo; Canopo, desierto color arena; Zeta Reticuli, gris verdoso industrial con tormentas; Betelgeuse, gigante gaseoso en rojos con alguna banda naranja.
 
 ## Servidor
 
