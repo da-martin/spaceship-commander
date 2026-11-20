@@ -12,6 +12,11 @@
  * El chat va por consulta: el cliente pide «lo nuevo desde el último que vi».
  * Enviar mensajes no tiene límite de frecuencia (decisión de producto); el
  * tope es el tamaño del mensaje y los que se conservan por alianza.
+ *
+ * Viajes (docs/plan-viajes.md, fase 4): la alianza está en un sistema y puede
+ * votar un viaje a otro; sin el sí del fundador no se viaja. La votación se resuelve sin relojes: cada foto
+ * (`overview`) mira antes si toca zarpar o cancelar (`settle`). Las rutas de
+ * viaje responden 404 mientras la variable TRAVEL_ON del Worker no sea "1".
  */
 
 import { cleanName, json, readBody, str } from './lib/http.js';
@@ -28,6 +33,34 @@ const MSG_KEEP = 500;                // mensajes que se conservan por alianza
 const MSG_PAGE = 100;                // los que se dan al abrir el chat
 const MSG_OLDER = 50;                // cada «ver anteriores»
 const MSG_NEW = 200;                 // tope de una consulta de novedades
+const DAY = 864e5;
+const VOTE_MS = 3 * DAY;             // la votación de un viaje dura 3 días
+
+// Días de salto de cada sistema: los de public/js/systems.js (un test lo
+// comprueba). El Sistema Madre es el centro: desde él se va a cualquiera, y
+// desde los demás solo se vuelve a él. Volver dura los días del sistema que se deja.
+const HOME = 'madre';
+export const SYSTEM_DAYS = { madre: 0, zeta: 3, umbral: 1, canopo: 4, betelgeuse: 5 };
+const known = (id) => Object.hasOwn(SYSTEM_DAYS, id);
+export const jumpDays = (from, to) => Math.max(1, SYSTEM_DAYS[to] || SYSTEM_DAYS[from] || 1);
+const canJump = (from, to) => known(to) && to !== from && (from === HOME || to === HOME);
+const travelOn = (env) => env.TRAVEL_ON === '1';
+
+// ¿Está aplicada la migración 0009? Sin ella las alianzas funcionan como antes
+// (todas en el Sistema Madre, sin viajes) y las rutas de viaje responden 503:
+// así da igual desplegar antes o después de migrar. Una vez lista, no se vuelve a mirar.
+const ready = new WeakSet();
+async function tripsReady(env) {
+  if (ready.has(env.DB)) return true;
+  try {
+    await env.DB.batch([env.DB.prepare('SELECT system FROM alliances LIMIT 0'), env.DB.prepare('SELECT 1 FROM alliance_trips LIMIT 0')]);
+  } catch (err) {
+    if (/no such (table|column)/i.test(String(err?.message))) return false;
+    throw err;
+  }
+  ready.add(env.DB);
+  return true;
+}
 
 const LIMITS = {
   // La búsqueda da nombres de cuenta: con tope, no sirve para listarlos todos.
@@ -37,9 +70,9 @@ const LIMITS = {
 
 const fail = (error, status = 400) => json({ error }, status);
 
-const membership = (env, userId) =>
+const membership = async (env, userId) =>
   env.DB.prepare(
-    `SELECT a.id, a.name, a.founder_id AS founderId, a.created_at AS createdAt, m.last_read_id AS lastRead
+    `SELECT a.id, a.name, a.founder_id AS founderId, a.created_at AS createdAt, ${(await tripsReady(env)) ? 'a.system' : `'${HOME}' AS system`}, m.last_read_id AS lastRead
        FROM alliance_members m JOIN alliances a ON a.id = m.alliance_id
       WHERE m.user_id = ?`
   )
@@ -47,22 +80,29 @@ const membership = (env, userId) =>
     .first();
 
 async function overview(env, user) {
-  const mine = await membership(env, user.id);
+  const trips = await tripsReady(env);
+  let mine = await membership(env, user.id);
+  // La votación se resuelve aquí: si toca zarpar, quien no votó que sí sale (y
+  // puede que seas tú).
+  if (mine && trips && (await settle(env, mine.id))) mine = await membership(env, user.id);
   if (!mine) {
+    // `bound`: adónde salta la alianza si está en pleno salto.
     const { results } = await env.DB.prepare(
       `SELECT a.id AS allianceId, a.name, u.name AS invitedBy, i.created_at AS createdAt,
-              (SELECT COUNT(*) FROM alliance_members m WHERE m.alliance_id = a.id) AS members
+              (SELECT COUNT(*) FROM alliance_members m WHERE m.alliance_id = a.id) AS members,
+              ${trips ? `a.system, (SELECT t.to_system FROM alliance_trips t
+                WHERE t.alliance_id = a.id AND t.status = 'sailing' AND t.arrives_at > ?2) AS bound` : `'${HOME}' AS system, NULL AS bound`}
          FROM alliance_invites i
          JOIN alliances a ON a.id = i.alliance_id
          JOIN users u ON u.id = i.invited_by
-        WHERE i.user_id = ?
+        WHERE i.user_id = ?1
         ORDER BY i.created_at DESC`
     )
-      .bind(user.id)
+      .bind(...(trips ? [user.id, Date.now()] : [user.id]))
       .all();
     return { alliance: null, invites: results };
   }
-  const [members, invites, unread] = await env.DB.batch([
+  const [members, invites, unread, open = { results: [] }, jump = { results: [] }] = await env.DB.batch([
     env.DB.prepare(
       `SELECT u.id, u.name, m.joined_at AS joinedAt, m.progress_day AS progressDay, m.progress_pct AS progressPct
          FROM alliance_members m JOIN users u ON u.id = m.user_id
@@ -82,12 +122,35 @@ async function overview(env, user) {
       `SELECT COUNT(*) AS n FROM alliance_messages
         WHERE alliance_id = ? AND id > ? AND (user_id IS NULL OR user_id != ?)`
     ).bind(mine.id, mine.lastRead, user.id),
+    ...(trips ? tripQueries(env, mine.id) : []),
   ]);
+  const trip = open.results[0] ? { ...open.results[0], votes: JSON.parse(open.results[0].votes || '{}') } : null;
   return {
-    alliance: { ...mine, max: ALLIANCE_MAX, unread: unread.results[0].n, members: members.results.map(memberOut), invites: invites.results },
+    alliance: {
+      ...mine, max: ALLIANCE_MAX, unread: unread.results[0].n, members: members.results.map(memberOut), invites: invites.results,
+      trip, jump: jump.results[0] ?? null,
+    },
     invites: [],
   };
 }
+
+const tripQueries = (env, allianceId) => [
+  // La votación abierta, con los votos de quien sigue dentro.
+  env.DB.prepare(
+    `SELECT t.id, t.from_system AS "from", t.to_system AS "to", t.proposed_by AS proposedBy, t.created_at AS createdAt, t.closes_at AS closesAt,
+            (SELECT json_group_object(v.user_id, v.vote) FROM alliance_trip_votes v
+               JOIN alliance_members m ON m.user_id = v.user_id AND m.alliance_id = t.alliance_id
+              WHERE v.trip_id = t.id) AS votes
+       FROM alliance_trips t WHERE t.alliance_id = ? AND t.status = 'open'`
+  ).bind(allianceId),
+  // El último salto, aunque ya haya llegado: quien tenía la app cerrada al
+  // zarpar lo aplica al volver.
+  env.DB.prepare(
+    `SELECT id, from_system AS "from", to_system AS "to", departed_at AS departedAt, arrives_at AS arrivesAt
+       FROM alliance_trips WHERE alliance_id = ? AND status IN ('sailing', 'done')
+      ORDER BY departed_at DESC LIMIT 1`
+  ).bind(allianceId),
+];
 
 // `progress`: null si no comparte; si no, el día y el porcentaje (null = nada programado ese día).
 const memberOut = ({ progressDay, progressPct, ...m }) => ({ ...m, progress: progressDay ? { day: progressDay, pct: progressPct } : null });
@@ -114,13 +177,21 @@ export async function alliance(request, env, user, url) {
   if (path === '/invite') return invite(request, env, user);
   if (path === '/invite/cancel') return cancelInvite(request, env, user);
   if (path === '/accept') return accept(request, env, user);
+  if (path.startsWith('/trip') && !travelOn(env)) return fail('not_found', 404);
+  if (path.startsWith('/trip') && !(await tripsReady(env))) return fail('not_ready', 503);
+  if (path === '/trip') return propose(request, env, user);
+  if (path === '/trip/vote') return vote(request, env, user);
+  if (path === '/trip/withdraw') return withdraw(request, env, user);
   if (path === '/decline') return decline(request, env, user);
   return fail('not_found', 404);
 }
 
 async function create(request, env, user) {
-  const name = cleanName((await readBody(request))?.name);
+  const body = await readBody(request);
+  const name = cleanName(body?.name);
   if (name.length < ANAME_MIN || name.length > ANAME_MAX) return fail('bad_name');
+  // La alianza nace donde está quien la funda (lo dice su partida).
+  const system = known(str(body?.system)) ? body.system : HOME;
 
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -128,7 +199,9 @@ async function create(request, env, user) {
     // La clave de alliance_members para al que ya está en una alianza, y el
     // lote es una transacción: no queda una alianza sin nadie dentro.
     await env.DB.batch([
-      env.DB.prepare('INSERT INTO alliances (id, name, founder_id, created_at) VALUES (?, ?, ?, ?)').bind(id, name, user.id, now),
+      (await tripsReady(env))
+        ? env.DB.prepare('INSERT INTO alliances (id, name, founder_id, created_at, system) VALUES (?, ?, ?, ?, ?)').bind(id, name, user.id, now, system)
+        : env.DB.prepare('INSERT INTO alliances (id, name, founder_id, created_at) VALUES (?, ?, ?, ?)').bind(id, name, user.id, now),
       env.DB.prepare('INSERT INTO alliance_members (user_id, alliance_id, joined_at) VALUES (?, ?, ?)').bind(user.id, id, now),
       env.DB.prepare('DELETE FROM alliance_invites WHERE user_id = ?').bind(user.id),
     ]);
@@ -145,18 +218,22 @@ async function leave(env, user) {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM alliance_members WHERE user_id = ? AND alliance_id = ?').bind(user.id, mine.id),
     notice(env, mine.id, 'leave', user.id),
-    // Si quien sale era el fundador, hereda el miembro más antiguo.
-    env.DB.prepare(
-      `UPDATE alliances
-          SET founder_id = (SELECT user_id FROM alliance_members WHERE alliance_id = ?1 ORDER BY joined_at, user_id LIMIT 1)
-        WHERE id = ?1 AND founder_id = ?2
-          AND EXISTS (SELECT 1 FROM alliance_members WHERE alliance_id = ?1)`
-    ).bind(mine.id, user.id),
+    heir(env, mine.id),
     // Si no queda nadie, la alianza se va (y con ella sus invitaciones).
     env.DB.prepare('DELETE FROM alliances WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM alliance_members WHERE alliance_id = ?1)').bind(mine.id),
   ]);
   return snapshot(env, user);
 }
+
+// Si el fundador ya no está, hereda el miembro más antiguo.
+const heir = (env, allianceId) =>
+  env.DB.prepare(
+    `UPDATE alliances
+        SET founder_id = (SELECT user_id FROM alliance_members WHERE alliance_id = ?1 ORDER BY joined_at, user_id LIMIT 1)
+      WHERE id = ?1
+        AND NOT EXISTS (SELECT 1 FROM alliance_members WHERE alliance_id = ?1 AND user_id = alliances.founder_id)
+        AND EXISTS (SELECT 1 FROM alliance_members WHERE alliance_id = ?1)`
+  ).bind(allianceId);
 
 async function disband(env, user) {
   const mine = await membership(env, user.id);
@@ -290,12 +367,137 @@ async function decline(request, env, user) {
   return snapshot(env, user);
 }
 
+/* ---------- viajes ---------- */
+
+const openTrip = (env, allianceId) =>
+  env.DB.prepare(`SELECT id, from_system AS "from", to_system AS "to", proposed_by AS proposedBy, closes_at AS closesAt
+                    FROM alliance_trips WHERE alliance_id = ? AND status = 'open'`).bind(allianceId).first();
+const sailingTo = (env, allianceId, now) =>
+  env.DB.prepare(`SELECT to_system AS "to" FROM alliance_trips WHERE alliance_id = ? AND status = 'sailing' AND arrives_at > ?`).bind(allianceId, now).first();
+
+// Mira si la votación abierta ya está decidida y la resuelve; de paso, da por
+// llegado el salto que haya cumplido su plazo. Devuelve true si zarpó o se
+// canceló. Cada cambio de estado es condicional: si dos peticiones resuelven
+// a la vez, solo una escribe los avisos.
+async function settle(env, allianceId, now = Date.now()) {
+  await env.DB.prepare(`UPDATE alliance_trips SET status = 'done' WHERE alliance_id = ? AND status = 'sailing' AND arrives_at <= ?`).bind(allianceId, now).run();
+  const trip = await openTrip(env, allianceId);
+  if (!trip) return false;
+  const { results } = await env.DB.prepare(
+    `SELECT m.user_id AS id, v.vote, m.user_id = a.founder_id AS founder FROM alliance_members m
+       JOIN alliances a ON a.id = m.alliance_id
+       LEFT JOIN alliance_trip_votes v ON v.trip_id = ? AND v.user_id = m.user_id
+      WHERE m.alliance_id = ?`
+  ).bind(trip.id, allianceId).all();
+  const yes = results.filter((r) => r.vote === 'yes'), no = results.filter((r) => r.vote === 'no');
+  const founder = results.find((r) => r.founder);
+  // El fundador tiene la última palabra: si dice que no, no hay viaje, y nunca
+  // se queda fuera de su propia alianza.
+  if (founder?.vote === 'no') return cancel(env, allianceId, trip, founder.id);
+  // Todos que sí: se zarpa ya. Más de la mitad que no: se cancela ya (un empate no).
+  if (yes.length === results.length) return sail(env, allianceId, trip, [], now);
+  if (no.length * 2 > results.length) return cancel(env, allianceId, trip);
+  if (now < trip.closesAt) return false;
+  // Plazo cumplido: sin el sí del fundador no se va nadie; con él, zarpan los
+  // que dijeron que sí, a la hora del cierre.
+  if (founder?.vote !== 'yes') return cancel(env, allianceId, trip);
+  return sail(env, allianceId, trip, results.filter((r) => r.vote !== 'yes').map((r) => r.id), trip.closesAt);
+}
+
+// `by`: el fundador, si se cancela porque votó que no.
+async function cancel(env, allianceId, trip, by = null) {
+  const res = await env.DB.prepare(`UPDATE alliance_trips SET status = 'cancelled' WHERE id = ? AND status = 'open'`).bind(trip.id).run();
+  if (res.meta.changes) await notice(env, allianceId, 'trip_cancel', by, trip.to).run();
+  return !!res.meta.changes;
+}
+
+// Zarpa: la alianza pasa a estar en el destino y quien no dijo que sí (`stay`)
+// se queda en el sistema de origen, fuera de la alianza. El fundador nunca está
+// entre ellos (sin su sí no se zarpa); `heir` queda por si acaso.
+async function sail(env, allianceId, trip, stay, at) {
+  const arrives = at + jumpDays(trip.from, trip.to) * DAY;
+  const res = await env.DB.prepare(`UPDATE alliance_trips SET status = 'sailing', departed_at = ?, arrives_at = ? WHERE id = ? AND status = 'open'`)
+    .bind(at, arrives, trip.id).run();
+  if (!res.meta.changes) return false;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE alliances SET system = ? WHERE id = ?').bind(trip.to, allianceId),
+    notice(env, allianceId, 'trip_sail', null, trip.to),
+    ...stay.flatMap((id) => [
+      env.DB.prepare('DELETE FROM alliance_members WHERE user_id = ? AND alliance_id = ?').bind(id, allianceId),
+      notice(env, allianceId, 'trip_stay', id, trip.from),
+    ]),
+    heir(env, allianceId),
+  ]);
+  return true;
+}
+
+// Cualquier miembro propone un viaje desde el sistema de la alianza, y vota sí.
+async function propose(request, env, user) {
+  const to = str((await readBody(request))?.to);
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+  const now = Date.now();
+  await settle(env, mine.id, now);
+  if (await sailingTo(env, mine.id, now)) return fail('jumping', 409);
+  const here = (await membership(env, user.id))?.system;
+  if (!here) return fail('no_alliance', 409);
+  if (!canJump(here, to)) return fail('bad_destination');
+  const id = crypto.randomUUID();
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO alliance_trips (id, alliance_id, from_system, to_system, proposed_by, created_at, closes_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(id, mine.id, here, to, user.id, now, now + VOTE_MS),
+      env.DB.prepare(`INSERT INTO alliance_trip_votes (trip_id, user_id, vote, voted_at) VALUES (?, ?, 'yes', ?)`).bind(id, user.id, now),
+      notice(env, mine.id, 'trip_propose', user.id, to),
+    ]);
+  } catch (err) {
+    if (/UNIQUE/i.test(String(err?.message))) return fail('trip_open', 409);
+    throw err;
+  }
+  return snapshot(env, user, 201);   // la foto resuelve: una alianza de uno zarpa ya
+}
+
+// Votar o cambiar el voto mientras siga abierta. `tripId` evita votar otra
+// propuesta distinta de la que se estaba viendo.
+async function vote(request, env, user) {
+  const body = await readBody(request);
+  const v = str(body?.vote);
+  if (v !== 'yes' && v !== 'no') return fail('bad_request');
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+  await settle(env, mine.id);
+  const trip = await openTrip(env, mine.id);
+  if (!trip || trip.id !== str(body?.tripId)) return fail('no_trip', 404);
+  await env.DB.prepare(
+    `INSERT INTO alliance_trip_votes (trip_id, user_id, vote, voted_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(trip_id, user_id) DO UPDATE SET vote = excluded.vote, voted_at = excluded.voted_at`
+  ).bind(trip.id, user.id, v, Date.now()).run();
+  return snapshot(env, user);
+}
+
+// Solo quien la propuso la retira, y solo mientras está abierta.
+async function withdraw(request, env, user) {
+  const mine = await membership(env, user.id);
+  if (!mine) return fail('no_alliance', 409);
+  await settle(env, mine.id);
+  const trip = await openTrip(env, mine.id);
+  if (!trip) return fail('no_trip', 404);
+  if (trip.proposedBy !== user.id) return fail('not_proposer', 403);
+  const res = await env.DB.prepare(`UPDATE alliance_trips SET status = 'withdrawn' WHERE id = ? AND status = 'open'`).bind(trip.id).run();
+  if (res.meta.changes) await notice(env, mine.id, 'trip_withdraw', user.id, trip.to).run();
+  return snapshot(env, user);
+}
+
 /* ---------- chat ---------- */
 
-// Aviso del sistema en el chat: quién entra, sale o es expulsado. Los hitos
+// Aviso del sistema en el chat: quién entra, sale o es expulsado, y cómo va
+// un viaje ('trip_propose', 'trip_withdraw', 'trip_cancel', 'trip_sail' y
+// 'trip_stay', quien se queda y sale de la alianza). Los hitos
 // del juego ('rank', 'mission') entran por postEvent.
-const notice = (env, allianceId, kind, userId) =>
-  env.DB.prepare('INSERT INTO alliance_messages (alliance_id, user_id, kind, created_at) VALUES (?, ?, ?, ?)').bind(allianceId, userId, kind, Date.now());
+// Los avisos de viaje llevan en `body` el sistema del que se habla.
+const notice = (env, allianceId, kind, userId, body = '') =>
+  env.DB.prepare('INSERT INTO alliance_messages (alliance_id, user_id, kind, body, created_at) VALUES (?, ?, ?, ?, ?)').bind(allianceId, userId, kind, body, Date.now());
 
 const MSG_COLS = `g.id, g.user_id AS userId, u.name, g.kind, g.body, g.created_at AS createdAt
        FROM alliance_messages g LEFT JOIN users u ON u.id = g.user_id`;

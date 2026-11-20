@@ -7,7 +7,9 @@
  * con una transmisión al momento. Durante el salto no hay tablón, mercado ni
  * astillero (docked() es falso) y no se puede abandonar.
  *
- * Nadie llega aquí mientras TRAVEL_ON sea false: lo lanzará la votación (fase 4). */
+ * Nadie llega aquí mientras TRAVEL_ON sea false. Lo lanza la alianza (fase 4):
+ * followJump aplica el salto que votó, y joinAlliance lleva al que entra hasta
+ * donde está ella. */
 import { missionCrewXp, returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
@@ -30,8 +32,10 @@ const jumpTitle=(c)=>'Salto '+sysPrep(sysOf(c.to),'a');
 // Zarpa hacia `to`. Devuelve el contrato de salto, o null si no se puede
 // (sistema desconocido, ya estás allí o ya estás saltando). Entre dos sistemas
 // que no son el Sistema Madre no hay ruta directa: solo al aceptar una invitación
-// (`invite`) se salta dando el rodeo por él, con los dos tramos sumados. No guarda.
-export function startJump(to,now=new Date(),{invite=false}={}){
+// (`invite`) se salta dando el rodeo por él, con los dos tramos sumados.
+// `ends`: la hora de llegada que fija el servidor, la misma para toda la alianza.
+// No guarda.
+export function startJump(to,now=new Date(),{invite=false,ends=null}={}){
   const sh=state.ship, c=sh.contract, route=jumpRoute(sh.system,to);
   if(!route||(route.via&&!invite)||isJump(c)) return null;
   const lines=[];
@@ -44,6 +48,7 @@ export function startJump(to,now=new Date(),{invite=false}={}){
   const b=sh.board;
   b.offers=[]; b.signal=0; b.sigAt=null; b.news={got:0,lost:0};
   const days=route.days, end=new Date(now); end.setDate(end.getDate()+days);
+  if(ends) end.setTime(ends);
   if(route.via) lines.push(routeText(sh.system,to));
   const j={id:uid(),kind:'jump',from:sh.system,to,topic:'Salto',flavor:jumpTitle({to}),days,quota:0,progress:0,
     reward:{mc:0},diff:'normal',urgent:false,acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),told:0,
@@ -80,4 +85,34 @@ export function arrive(now=Date.now()){
     lines:[returnHome()].filter(Boolean)});
   emit('jumpArrived',c);
   return true;
+}
+
+// El salto que votó la alianza (`j`, el `jump` de su foto). Lo aplica una vez
+// (state.ship.trip guarda el último aplicado) y solo si ya eras miembro al
+// zarpar: quien entra después llega por su cuenta (joinAlliance), y su último
+// salto queda marcado como visto. Sale a la hora
+// del servidor, así que con la app cerrada puede llegar ya con el salto hecho.
+// Devuelve el contrato de salto, o null si no había nada que hacer. No guarda.
+export function followJump(j,joinedAt){
+  const sh=state.ship;
+  // Si aún vas de camino hacia la alianza (por una invitación), se aplica al llegar.
+  if(!j||sh.trip===j.id||isJump(sh.contract)) return null;
+  sh.trip=j.id;
+  if(joinedAt>j.departedAt||!Object.hasOwn(SYSTEMS,j.to)) return null;
+  return startJump(j.to,new Date(j.departedAt),{invite:true,ends:j.arrivesAt});
+}
+
+// Adónde hay que ir para estar con la alianza `a` (de la foto, o de una
+// invitación): su destino si está en pleno salto; si no, su sistema.
+export const allianceTarget=(a,now=Date.now())=>a.jump&&a.jump.arrivesAt>now?a.jump.to:a.bound||a.system;
+// Al entrar en una alianza que está en otro sistema, saltas hasta ella con tus
+// propios días, dando el rodeo si hace falta. Su último salto no es tuyo.
+// Devuelve el contrato de salto, o null si ya estás allí. No guarda.
+export function joinAlliance(a,now=new Date()){
+  const sh=state.ship;
+  if(a.jump) sh.trip=a.jump.id;
+  if(isJump(sh.contract)) return null;
+  const to=allianceTarget(a,now.getTime());
+  if(!to||to===sh.system) return null;
+  return startJump(to,now,{invite:true});
 }

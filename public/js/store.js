@@ -47,6 +47,8 @@ export function normShip(s){
     modules,
     name:normShipName(s?.name),
     system:Object.hasOwn(SYSTEMS,s?.system??'')?s.system:HOME,
+    // último salto de la alianza ya aplicado (core/travel.js, followJump)
+    trip:typeof s?.trip==='string'?s.trip:null,
     // el salto no tiene cuota: vale si su destino existe
     contract:normContract(c&&c.id&&(c.kind==='jump'?Object.hasOwn(SYSTEMS,c.to??''):c.quota>0)?kinded(c):null),
     board:{

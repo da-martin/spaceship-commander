@@ -252,6 +252,29 @@ cuenta. Desde entonces, lo que se completa aquí llega a TaskHero:
 | Envíos a TaskHero           | 300 por cuenta cada hora        |
 | Intentos de conectar        | 10 por cuenta cada hora         |
 
+## Viajes de la alianza
+
+La votación de viajes (docs/plan-viajes.md, fase 4) necesita la migración
+`0009_alliance_trips.sql`. Como el despliegue desde GitHub **no aplica
+migraciones**, hay que lanzarla a mano:
+
+```bash
+npm run db:remote
+```
+
+Mientras falte, las alianzas funcionan igual que antes (todas en el Sistema
+Madre) y las rutas de viaje responden `503 not_ready`, así que da igual
+desplegar antes o después de migrar.
+
+Los viajes siguen cerrados: las rutas `/api/alliance/trip*` responden 404
+mientras el Worker no tenga la variable `TRAVEL_ON` con el valor `"1"`. Para
+abrirlos, además de `TRAVEL_ON` en `public/js/config.js`, se añade en
+`wrangler.jsonc`:
+
+```jsonc
+"vars": { "TRAVEL_ON": "1" }
+```
+
 ## Límites conocidos
 
 1. **El progreso es falsificable.** Cualquiera puede editar `localStorage` o
