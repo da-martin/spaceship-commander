@@ -62,6 +62,23 @@ export const jumpDays = (from,to) => Math.max(1,sysOf(to).days||sysOf(from).days
 // El Sistema Madre es el centro: desde él se va a cualquier sistema, y desde
 // cualquier otro solo se vuelve a él (los días de salto son la distancia al Sistema Madre).
 export const canJump = (from,to) => Object.hasOwn(SYSTEMS,to)&&to!==from&&(from===HOME||to===HOME);
+// Ruta de `from` a `to`: directa si uno de los dos es el Sistema Madre; si no,
+// pasando por él y sumando los dos tramos (solo al aceptar una invitación de una
+// alianza que está en otro sistema). null si no hay adónde ir.
+export function jumpRoute(from,to){
+  if(!Object.hasOwn(SYSTEMS,to)||to===from) return null;
+  if(canJump(from,to)){ const d=jumpDays(from,to); return {days:d,via:null,legs:[d]}; }
+  const a=jumpDays(from,HOME), b=jumpDays(HOME,to);
+  return {days:a+b,via:HOME,legs:[a,b]};
+}
+const daysTxt=(n)=>n===1?'1 día':`${n} días`;
+// El aviso antes de aceptar: cuánto dura el salto y, si da un rodeo, por dónde pasa.
+export function routeText(from,to){
+  const r=jumpRoute(from,to); if(!r) return null;
+  const dest=sysOf(to);
+  if(!r.via) return `Salto ${sysPrep(dest,'a')}: ${daysTxt(r.days)}.`;
+  return `No hay ruta directa: el salto pasa por el Sistema Madre y dura ${daysTxt(r.days)} (${daysTxt(r.legs[0])} hasta el Sistema Madre y ${daysTxt(r.legs[1])} más hasta ${dest.art}${dest.name}).`;
+}
 // Adónde se puede viajar desde `from`. Vacío mientras los viajes estén cerrados.
 export const destinations = (from) => TRAVEL_ON?Object.values(SYSTEMS).filter(s=>canJump(from,s.id)):[];
 // «en el Sistema Madre», «del Sistema Madre», «al Sistema Madre»; sin artículo, «en Kepler».

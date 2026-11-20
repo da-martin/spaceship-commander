@@ -7,7 +7,7 @@ import { checkContractEnd, contractFrom, docked, onAccepted, slotsUsed, STORY_TT
 import { addEffort } from '../public/js/core/ship.js';
 import { arrive, jumping, startJump } from '../public/js/core/travel.js';
 import { normShip } from '../public/js/store.js';
-import { HOME, SYSTEMS, canJump, jumpDays } from '../public/js/systems.js';
+import { HOME, SYSTEMS, canJump, jumpDays, jumpRoute, routeText } from '../public/js/systems.js';
 import { clock, seed, fresh, restore } from './helpers.js';
 
 beforeEach(() => { clock('2026-11-14T10:00:00'); seed(); });
@@ -52,6 +52,27 @@ test('el Sistema Madre es el centro: desde él a cualquiera, y desde los demás 
   s.ship.system = 'zeta';
   assert.equal(startJump('canopo'), null);
   assert.ok(startJump(HOME));
+});
+
+test('sin ruta directa, solo una invitación salta dando el rodeo por el Sistema Madre, con los tramos sumados', () => {
+  assert.deepEqual(jumpRoute('zeta', 'canopo'), { days: 7, via: HOME, legs: [3, 4] });
+  assert.deepEqual(jumpRoute(HOME, 'canopo'), { days: 4, via: null, legs: [4] });
+  assert.equal(jumpRoute('zeta', 'zeta'), null);
+  assert.equal(routeText(HOME, 'umbral'), 'Salto al Umbral: 1 día.');
+  assert.equal(routeText('zeta', 'canopo'), 'No hay ruta directa: el salto pasa por el Sistema Madre y dura 7 días (3 días hasta el Sistema Madre y 4 días más hasta Canopo).');
+  const s = ready();
+  s.ship.system = 'zeta';
+  assert.equal(startJump('canopo'), null);
+  const j = startJump('canopo', new Date(), { invite: true });
+  assert.equal(j.days, 7);
+  assert.equal(j.via, HOME);
+  assert.equal(j.leg, 3);
+  assert.equal(travelLog(s)[0].lines[0], routeText('zeta', 'canopo'));
+  mock.timers.tick(7 * 24 * H);
+  checkContractEnd();
+  assert.equal(s.ship.system, 'canopo');
+  const stories = travelLog(s).slice(0, 7).map((e) => e.story);
+  assert.deepEqual(stories, [...SYSTEMS[HOME].travel.slice(0, 3), ...SYSTEMS.canopo.travel]);
 });
 
 test('no se salta a un sistema que no existe, al actual ni en pleno salto', () => {

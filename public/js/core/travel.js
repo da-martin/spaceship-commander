@@ -13,24 +13,27 @@ import { emit } from './events.js';
 import { logShip } from './log.js';
 import { finishContract } from './missions.js';
 import { state } from '../store.js';
-import { HOME, SYSTEMS, canJump, jumpDays, sysOf, sysPrep } from '../systems.js';
+import { HOME, SYSTEMS, jumpRoute, routeText, sysOf, sysPrep } from '../systems.js';
 import { fmtEf, todayStr, uid } from '../util.js';
 
 export const isJump=(c)=>c?.kind==='jump';
 export const jumping=()=>isJump(state.ship.contract);
-// Fragmento del día `i` (desde 0): el del destino o, si no tiene, el del regreso al Sistema Madre.
+// Fragmento del día `i` (desde 0): el del destino o, si no tiene, el del regreso
+// al Sistema Madre. Un salto con rodeo cuenta primero el tramo hasta el Sistema Madre.
 export function jumpFragment(c,i){
-  const t=sysOf(c.to).travel, home=SYSTEMS[HOME].travel;
-  return t[i]||home[i%home.length]||null;
+  const t=sysOf(c.to).travel, home=SYSTEMS[HOME].travel, leg=c.via?(+c.leg||0):0;
+  if(i<leg) return home[i%home.length]||null;
+  return t[i-leg]||home[i%home.length]||null;
 }
 const jumpTitle=(c)=>'Salto '+sysPrep(sysOf(c.to),'a');
 
 // Zarpa hacia `to`. Devuelve el contrato de salto, o null si no se puede
-// (sistema desconocido, ya estás allí, ya estás saltando o no hay ruta: entre
-// dos sistemas que no son el Sistema Madre hay que pasar por él). No guarda.
-export function startJump(to,now=new Date()){
-  const sh=state.ship, c=sh.contract;
-  if(!canJump(sh.system,to)||isJump(c)) return null;
+// (sistema desconocido, ya estás allí o ya estás saltando). Entre dos sistemas
+// que no son el Sistema Madre no hay ruta directa: solo al aceptar una invitación
+// (`invite`) se salta dando el rodeo por él, con los dos tramos sumados. No guarda.
+export function startJump(to,now=new Date(),{invite=false}={}){
+  const sh=state.ship, c=sh.contract, route=jumpRoute(sh.system,to);
+  if(!route||(route.via&&!invite)||isJump(c)) return null;
   const lines=[];
   let rew=null;
   if(c){
@@ -40,9 +43,11 @@ export function startJump(to,now=new Date()){
   }
   const b=sh.board;
   b.offers=[]; b.signal=0; b.sigAt=null; b.news={got:0,lost:0};
-  const days=jumpDays(sh.system,to), end=new Date(now); end.setDate(end.getDate()+days);
+  const days=route.days, end=new Date(now); end.setDate(end.getDate()+days);
+  if(route.via) lines.push(routeText(sh.system,to));
   const j={id:uid(),kind:'jump',from:sh.system,to,topic:'Salto',flavor:jumpTitle({to}),days,quota:0,progress:0,
-    reward:{mc:0},diff:'normal',urgent:false,acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),told:0};
+    reward:{mc:0},diff:'normal',urgent:false,acceptedOn:todayStr(now),acceptedAt:now.getTime(),endsOn:todayStr(end),endsAt:end.getTime(),told:0,
+    ...(route.via?{via:route.via,leg:route.legs[0]}:{})};
   sh.contract=j;
   tellJump(now,{rew:rew&&(rew.mc||Object.keys(rew.mats).length)?rew:null,lines});
   return j;
