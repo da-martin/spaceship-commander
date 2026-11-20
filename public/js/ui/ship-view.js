@@ -1,13 +1,15 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, hasDeadline, isAway, MATS, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, hasDeadline, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
-import { agedMc, missionHint, missionsUnlocked, offerAge, sweepCost } from '../core/missions.js';
+import { agedMc, missionHint, missionsUnlocked, offerAge, slotsUsed, sweepCost } from '../core/missions.js';
+import { isJump } from '../core/travel.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
+import { sysOf, sysPrep } from '../systems.js';
 import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
@@ -173,16 +175,46 @@ function offSale(k,w){
 export const missionEndTxt=(c)=>{ const d=new Date(c.endsAt); return `hasta ${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 export const shortLeft=(c)=>{ const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5); return h>48?`${Math.round(h/24)}d`:ms>=36e5?`${h}h`:'<1h'; };
 export const leftTone=(c)=>msLeft(c)<864e5?'text-amber-300':'text-slate-400';
+// Lo que dice la línea de estado y el chip de la cabecera: el salto no tiene puntos.
+export const jumpTxt=(c)=>'Salto '+sysPrep(sysOf(c.to),'a');
+export const statusTxt=(c)=>isJump(c)?`▶ ${jumpTxt(c)} · ${missionLeftTxt(c)}`:`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?missionLeftTxt(c):'sin plazo'}`;
+const chipTxt=(c)=>isJump(c)?jumpTxt(c):`${c.topic} ${fmtEf(c.progress)}/${c.quota}`;
 // repinta cada minuto el tiempo que queda, sin volver a pintar toda la pantalla
 export function paintMissionLeft(){
   const c=state.ship.contract; if(!hasDeadline(c)) return;
   for(const el of document.querySelectorAll('[data-mission-left]')){
     const k=el.dataset.missionLeft;
-    el.textContent=k==='chip'?shortLeft(c):k==='status'?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${missionLeftTxt(c)}`:`${missionLeftTxt(c)} · ${missionEndTxt(c)}`;
+    el.textContent=k==='chip'?shortLeft(c):k==='status'?statusTxt(c):`${missionLeftTxt(c)} · ${missionEndTxt(c)}`;
     if(k==='panel') el.className=`mono text-[11px] ${leftTone(c)}`;
   }
 }
+// El salto: sin cuota ni recompensa, con barra de tiempo y sin botón de abandonar.
+function renderJump(c,el,dmg){
+  const pct=Math.min(100,Math.max(0,Math.round((Date.now()-c.acceptedAt)/(c.endsAt-c.acceptedAt)*100)));
+  el.innerHTML=`
+    <div class="sys-label">Situación táctica</div>
+    <h2 class="text-lg font-bold mt-1">Salto</h2>
+    <div class="flex flex-wrap items-center gap-2 mt-1">
+      <h3 class="font-semibold text-violet-200">Rumbo ${escapeHtml(sysPrep(sysOf(c.to),'a'))}</h3>
+      <span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>
+    </div>
+    <div class="flex items-center gap-2 mt-3">
+      <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso del salto" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-violet-400 rounded-full transition-all" style="width:${pct}%"></div></div>
+      <span class="mono text-sm text-violet-200">${pct}%</span>
+    </div>
+    <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Durante el salto no hay tablón, mercado ni astillero, y el salto no se puede interrumpir. Las tareas y los hábitos pagan como siempre${crewUnlocked()?', y la tripulación sigue cobrando su sueldo':''}.</p>
+    <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${repairCards(dmg)}</div>`;
+  el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
+}
+const repairCards=(dmg)=>dmg.map(k=>{ const m=mod(k), rc=repairCost(k), q=repairQuote(k), ok=q.pts>0;
+      return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
+        <div class="flex items-center gap-2"><span class="font-semibold text-sm">${MODS[k].name}</span><span class="mono text-[11px] text-slate-300 ml-auto">${m.cond}%</span></div>
+        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
+        <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${ok?q.mc:rc} ¢</button>
+      </div>`; }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>';
 export function renderMission(c){
+  if(isJump(c)){ renderJump(c,document.getElementById('homeMission'),Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100)); return; }
   const w=state.wallet, pct=Math.min(100,Math.round(c.progress/c.quota*100));
   const dmg=Object.keys(MODS).filter(k=>mod(k).lv>0&&mod(k).cond<100);
   const el=document.getElementById('homeMission');
@@ -202,12 +234,7 @@ export function renderMission(c){
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${dmg.map(k=>{ const m=mod(k), rc=repairCost(k), q=repairQuote(k), ok=q.pts>0;
-      return `<div id="rep-${k}" class="rounded-xl border ${m.cond>=70?'border-emerald-800':m.cond>=35?'border-amber-700':'border-red-800'} bg-slate-900/70 p-3">
-        <div class="flex items-center gap-2"><span class="font-semibold text-sm">${MODS[k].name}</span><span class="mono text-[11px] text-slate-300 ml-auto">${m.cond}%</span></div>
-        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2"><div class="h-full ${condBar(m.cond)} rounded-full" style="width:${m.cond}%"></div></div>
-        <button data-rep="${k}" class="${btnCls(ok)} w-full mt-2.5" ${ok?'':'disabled'}>Reparar · ${ok?q.mc:rc} ¢</button>
-      </div>`; }).join('')||'<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2 lg:col-span-4">Todos los módulos construidos están al 100%.</div>'}</div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${repairCards(dmg)}</div>
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
   wireAbandon(el.querySelector('[data-act="abandon"]'),c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago');
@@ -227,7 +254,7 @@ export function signalEta(){ const h=(1-state.ship.board.signal)/signalRate(toda
 // línea de solo lectura del tablón para la vista de misión
 export function boardLine(){
   const b=state.ship.board, hoy=b.offers.filter(o=>o.expiresOn<=todayStr()).length;
-  return `Tablón: ${b.offers.length}/${boardCap()}${hoy?` · ${hoy} ${hoy===1?'caduca':'caducan'} hoy`:''} · señal ${Math.floor(b.signal*100)}%${repDamaged()?` · reputación dañada (${repLeftTxt()})`:''}`;
+  return `Tablón: ${slotsUsed(b)}/${boardCap()}${hoy?` · ${hoy} ${hoy===1?'caduca':'caducan'} hoy`:''} · señal ${Math.floor(b.signal*100)}%${repDamaged()?` · reputación dañada (${repLeftTxt()})`:''}`;
 }
 // barra de señal y barrido (se repinta sola cada minuto)
 export function paintSignal(){
@@ -235,11 +262,11 @@ export function paintSignal(){
   // No se borra el marcado: esta función también corre sola desde el
   // temporizador de cada minuto, y un id ausente reventaría cada 60 s.
   if(!missionsUnlocked()){ el.innerHTML=`<p class="mono text-[11px] text-slate-400 text-center py-1">${missionHint()}</p>`; return; }
-  const b=state.ship.board, cap=boardCap(), full=b.offers.length>=cap, pct=Math.floor(b.signal*100), cost=sweepCost(), ok=!full&&state.wallet.mc>=cost, rep=repDamaged();
+  const b=state.ship.board, cap=boardCap(), full=slotsUsed(b)>=cap, pct=Math.floor(b.signal*100), cost=sweepCost(), ok=!full&&state.wallet.mc>=cost, rep=repDamaged();
   el.innerHTML=`
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span class="sys-label">Señal</span>
-      <span class="mono text-[11px] text-slate-300">Tablón ${b.offers.length}/${cap}</span>
+      <span class="mono text-[11px] text-slate-300">Tablón ${slotsUsed(b)}/${cap}</span>
       <span class="mono text-[11px] ${full?'text-amber-300':'text-slate-400'} ml-auto">${full?'Tablón lleno · descarta o acepta una misión':`Próxima transmisión en ${signalEta()}`}</span>
     </div>
     <div class="flex items-center gap-2 mt-2">
@@ -260,7 +287,7 @@ export function renderShip(){
   // El saldo y la misión solo se enseñan en la nave: fuera, la cabecera queda limpia.
   const chipEl=document.getElementById('shipChip');
   chipEl.style.display=uiMode==='ship'?'':'none';
-  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${c.topic} ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?`<span data-mission-left="chip">${shortLeft(c)}</span>`:'sin plazo'}</span>`:''}`;
+  chipEl.innerHTML=`¢ ${w.mc}${c?`<span class="hidden sm:inline text-cyan-300"> · ${escapeHtml(chipTxt(c))} · ${hasDeadline(c)?`<span data-mission-left="chip">${shortLeft(c)}</span>`:'sin plazo'}</span>`:''}`;
   if(uiMode!=='ship') return;
 
   document.getElementById('walletBar').innerHTML=Object.entries(RES).map(([k,r])=>`<span class="mono text-xs px-2 py-1 rounded border ${r.chip}">${r.sym} ${w[k]} <span class="text-slate-400">${r.name}</span></span>`).join('');
@@ -274,7 +301,7 @@ export function renderShip(){
   const ss=document.getElementById('shipStatus');
   const away=isAway(c);
   ss.className='ml-auto mono text-[11px] px-2 py-1 rounded-md border '+(away?'border-cyan-600 text-cyan-200 bg-cyan-950/40 hover:border-cyan-400':'border-emerald-700 text-emerald-300 bg-emerald-950/30 hover:border-emerald-500');
-  ss.textContent=away?`▶ En misión · ${fmtEf(c.progress)}/${c.quota} · ${hasDeadline(c)?missionLeftTxt(c):'sin plazo'}`:'⌂ '+herePrep('En');
+  ss.textContent=away?statusTxt(c):'⌂ '+herePrep('En');
   if(away&&hasDeadline(c)) ss.dataset.missionLeft='status'; else delete ss.dataset.missionLeft;
   ss.onclick=()=>document.getElementById('homePanel').scrollIntoView({behavior:'smooth',block:'start'});
 
@@ -316,24 +343,25 @@ export function renderShip(){
   const offers=missionsUnlocked()?b.offers:[];   // bloqueado: la pista ya está en #signalBox
   if(missionsUnlocked()&&!offers.length) ol.innerHTML='<div class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 text-center sm:col-span-2">No hay misiones en el tablón. Espera la próxima transmisión o haz un barrido de señal.</div>';
   offers.forEach(o=>{
-    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, open=!hasDeadline(o), el=document.createElement('div');
-    el.className='rounded-xl border '+(o.urgent?'border-amber-700':'border-slate-700')+' bg-slate-900/70 p-3';
+    const sure=offerSailing===o.id, drop=offerDiscarding===o.id, age=hasDeadline(o)?offerAge(o):0, open=!hasDeadline(o), ch=o.story&&MISSION_BY_ID[o.mid], el=document.createElement('div');
+    el.className='rounded-xl border '+(o.urgent?'border-amber-700':ch?'border-violet-700':'border-slate-700')+' bg-slate-900/70 p-3';
     el.innerHTML=`
       <div class="flex items-center gap-2">
-        <span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
+        ${ch?`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-violet-600 text-violet-300">HISTORIA · CAPÍTULO ${ch.chapter}</span>`:`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>`}${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
         <span class="mono text-[11px] text-slate-400">${open?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
-        <button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>
+        ${ch?'':`<button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>`}
       </div>
+      ${ch?`<div class="text-sm font-semibold text-violet-100 mt-1.5">${escapeHtml(ch.title)}</div>`:''}
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
       <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
-      <div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>
+      ${ch?'':`<div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>`}
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">
         <span class="mono text-xs text-amber-300">${rewardText({mc:Math.floor(agedMc(o)*cargoMult()),mats:o.reward.mats})}</span>
         <button data-offer="${o.id}" class="ml-auto py-1.5 px-3 rounded-lg text-sm font-semibold ${sure?'bg-cyan-500 text-slate-950 hover:bg-cyan-400':'bg-cyan-700 hover:bg-cyan-600 text-white'}">${sure?'¿Zarpar? Confirmar':'Aceptar y zarpar'}</button>
       </div>`;
     el.querySelector('[data-offer]').onclick=()=>acceptOffer(o.id);
-    el.querySelector('[data-drop]').onclick=()=>discardOffer(o.id);
+    const dr=el.querySelector('[data-drop]'); if(dr) dr.onclick=()=>discardOffer(o.id);
     ol.appendChild(el);
   });
 

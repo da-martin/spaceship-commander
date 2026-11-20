@@ -21,7 +21,7 @@ export const LOG_TONE={
         icon:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'},
   info:{label:'text-slate-300', edge:'border-slate-600'}
 };
-export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN',books:'CONTABILIDAD'};
+export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN',books:'CONTABILIDAD',travel:'SALTO'};
 export const logDay=(d)=>d===todayStr()?'Hoy':d===addDays(todayStr(),-1)?'Ayer':fDate(d);
 export const rewChips=(r)=>!r?'':[chip(`+${r.mc} ¢`,RES.mc.chip),...Object.entries(r.mats||{}).filter(([k])=>RES[k]).map(([k,n])=>chip(`+${n} ${RES[k].sym} ${RES[k].name}`,RES[k].chip)),
   ...(r.xp?[chip(`+${r.xp} méritos`,'border-slate-600 text-slate-300')]:[])].join('');
@@ -56,6 +56,8 @@ export function openReport(){
   document.getElementById('rpTitle').textContent=e.title;
   const w=document.getElementById('rpWhen'); w.className='mono text-sm mt-1.5 '+T.label; w.textContent=`${logDay(e.day)} · ${fClock(e.at)}`;
   const ch=document.getElementById('rpChips'); ch.innerHTML=rewChips(e.rew); ch.classList.toggle('hidden',!e.rew);
+  document.getElementById('rpKind').textContent=e.kind==='travel'?'Informe de salto':'Informe de misión';
+  const qt=document.getElementById('rpQuote'); qt.textContent=e.quote?`«${e.quote}»`:''; qt.classList.toggle('hidden',!e.quote);
   const st=document.getElementById('rpStory'); st.textContent=e.story||''; st.classList.toggle('hidden',!e.story);
   document.getElementById('rpLines').innerHTML=e.lines.map(l=>`<p>${escapeHtml(l)}</p>`).join('');
   const more=document.getElementById('rpMore'); more.textContent=pend.length>1?`Quedan ${pend.length-1} ${pend.length===2?'informe':'informes'} más`:''; more.classList.toggle('hidden',pend.length<2);
@@ -88,6 +90,7 @@ export function openLog(){
           <span class="mono text-[11px] text-slate-400 ml-auto shrink-0">${fClock(e.at)}</span>
         </div>
         <p class="text-sm text-slate-100 mt-0.5">${escapeHtml(e.title)}</p>
+        ${e.quote?`<p class="text-[13px] italic text-violet-200 mt-1.5 leading-relaxed">«${escapeHtml(e.quote)}»</p>`:''}
         ${e.story?`<p class="text-[13px] text-slate-300 mt-1.5 leading-relaxed">${escapeHtml(e.story)}</p>`:''}
         ${e.lines.length?`<p class="mono text-[11px] text-slate-400 mt-1 leading-relaxed">${e.lines.map(escapeHtml).join('<br>')}</p>`:''}
         ${e.rew?`<div class="flex flex-wrap gap-1.5 mt-2">${rewChips(e.rew)}</div>`:''}

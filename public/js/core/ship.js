@@ -1,5 +1,5 @@
 /* Nave: nivel efectivo de los módulos, desgaste y reparación, esfuerzo del día. */
-import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, hasDeadline, HEAL, isAway, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
+import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, hasDeadline, HEAL, isAway, MISSION_BY_ID, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
 import { returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
@@ -55,12 +55,14 @@ export function addEffort(ef,day=todayStr()){
   const sh=state.ship, c=sh.contract;
   sh.activity[day]=efRound((sh.activity[day]||0)+ef);
   // lo de hoy cuenta hasta la hora del plazo; lo de días pasados (repaso de ayer) si ese día empezó antes del plazo
-  if(!c||(c.acceptedOn||'')>day) return null;
+  if(!c||c.kind==='jump'||(c.acceptedOn||'')>day) return null;   // el salto no tiene cuota
   if(hasDeadline(c)&&(day===todayStr()?Date.now()>=c.endsAt:dayParse(day).getTime()>=c.endsAt)) return null;
   c.progress=efRound(c.progress+ef);
   if(c.progress>=c.quota){
     const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
-    logShip({kind:'mission',big:true,tone:'win',title:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[]});
+    const ch=c.story&&MISSION_BY_ID[c.mid];   // capítulo de historia: el siguiente llega al tablón
+    if(ch?.system) sh.story[ch.system]=Math.max(sh.story[ch.system]||0,ch.chapter);
+    logShip({kind:'mission',big:true,tone:'win',title:ch?`Capítulo ${ch.chapter} completado: ${ch.title}`:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[]});
     logBoardNews();
     emit('missionWon',c);
   }

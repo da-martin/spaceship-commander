@@ -37,13 +37,27 @@ export function makeSystem(d){
   };
 }
 
+// El Sistema Madre no tiene días de salto propios: volver dura lo que se tardó en ir
+// (jumpDays). Sus fragmentos e intro son los del regreso.
+const MADRE = {id:HOME, name:'Sistema Madre', art:'el ',
+  intro:'Las balizas del Sistema Madre os reciben con su parpadeo de siempre. En los muelles nadie os esperaba, pero alguien sale a saludar igualmente. Los mercados, el astillero y el tablón de siempre siguen donde los dejasteis. Es raro sentirse en casa en un sitio del que uno se marchó.',
+  travel:[
+    'La nave salta de vuelta hacia el Sistema Madre. La tripulación guarda los recuerdos del viaje en la bitácora antes de que se mezclen.',
+    'Alguien pone en el puente una canción que sonaba en los muelles del Sistema Madre. Nadie la quita.',
+    'Las cartas de navegación se vuelven conocidas: rutas comerciales, balizas con nombre y estaciones donde os deben algún favor.',
+    'Los primeros mensajes del Sistema Madre llegan con retraso: ofertas viejas, noticias que ya no lo son y algún saludo.',
+    'El sol del Sistema Madre crece en la pantalla. Huele a café recién hecho y a llegar a casa.',
+  ]};
+
 export const SYSTEMS = Object.fromEntries([
-  {id:HOME, name:'Sistema Madre', art:'el '},
+  MADRE,
   ...SYSTEM_DATA.map(({missions,story,...d})=>d)
 ].map(d=>[d.id,makeSystem(d)]));
 
 export const sysOf = (id) => SYSTEMS[id]||SYSTEMS[HOME];
 export const marketMult = (sys,k) => sys.market[k]??1;
+// Días de salto de `from` a `to`: los del destino; para volver al Sistema Madre, los del origen.
+export const jumpDays = (from,to) => Math.max(1,sysOf(to).days||sysOf(from).days||1);
 // Adónde se puede viajar desde `from`. Vacío mientras los viajes estén cerrados.
 export const destinations = (from) => TRAVEL_ON?Object.values(SYSTEMS).filter(s=>s.id!==from):[];
 // «en el Sistema Madre», «del Sistema Madre», «al Sistema Madre»; sin artículo, «en Kepler».

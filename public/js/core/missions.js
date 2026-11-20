@@ -5,6 +5,7 @@ import { logShip } from './log.js';
 import { addW, perk } from './rewards.js';
 import { boardCap, cargoMult, here, herePrep, maxDays, mod, repDamaged, signalRate } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
+import { arrive, isJump, tellJump } from './travel.js';
 import { MISSIONS } from '../missions.js';
 import { state } from '../store.js';
 import { addDays, dayParse, fDate, fmtEf, pick, todayStr, uid } from '../util.js';
@@ -91,6 +92,25 @@ export function genOpenOffer(day){
   const mats=rollMats(span,D), [tlo,thi]=OFFER_TTL;
   return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
 }
+// Historia del sistema: el capítulo pendiente llega al tablón como misión sin plazo
+// de dificultad normal. No caduca ni ocupa hueco, y vuelve si se abandona.
+export const STORY_TTL='9999-12-31';
+export const storyDone=(id=state.ship.system)=>state.ship.story[id]||0;
+export const nextChapter=()=>here().story[storyDone(here().id)]||null;
+export function storyOffer(day=todayStr()){
+  const ch=nextChapter(); if(!ch) return null;
+  const [lo,hi]=OPEN_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1)), D=DIFFS.normal;
+  const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
+  return {id:uid(),kind:'open',story:true,chapter:ch.chapter,mid:ch.id,topic:ch.topic,flavor:ch.flavor,quota,diff:'normal',
+    reward:{mc:Math.round(quota*12*D.pay),mats:rollMats(span,D)},urgent:false,postedOn:day,expiresOn:STORY_TTL};
+}
+// Las ofertas que ocupan hueco en el tablón (las de historia, no).
+export const slotsUsed=(b=state.ship.board)=>b.offers.filter(o=>!o.story).length;
+// Al aceptar un capítulo, su relato de entrada va a la bitácora.
+export function onAccepted(c){
+  const m=c?.story&&MISSION_BY_ID[c.mid];
+  if(m) logShip({kind:'mission',tone:'info',title:`Capítulo ${m.chapter}: ${m.title}`,story:m.brief||null});
+}
 // El contrato que sale de aceptar una oferta. Con plazo, cada día son 24 h desde ahora.
 export function contractFrom(o,now=new Date()){
   const c={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),progress:0};
@@ -111,18 +131,20 @@ export function tickBoard(){
   // Congelado hasta la Antena. Vaciar sigAt en cada tick es lo que evita que al
   // desbloquear se reproduzcan los días acumulados y entren varias de golpe:
   // la primera llamada tras abrirlo cae en la rama de «primera vez» de abajo.
-  if(!missionsUnlocked()){ b.sigAt=null; return; }
+  if(!missionsUnlocked()||isJump(state.ship.contract)){ b.sigAt=null; return; }   // también durante el salto
   if(!b.sigAt){ b.sigAt=now; b.signal=1; }   // primera vez: una transmisión al momento
   let at=Math.min(now,Math.max(b.sigAt,now-7*864e5));
   for(;;){
     const day=todayStr(new Date(at)), end=Math.min(now,dayParse(addDays(day,1)).getTime()), n=b.offers.length;
     b.offers=b.offers.filter(o=>o.expiresOn>=day); b.news.lost+=n-b.offers.length;
     b.signal+=(end-at)/864e5*signalRate(day);
-    while(b.signal>=1&&b.offers.length<boardCap()){ b.signal-=1; b.offers.push(freshOffer(b.offers,day)); b.news.got++; }
+    while(b.signal>=1&&slotsUsed(b)<boardCap()){ b.signal-=1; b.offers.push(freshOffer(b.offers,day)); b.news.got++; }
     b.signal=Math.min(1,b.signal);   // tablón lleno: la barra espera al 100%
     at=end; if(at>=now) break;
   }
   b.sigAt=now;
+  const ch=nextChapter();
+  if(ch&&!b.offers.some(o=>o.story)&&state.ship.contract?.mid!==ch.id){ const o=storyOffer(todayStr(new Date(now))); b.offers.unshift(o); }
 }
 // aviso de lo que llegó o caducó desde el último aviso (en misión se acumula hasta volver)
 export function takeBoardNews(){
@@ -144,6 +166,7 @@ export function failUrgent(until){ const b=state.ship.board; if(!b.repUntil||b.r
 // Devuelve true si terminó. Sin repaso de ayer pendiente: lo marcado allí aún puede contar.
 export function checkContractEnd(){
   const sh=state.ship, c=sh.contract;
+  if(isJump(c)){ tellJump(); if(!arrive()) return false; tickBoard(); return true; }   // el salto: fragmentos diarios y llegada
   if(!c||!hasDeadline(c)||Date.now()<c.endsAt) return false;
   if(c.urgent) failUrgent(addDays(c.endsOn,REP_DAYS));   // la reputación cae desde el día siguiente al plazo
   tickBoard();

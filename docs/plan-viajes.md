@@ -77,18 +77,21 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 ## Salto
 
-- Es un contrato `kind: 'jump'` **sin cuota**, que dura los `days` del destino. Todos salen a la vez, así que todos llegan a la vez.
+- Es un contrato `kind: 'jump'` **sin cuota**, que dura los `days` del destino (`jumpDays`). Para volver al Sistema Madre, que no tiene `days`, dura los del sistema que se deja. Todos salen a la vez, así que todos llegan a la vez.
+- La nave sigue en el sistema de origen hasta llegar: `state.ship.system` cambia al final. Durante el salto el tablón está congelado.
 - Como en cualquier misión, durante el salto no hay tablón, mercado ni astillero. Conviene prepararse antes de zarpar.
 - Las tareas y los hábitos pagan como siempre. La tripulación gana su XP por día de misión y cobra su sueldo.
-- Cada día de salto llega a la bitácora un fragmento de la historia (`travel[]`).
+- Cada día de salto llega a la bitácora un fragmento de la historia (`travel[]`): el primero al zarpar, en un informe grande, y otro cada 24 h. El contrato cuenta los ya contados (`told`), así que con la app cerrada no se repite ni se salta ninguno. El regreso al Sistema Madre usa los fragmentos de su ficha.
 - El salto no se puede abandonar.
-- **Llegada**: entrada grande en la bitácora con el relato del sistema (`intro`), y la señal empieza con una transmisión al momento, como la primera vez que se desbloquea la Antena.
+- **Llegada**: entrada grande en la bitácora con la cita (`quote`) y el relato del sistema (`intro`); quien terminó su contrato desembarca, y la señal empieza con una transmisión al momento, como la primera vez que se desbloquea la Antena.
 
 ## Vivir en otro sistema
 
 - Mercado, astillero, tablón de misiones y tablón de tripulación funcionan con la ficha del sistema.
 - Los textos que hoy dicen «de vuelta en el Sistema Madre» pasan a nombrar el sistema actual.
-- **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta.
+- **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta (`state.ship.story`, capítulos hechos por sistema).
+  - El capítulo pendiente está siempre en el tablón (con la Antena): no caduca, no ocupa hueco, no se puede descartar y no espera a la señal. Dificultad normal, cuota y paga como las otras sin plazo.
+  - Al aceptarlo, su relato de entrada (`brief`) va a la bitácora. Al completarlo llega el siguiente; si se abandona, vuelve el mismo.
 - Cuando se acaba la historia se puede seguir en el sistema todo el tiempo que se quiera, con sus misiones normales.
 
 ## Invitaciones entre sistemas
@@ -151,9 +154,9 @@ En el cliente:
 
 ## Fases
 
-1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles. Pendiente para la fase 3: `normShip` descarta los contratos con cuota 0, y el salto los necesita.
+1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles.
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
-3. **Salto**: el contrato `jump`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
+3. **Salto** (hecha, oculta): `core/travel.js` con `startJump`, los fragmentos diarios y la llegada; la historia del sistema en el tablón; la vista del salto y los informes con cita. No hay ningún botón para viajar: lo lanzará la votación de la fase 4, y la alianza de uno se prueba allí.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
 5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia. Falta repartir los capítulos al tablón, que va con la fase 3, porque hasta entonces nadie puede estar en otro sistema. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
 

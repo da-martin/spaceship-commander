@@ -47,13 +47,16 @@ export function normShip(s){
     modules,
     name:normShipName(s?.name),
     system:Object.hasOwn(SYSTEMS,s?.system??'')?s.system:HOME,
-    contract:normContract(c&&c.id&&c.quota>0?kinded(c):null),
+    // el salto no tiene cuota: vale si su destino existe
+    contract:normContract(c&&c.id&&(c.kind==='jump'?Object.hasOwn(SYSTEMS,c.to??''):c.quota>0)?kinded(c):null),
     board:{
-      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(kinded).map(o=>hasDeadline(o)&&o.days<2?{...o,days:2}:o),   // mínimo 2 días
+      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward&&(!o.story||MISSION_BY_ID[o.mid]?.chapter)).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(kinded).map(o=>hasDeadline(o)&&o.days<2?{...o,days:2}:o),   // mínimo 2 días
       signal:Math.min(1,Math.max(0,+b?.signal||0)), sigAt:Number.isFinite(+b?.sigAt)&&+b.sigAt>0?+b.sigAt:null,
       repUntil:typeof b?.repUntil==='string'?b.repUntil:null,
       news:{got:clampInt(b?.news?.got,0,999,0),lost:clampInt(b?.news?.lost,0,999,0)}
     },
+    // capítulos de historia hechos en cada sistema
+    story:Object.fromEntries(Object.entries(s?.story&&typeof s.story==='object'?s.story:{}).filter(([k])=>Object.hasOwn(SYSTEMS,k)).map(([k,n])=>[k,clampInt(n,0,999,0)]).filter(([,n])=>n>0)),
     activity:(s?.activity&&typeof s.activity==='object')?s.activity:{},
     lastTick:typeof s?.lastTick==='string'?s.lastTick:null,
     rot:clampInt(s?.rot,0,1e9,0),
@@ -71,14 +74,15 @@ export function normShip(s){
 // La bitácora va en la partida —y en la nube— para que lo que pasó mientras
 // no mirabas sobreviva a recargar. `seen`: ya se avisó al entrar en la nave;
 // `read`: ya se abrió en la bitácora (o se aceptó, si es un informe).
-export const LOG_KINDS=['mission','crew','wear','board'], LOG_TONES=['win','warn','bad','info'];
+export const LOG_KINDS=['mission','crew','wear','board','travel'], LOG_TONES=['win','warn','bad','info'];
 export function normLog(a){
   const num=(v)=>Number.isFinite(+v)?+v:0;
   return (Array.isArray(a)?a:[]).filter(e=>e&&typeof e.title==='string'&&LOG_KINDS.includes(e.kind)).map(e=>({
     id:String(e.id||uid()), at:num(e.at), day:typeof e.day==='string'?e.day:todayStr(), kind:e.kind,
     big:!!e.big, tone:LOG_TONES.includes(e.tone)?e.tone:'info', title:e.title,
     lines:(Array.isArray(e.lines)?e.lines:[]).filter(x=>typeof x==='string'),
-    story:typeof e.story==='string'&&e.story?e.story.slice(0,600):null,
+    story:typeof e.story==='string'&&e.story?e.story.slice(0,900):null,
+    quote:typeof e.quote==='string'&&e.quote?e.quote.slice(0,200):null,
     rew:e.rew&&typeof e.rew==='object'?{mc:num(e.rew.mc),xp:num(e.rew.xp),mats:e.rew.mats&&typeof e.rew.mats==='object'?e.rew.mats:{}}:null,
     got:num(e.got), lost:num(e.lost), seen:!!e.seen, read:!!e.read
   })).slice(-LOG_MAX);
