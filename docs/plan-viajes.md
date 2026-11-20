@@ -165,11 +165,14 @@ En el cliente:
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
 3. **Salto** (hecha, oculta): `core/travel.js` con `startJump`, los fragmentos diarios y la llegada; la historia del sistema en el tablón; la vista del salto y los informes con cita. No hay ningún botón para viajar: lo lanzará la votación de la fase 4, y la alianza de uno se prueba allí.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
-5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia. Falta repartir los capítulos al tablón, que va con la fase 3, porque hasta entonces nadie puede estar en otro sistema. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
+5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia; los capítulos llegan al tablón desde la fase 3. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
+
+## Decidido
+
+- **Quien sale de la alianza en otro sistema** se queda allí. Basta con eso: puede crear una alianza de uno y proponer un viaje de vuelta.
+- **Cobro al cancelar por zarpar**: se cobra la parte hecha, como cuando una misión expira.
+- **Motores**: no afectan al salto. Dura los días del destino para todos, así la alianza llega junta.
 
 ## Por decidir
 
-- **Quien sale de la alianza en otro sistema** se queda allí. Puede crear una alianza de uno y proponer un viaje de vuelta. ¿Basta con eso?
-- **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
-- **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
 - **Misiones en grupo**: plan aparte.
