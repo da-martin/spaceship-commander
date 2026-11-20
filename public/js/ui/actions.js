@@ -1,9 +1,10 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
-import { CREW_DAYS, CREW_LV, hasDeadline, MODS, REP_DAYS, RES } from '../config.js';
+import { CREW_DAYS, CREW_LV, hasDeadline, MISSION_BY_ID, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
-import { contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, sweepCost, tickBoard } from '../core/missions.js';
+import { contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, onAccepted, slotsUsed, sweepCost, tickBoard } from '../core/missions.js';
+import { isJump } from '../core/travel.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
 import { boardCap, herePrep, mod } from '../core/ship.js';
 import { buyPrice, canAfford, modCost, onSale, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
@@ -75,11 +76,13 @@ export function acceptOffer(id){
   offerSailing=null;
   sh.contract=contractFrom(o);
   sh.board.offers=sh.board.offers.filter(x=>x.id!==id);
+  onAccepted(sh.contract);   // capítulo de historia: su relato va a la bitácora
   save(); render(); scrollTo({top:0,behavior:'smooth'});
-  toast(`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic} · zarpas ${herePrep('de')}`);
+  const ch=o.story&&MISSION_BY_ID[o.mid];
+  toast(`${ch?`Capítulo ${ch.chapter} aceptado: ${ch.title}`:`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic}`} · zarpas ${herePrep('de')}`);
 }
 export function abandonContract(){
-  const c=state.ship.contract; if(!c) return;
+  const c=state.ship.contract; if(!c||isJump(c)) return;   // el salto no se puede abandonar
   tickBoard();
   if(c.urgent) failUrgent(addDays(todayStr(),REP_DAYS-1));
   state.ship.contract=null; const r=[returnHome(),boardNews()].filter(Boolean).join(' · '); save(); render();
@@ -89,7 +92,7 @@ export function sweep(){
   if(!docked()||!missionsUnlocked()) return;
   tickBoard();
   const b=state.ship.board, cost=sweepCost();
-  if(b.offers.length>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
+  if(slotsUsed(b)>=boardCap()){ save(); render(); toast('Tablón lleno'); return; }
   if(state.wallet.mc<cost){ toast('Recursos insuficientes'); return; }
   subW('mc',cost); spend(cost,'sweep'); b.signal=0; b.offers.push(freshOffer(b.offers));
   save(); render(); toast(`Barrido de señal: nueva transmisión · −${cost} ¢`);
@@ -98,7 +101,8 @@ export let offerDiscarding=null;   // primer toque de ✕ pide confirmación
 export function discardOffer(id){
   if(offerDiscarding!==id){ offerDiscarding=id; offerSailing=null; render(); return; }
   offerDiscarding=null;
-  const b=state.ship.board; b.offers=b.offers.filter(o=>o.id!==id);
+  const b=state.ship.board; if(b.offers.find(o=>o.id===id)?.story) return;   // la historia no se descarta
+  b.offers=b.offers.filter(o=>o.id!==id);
   tickBoard(); save(); render(); toast(['Misión descartada',boardNews()].filter(Boolean).join(' · '));
 }
 

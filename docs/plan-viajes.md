@@ -28,6 +28,8 @@ Cada sistema es una ficha en `public/js/systems.js`, como el catálogo de `missi
 
 El Sistema Madre también tiene ficha, con el catálogo de `missions.js`. Cada uno de los demás vive en `public/js/systems/<id>.js` (solo datos, con su catálogo y su historia); `missions.js` los junta todos en `MISSIONS`, marcados con `system`, para que una misión aceptada encuentre su relato esté donde esté.
 
+**El Sistema Madre es el centro** (`canJump`): desde él se puede viajar a cualquier sistema, y desde cualquier otro solo se vuelve a él. Los días de salto de cada sistema son su distancia al Sistema Madre; para ir de uno a otro hay que hacer dos viajes.
+
 **Los viajes están cerrados** mientras `TRAVEL_ON` (en `config.js`) sea `false`: `destinations()` no ofrece ningún destino. La interfaz de viajes, cuando exista, tiene que pasar por ahí.
 
 - `priceOf(k, día)` multiplica por `market[k]` del sistema en el que estás, antes de redondear; `onSale(k)` dice si allí se comercia.
@@ -77,18 +79,21 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 ## Salto
 
-- Es un contrato `kind: 'jump'` **sin cuota**, que dura los `days` del destino. Todos salen a la vez, así que todos llegan a la vez.
+- Es un contrato `kind: 'jump'` **sin cuota**, que dura los `days` del destino (`jumpDays`). Para volver al Sistema Madre, que no tiene `days`, dura los del sistema que se deja. Todos salen a la vez, así que todos llegan a la vez.
+- La nave sigue en el sistema de origen hasta llegar: `state.ship.system` cambia al final. Durante el salto el tablón está congelado.
 - Como en cualquier misión, durante el salto no hay tablón, mercado ni astillero. Conviene prepararse antes de zarpar.
 - Las tareas y los hábitos pagan como siempre. La tripulación gana su XP por día de misión y cobra su sueldo.
-- Cada día de salto llega a la bitácora un fragmento de la historia (`travel[]`).
+- Cada día de salto llega a la bitácora un fragmento de la historia (`travel[]`): el primero al zarpar, en un informe grande, y otro cada 24 h. El contrato cuenta los ya contados (`told`), así que con la app cerrada no se repite ni se salta ninguno. El regreso al Sistema Madre usa los fragmentos de su ficha.
 - El salto no se puede abandonar.
-- **Llegada**: entrada grande en la bitácora con el relato del sistema (`intro`), y la señal empieza con una transmisión al momento, como la primera vez que se desbloquea la Antena.
+- **Llegada**: entrada grande en la bitácora con la cita (`quote`) y el relato del sistema (`intro`); quien terminó su contrato desembarca, y la señal empieza con una transmisión al momento, como la primera vez que se desbloquea la Antena.
 
 ## Vivir en otro sistema
 
 - Mercado, astillero, tablón de misiones y tablón de tripulación funcionan con la ficha del sistema.
 - Los textos que hoy dicen «de vuelta en el Sistema Madre» pasan a nombrar el sistema actual.
-- **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta.
+- **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta (`state.ship.story`, capítulos hechos por sistema).
+  - El capítulo pendiente está siempre en el tablón (con la Antena): no caduca, no ocupa hueco, no se puede descartar y no espera a la señal. Dificultad normal, cuota y paga como las otras sin plazo.
+  - Al aceptarlo, su relato de entrada (`brief`) va a la bitácora. Al completarlo llega el siguiente; si se abandona, vuelve el mismo.
 - Cuando se acaba la historia se puede seguir en el sistema todo el tiempo que se quiera, con sus misiones normales.
 
 ## Invitaciones entre sistemas
@@ -151,9 +156,9 @@ En el cliente:
 
 ## Fases
 
-1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles. Pendiente para la fase 3: `normShip` descarta los contratos con cuota 0, y el salto los necesita.
+1. **Sistemas en local** (hecha): `systems.js` con la ficha del Sistema Madre, `state.ship.system`, mercado, astillero, tablón y candidatos por sistema, el `kind` de los contratos y `docked()`. Sin cambios visibles.
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
-3. **Salto**: el contrato `jump`, los fragmentos diarios y la llegada. Se prueba con una alianza de uno.
+3. **Salto** (hecha, oculta): `core/travel.js` con `startJump`, los fragmentos diarios y la llegada; la historia del sistema en el tablón; la vista del salto y los informes con cita. No hay ningún botón para viajar: lo lanzará la votación de la fase 4, y la alianza de uno se prueba allí.
 4. **Votación en el servidor**: tablas, propuesta, votos, salida perezosa e hitos en el chat.
 5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia. Falta repartir los capítulos al tablón, que va con la fase 3, porque hasta entonces nadie puede estar en otro sistema. Para abrir los viajes, `TRAVEL_ON` a `true` cuando estén las fases 3 y 4; entonces tocará anunciarlo en las novedades.
 
@@ -162,5 +167,6 @@ En el cliente:
 - **Quien sale de la alianza en otro sistema** se queda allí. Puede crear una alianza de uno y proponer un viaje de vuelta. ¿Basta con eso?
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
+- **Invitaciones sin ruta directa.** Con el Sistema Madre como centro, quien está en Zeta Reticuli no puede saltar directamente a una alianza que está en Canopo. Opciones: un salto que pasa por el Sistema Madre y suma los días de los dos tramos, o no poder aceptar hasta volver al Sistema Madre.
 - **Misiones en grupo**: plan aparte.
 - **Escena de planeta**: el dibujo del planeta grande (estaba en el commit `27d0f7e`) podría volver para las misiones que pasan claramente en un planeta o en su órbita. Se decidirá con todas las misiones escritas.

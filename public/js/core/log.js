@@ -11,7 +11,7 @@ import { todayStr, uid } from '../util.js';
 export function logShip(e){
   if(!e) return;
   const L=state.ship.log, t=todayStr(), last=L[L.length-1];
-  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],story:null,rew:null,got:0,lost:0,seen:false,read:false,...e};
+  e={id:uid(),at:Date.now(),day:t,big:false,tone:'info',lines:[],story:null,quote:null,rew:null,got:0,lost:0,seen:false,read:false,...e};
   // el tablón cambia cada pocos minutos: lo que no se ha leído hoy se suma en una sola entrada
   if(e.kind==='board'&&last?.kind==='board'&&!last.read&&last.day===t){
     L.pop(); e={...last,at:e.at,got:last.got+e.got,lost:last.lost+e.lost,seen:false};
