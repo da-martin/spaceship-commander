@@ -26,37 +26,107 @@ export const btnCls=(ok)=>'px-2 py-2 rounded-lg text-sm font-semibold '+(ok?'bg-
 // lado. Por eso esta función se puede cambiar por un <img> el día que haya una
 // ilustración de verdad, sin tocar nada más.
 // Fondo según dónde esté la nave (`scene`):
-//   'home'  — en el sistema: asoma el planeta por la esquina inferior izquierda.
+//   'home'  — en el sistema: asoma el planeta del sistema por la esquina inferior izquierda.
+//   'orbit' — capítulo de la historia de un sistema: el planeta del sistema, de cerca, ocupa todo el lateral izquierdo.
 //   'away'  — en misión: no hay planeta y las estrellas pasan hacia abajo, como si la nave avanzara.
 //   'jump'  — salto entre sistemas: un túnel de luz violeta delante del morro del que brotan las estrellas.
 export function shipBackdrop(scene){
   if(scene==='jump') return JUMP_BACKDROP;
-  if(scene==='home'){
-    // El planeta se sale del dibujo: solo se ve el arco de arriba a la derecha.
-    const P='cx="-20" cy="330" r="120"';
-    return `<defs>
-      <radialGradient id="planetG" cx=".78" cy=".15" r=".7"><stop offset="0" stop-color="#2f7fa0"/><stop offset=".5" stop-color="#174565"/><stop offset="1" stop-color="#0a1a2c"/></radialGradient>
-      <radialGradient id="atmoG"><stop offset=".87" stop-color="#38bdf8" stop-opacity="0"/><stop offset=".9" stop-color="#38bdf8" stop-opacity=".3"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
-      <clipPath id="planetC"><circle ${P}/></clipPath>
-    </defs>
-    <circle cx="64" cy="58" r="1.6" fill="#7dd3fc" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="#7dd3fc" opacity=".45"/>
-    <circle cx="212" cy="228" r="1.5" fill="#7dd3fc" opacity=".5"/><circle cx="262" cy="160" r="1.1" fill="#7dd3fc" opacity=".4"/>
-    <g style="transform:translateX(var(--planet-x,0px))">
-    <circle cx="-20" cy="330" r="134" fill="url(#atmoG)"/>
-    <circle ${P} fill="url(#planetG)"/>
-    <g clip-path="url(#planetC)">
-      <g fill="#2f8f7a" opacity=".5"><path d="M6 234 q14 -9 30 -3 q10 6 3 14 q-12 7 -23 2 q-14 -3 -10 -13Z"/><path d="M48 260 q16 -7 31 2 q6 9 -6 13 q-15 4 -25 -5Z"/><path d="M6 286 q11 -5 18 2 q-4 8 -18 4Z"/></g>
-      <path d="M-10 252 q40 -14 80 -2 M10 300 q36 -10 82 -4" fill="none" stroke="#e0f2fe" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>
-    </g>
-    <circle ${P} fill="none" stroke="#7dd3fc" stroke-opacity=".45" stroke-width="1.2"/>
-    </g>`;
-  }
+  if(scene==='orbit') return orbitBackdrop(state.ship.system);
+  if(scene==='home') return homeBackdrop(state.ship.system);
   // Cada capa va dibujada dos veces (y, y-300) para que el bucle no tenga corte.
   // La cercana lleva trazos y va rápida; la lejana, puntos que van despacio.
   const twice=(f,pts)=>pts.map(([x,y])=>f(x,y)+f(x,y-300)).join('');
   const far=twice((x,y)=>`<circle cx="${x}" cy="${y}" r="1.1" fill="#7dd3fc" opacity=".45"/>`,[[38,40],[262,22],[88,150],[230,196],[24,250],[180,280]]);
   const near=twice((x,y)=>`<line x1="${x}" y1="${y}" x2="${x}" y2="${y+12}" stroke="#bae6fd" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,[[56,90],[246,130],[20,198],[272,250],[70,284]]);
   return `<g class="warp far">${far}</g><g class="warp">${near}</g>`;
+}
+
+// Planeta grande, de cerca, con el aspecto del sistema en el que se está. Borde
+// derecho en x=88, a un palmo de la nave. No se corre con --planet-x: en el
+// recuadro alto taparía los módulos de babor.
+//   g     — degradado del planeta, de la cara iluminada a la de sombra
+//   atmo  — halo de la atmósfera; edge, el filo del disco
+//   blots — manchas (continentes, hielo, dunas, humo) y su color
+//   bands — trazos anchos: nubes, vetas, bandas de un gigante gaseoso
+//   extra — algo propio (tormentas, el ojo del gigante)
+//   far   — lo mismo para el planeta pequeño de la esquina (escena 'home'): su
+//           degradado de tres paradas y sus manchas, trazos y extra
+const PLANETS={
+  // Sistema Madre: océano y continentes verdes
+  madre:{ g:['#3a8db0','#1d5878','#0f2f49','#081422'], atmo:'#38bdf8', edge:'#7dd3fc', star:'#7dd3fc',
+    blots:{fill:'#2f8f7a',op:.45,d:['M18 40 q22 -14 44 -4 q14 10 2 22 q-20 10 -38 2 q-16 -6 -8 -20Z','M-4 128 q26 -12 52 -2 q12 12 -4 22 q-26 10 -44 -2Z','M30 196 q18 -8 30 4 q2 12 -14 14 q-18 0 -16 -18Z','M-10 250 q30 -10 60 4 q8 12 -10 18 q-30 6 -50 -6Z']},
+    bands:[{c:'#e0f2fe',op:.16,w:4,d:['M-20 84 q50 -10 104 6','M-20 176 q50 -8 108 4','M-20 232 q40 -6 96 2']}] ,
+    far:{ g:['#2f7fa0','#174565','#0a1a2c'], blots:{fill:'#2f8f7a',op:.5,d:['M6 234 q14 -9 30 -3 q10 6 3 14 q-12 7 -23 2 q-14 -3 -10 -13Z','M48 260 q16 -7 31 2 q6 9 -6 13 q-15 4 -25 -5Z','M6 286 q11 -5 18 2 q-4 8 -18 4Z']},
+      bands:[{c:'#e0f2fe',op:.18,w:3,d:['M-10 252 q40 -14 80 -2','M10 300 q36 -10 82 -4']}] } },
+  // el Umbral: mar sin orillas y casquetes de hielo, azules celestes y claros
+  umbral:{ g:['#c7ecff','#8fd0f2','#3f8fc0','#123553'], atmo:'#bae6fd', edge:'#e0f2fe', star:'#bae6fd',
+    blots:{fill:'#f0f9ff',op:.6,d:['M-20 -6 q40 4 76 -2 q14 10 -2 20 q-40 8 -74 -2Z','M-20 290 q44 -10 80 0 q10 12 -8 18 l-72 0Z','M34 112 q12 -6 22 0 q4 8 -8 10 q-14 2 -14 -10Z']},
+    bands:[{c:'#ffffff',op:.22,w:3,d:['M-20 70 q50 -8 104 6','M-20 150 q54 -6 108 2','M-20 214 q46 -8 100 4']},{c:'#e0f2fe',op:.14,w:7,d:['M-20 182 q50 -6 106 4']}] ,
+    far:{ g:['#b4e4fb','#4f9fcc','#123553'], blots:{fill:'#f0f9ff',op:.65,d:['M-12 214 q30 -10 56 2 q6 10 -10 14 q-26 4 -46 -16Z','M54 268 q10 -5 18 1 q2 7 -8 8 q-10 1 -10 -9Z']},
+      bands:[{c:'#ffffff',op:.25,w:2.4,d:['M-10 248 q40 -12 80 -2','M10 292 q36 -8 84 -4']}] } },
+  // Canopo: desierto, todo arena, con dunas y sin una nube
+  canopo:{ g:['#f2d39b','#d4a463','#8a5a2b','#2a1a0c'], atmo:'#fcd9a0', edge:'#fde5b8', star:'#fde68a',
+    blots:{fill:'#a0692f',op:.4,d:['M10 50 q30 -10 56 2 q8 10 -10 14 q-30 4 -46 -16Z','M-10 140 q40 -8 70 4 q6 10 -14 14 q-36 4 -56 -18Z','M24 232 q24 -6 40 4 q0 10 -18 10 q-20 0 -22 -14Z']},
+    bands:[{c:'#fff3d6',op:.22,w:1.6,d:['M-20 96 q20 -6 36 0 q20 6 40 0 q18 -5 34 2','M-20 108 q20 -6 36 0 q20 6 40 0 q18 -5 34 2','M-20 186 q22 -6 38 0 q20 6 40 0 q16 -4 32 2','M-20 198 q22 -6 38 0 q20 6 40 0 q16 -4 32 2','M-20 270 q24 -6 40 0 q18 5 36 0']}] ,
+    far:{ g:['#eccb8e','#b07f45','#2a1a0c'], blots:{fill:'#9a6430',op:.45,d:['M8 236 q16 -8 30 -2 q8 8 -4 12 q-16 4 -26 -10Z','M50 268 q14 -6 26 2 q2 8 -10 10 q-14 2 -16 -12Z']},
+      bands:[{c:'#fff3d6',op:.25,w:1.3,d:['M-10 256 q12 -5 24 0 q12 5 24 0 q12 -5 24 0 q10 4 20 0','M-10 264 q12 -5 24 0 q12 5 24 0 q12 -5 24 0 q10 4 20 0','M4 294 q12 -5 24 0 q12 5 24 0 q12 -5 24 0']}] } },
+  // Zeta Reticuli: gris industrial con tintes verdosos, humo y tormentas
+  zeta:{ g:['#9aa69a','#5f6b62','#2f3833','#101512'], atmo:'#a3b899', edge:'#c4d1bd', star:'#a7b5a4',
+    blots:{fill:'#3a4a36',op:.55,d:['M0 30 q30 -8 52 4 q10 14 -12 18 q-28 4 -40 -22Z','M-14 120 q36 -12 64 2 q10 12 -10 18 q-36 6 -54 -20Z','M20 214 q26 -8 44 4 q4 12 -16 14 q-24 2 -28 -18Z']},
+    bands:[{c:'#b5c98f',op:.2,w:6,d:['M-20 76 q50 -14 104 4','M-20 168 q46 -12 106 2','M-20 258 q40 -10 98 0']},{c:'#e2e8dc',op:.12,w:3,d:['M-20 92 q50 -10 100 6','M-20 186 q50 -8 104 6']}],
+    extra:`<g fill="none" stroke="#d9e6c8" stroke-linecap="round"><path d="M44 132 q14 -8 20 4 q4 12 -10 14 q-16 0 -16 -14 q2 -20 26 -18" stroke-opacity=".3" stroke-width="2.4"/><path d="M14 280 q10 -6 16 2 q2 8 -8 10 q-12 0 -10 -12" stroke-opacity=".22" stroke-width="2"/></g>
+      <path d="M58 44 l-6 12 l6 -2 l-5 12" fill="none" stroke="#d9f99d" stroke-opacity=".45" stroke-width="1.2" stroke-linejoin="round"/>` ,
+    far:{ g:['#8e9a8e','#4a564d','#101512'], blots:{fill:'#34432f',op:.6,d:['M4 232 q16 -8 32 -1 q8 8 -6 12 q-18 4 -26 -11Z','M44 270 q16 -6 30 2 q2 9 -12 11 q-16 1 -18 -13Z']},
+      bands:[{c:'#b5c98f',op:.24,w:4,d:['M-10 254 q40 -14 82 -2','M8 298 q36 -10 84 -4']}],
+      extra:'<path d="M30 262 q8 -5 12 2 q2 7 -6 8 q-9 0 -9 -8 q1 -11 15 -10" fill="none" stroke="#d9e6c8" stroke-opacity=".35" stroke-width="1.6" stroke-linecap="round"/>' } },
+  // Betelgeuse: gigante gaseoso en rojos, con alguna banda naranja y un ojo de tormenta
+  betelgeuse:{ g:['#f0715a','#c23b2b','#6e1818','#22070a'], atmo:'#f87171', edge:'#fca5a5', star:'#fca5a5',
+    bands:[{c:'#7f1d1d',op:.55,w:16,d:['M-20 44 q50 -6 110 2','M-20 152 q50 -4 112 2','M-20 246 q50 -6 110 2']},{c:'#fb923c',op:.4,w:9,d:['M-20 92 q50 -6 112 2','M-20 206 q50 -4 112 2']},{c:'#fecaca',op:.16,w:3,d:['M-20 70 q50 -6 110 2','M-20 124 q50 -4 112 2','M-20 182 q50 -4 112 2','M-20 276 q50 -6 110 2']}],
+    extra:'<ellipse cx="38" cy="228" rx="18" ry="8" fill="#fdba74" fill-opacity=".45" stroke="#fed7aa" stroke-opacity=".4" stroke-width="1.2"/><ellipse cx="38" cy="228" rx="9" ry="3.5" fill="#9a3412" fill-opacity=".5"/>' ,
+    far:{ g:['#ec6a52','#a8321f','#22070a'],
+      bands:[{c:'#7f1d1d',op:.55,w:10,d:['M-10 226 q50 -8 110 2','M-10 278 q50 -6 112 2']},{c:'#fb923c',op:.45,w:6,d:['M-10 250 q50 -6 112 2']},{c:'#fecaca',op:.18,w:2,d:['M-10 240 q50 -6 110 2','M-10 264 q50 -6 112 2','M-10 296 q50 -6 112 2']}],
+      extra:'<ellipse cx="44" cy="268" rx="11" ry="5" fill="#fdba74" fill-opacity=".5" stroke="#fed7aa" stroke-opacity=".4" stroke-width="1"/><ellipse cx="44" cy="268" rx="5" ry="2.2" fill="#9a3412" fill-opacity=".55"/>' } },
+};
+// Manchas, trazos y extra de un planeta (o de su versión lejana), para ir dentro del recorte del disco.
+const surface=(P)=>(P.blots?`<g fill="${P.blots.fill}" opacity="${P.blots.op}">${P.blots.d.map(d=>`<path d="${d}"/>`).join('')}</g>`:'')
+  +(P.bands||[]).map(b=>`<g fill="none" stroke="${b.c}" stroke-opacity="${b.op}" stroke-width="${b.w}" stroke-linecap="round">${b.d.map(d=>`<path d="${d}"/>`).join('')}</g>`).join('')
+  +(P.extra||'');
+const planetOf=(sys)=>PLANETS[sys]?sys:'madre';
+// En el sistema: el planeta se sale del dibujo y solo se ve el arco de arriba a la derecha.
+const homeCache={};
+export function homeBackdrop(sys){
+  sys=planetOf(sys); if(homeCache[sys]) return homeCache[sys];
+  const P=PLANETS[sys], F=P.far, C='cx="-20" cy="330" r="120"';
+  return homeCache[sys]=`<defs>
+    <radialGradient id="planetG-${sys}" cx=".78" cy=".15" r=".7">${[0,.5,1].map((o,i)=>`<stop offset="${o}" stop-color="${F.g[i]}"/>`).join('')}</radialGradient>
+    <radialGradient id="atmoG-${sys}"><stop offset=".87" stop-color="${P.atmo}" stop-opacity="0"/><stop offset=".9" stop-color="${P.atmo}" stop-opacity=".3"/><stop offset="1" stop-color="${P.atmo}" stop-opacity="0"/></radialGradient>
+    <clipPath id="planetC-${sys}"><circle ${C}/></clipPath>
+  </defs>
+  <circle cx="64" cy="58" r="1.6" fill="${P.star}" opacity=".6"/><circle cx="236" cy="86" r="1.2" fill="${P.star}" opacity=".45"/>
+  <circle cx="212" cy="228" r="1.5" fill="${P.star}" opacity=".5"/><circle cx="262" cy="160" r="1.1" fill="${P.star}" opacity=".4"/>
+  <g style="transform:translateX(var(--planet-x,0px))">
+  <circle cx="-20" cy="330" r="134" fill="url(#atmoG-${sys})"/>
+  <circle ${C} fill="url(#planetG-${sys})"/>
+  <g clip-path="url(#planetC-${sys})">${surface(F)}</g>
+  <circle ${C} fill="none" stroke="${P.edge}" stroke-opacity=".45" stroke-width="1.2"/>
+  </g>`;
+}
+const orbitCache={};
+export function orbitBackdrop(sys){
+  sys=planetOf(sys); if(orbitCache[sys]) return orbitCache[sys];
+  const P=PLANETS[sys], C='cx="-340" cy="150"', R=428;
+  const star=([x,y])=>`<circle cx="${x}" cy="${y}" r="1.3" fill="${P.star}" opacity=".5"/>`;
+  return orbitCache[sys]=`<defs>
+    <radialGradient id="bigG-${sys}" cx="54" cy="90" r="492" gradientUnits="userSpaceOnUse">${[0,.22,.55,1].map((o,i)=>`<stop offset="${o}" stop-color="${P.g[i]}"/>`).join('')}</radialGradient>
+    <radialGradient id="bigAtmo-${sys}" ${C} r="${R+22}" gradientUnits="userSpaceOnUse"><stop offset=".94" stop-color="${P.atmo}" stop-opacity="0"/><stop offset=".954" stop-color="${P.atmo}" stop-opacity=".35"/><stop offset="1" stop-color="${P.atmo}" stop-opacity="0"/></radialGradient>
+    <clipPath id="bigC-${sys}"><circle ${C} r="${R}"/></clipPath>
+  </defs>
+  ${[[236,86],[212,238],[262,160],[150,26],[280,40],[196,276],[250,12],[290,210]].map(star).join('')}
+  <circle ${C} r="${R+22}" fill="url(#bigAtmo-${sys})"/>
+  <circle ${C} r="${R}" fill="url(#bigG-${sys})"/>
+  <g clip-path="url(#bigC-${sys})">${surface(P)}</g>
+  <circle ${C} r="${R}" fill="none" stroke="${P.edge}" stroke-opacity=".5" stroke-width="1.3"/>`;
 }
 
 // Túnel del salto: tres capas de trazos que salen de un punto delante del morro
@@ -80,8 +150,9 @@ const JUMP_BACKDROP=(()=>{
 // La nave ocupa solo parte del dibujo: deja espacio alrededor (y margen para
 // naves más grandes algún día). Escala sobre el centro del lienzo de 300.
 export const SHIP_SCALE = 0.65;
-// Dónde está la nave para el dibujo: en el sistema, en misión (con plazo o sin él) o saltando a otro sistema.
-export const shipScene=()=>{ const c=state.ship.contract; return !c?'home':c.kind==='jump'?'jump':'away'; };
+// Dónde está la nave para el dibujo: en el sistema, en órbita (capítulo de la
+// historia de un sistema), en misión (con plazo o sin él) o saltando a otro sistema.
+export const shipScene=(c=state.ship.contract)=>!c?'home':c.kind==='jump'?'jump':c.story?'orbit':'away';
 export function shipArt(){
   const m=state.ship.modules, scene=shipScene();
   const tot=Object.values(m).reduce((a,x)=>a+x.lv,0);
@@ -92,7 +163,7 @@ export function shipArt(){
   const pod=(k,x,y)=>{ const d=x<150?-33:33, c=x+d/2;
     return `<g opacity="${op(k)}"><path d="M${x} ${y} L${x+d} ${y+12} L${x+d} ${y+34} L${x} ${y+28} Z" fill="#16273f" stroke="#3f7f96" stroke-width="1.6"/><circle cx="${c}" cy="${y+22}" r="${3+m[k].lv}" fill="#0e3a4a" stroke="#4fd0e8" stroke-width="1.2"/></g>`; };
 
-  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='jump'?'saltando a otro sistema':'en misión'}">
+  let s=`<svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" class="block w-full h-auto sm:h-full" role="img" aria-label="Nave de nivel ${tot} de ${SHIP_LV_MAX}, ${scene==='home'?herePrep('en'):scene==='jump'?'saltando a otro sistema':scene==='orbit'?'en órbita, '+herePrep('en'):'en misión'}">
   <defs>
     <linearGradient id="hullG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2d49"/><stop offset=".45" stop-color="#132037"/><stop offset="1" stop-color="#0c1526"/></linearGradient>
     <radialGradient id="exhG"><stop offset="0" stop-color="#cffafe"/><stop offset=".4" stop-color="#22d3ee" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>

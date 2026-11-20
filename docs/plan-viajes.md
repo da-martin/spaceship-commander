@@ -94,6 +94,7 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 - **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta (`state.ship.story`, capítulos hechos por sistema).
   - El capítulo pendiente está siempre en el tablón (con la Antena): no caduca, no ocupa hueco, no se puede descartar y no espera a la señal. Dificultad normal, cuota y paga como las otras sin plazo.
   - Al aceptarlo, su relato de entrada (`brief`) va a la bitácora. Al completarlo llega el siguiente; si se abandona, vuelve el mismo.
+  - Mientras dura un capítulo, el dibujo de la nave la muestra en órbita, con el planeta grande de cerca (ver «La nave en pantalla»).
 - Cuando se acaba la historia se puede seguir en el sistema todo el tiempo que se quiera, con sus misiones normales.
 
 ## Invitaciones entre sistemas
@@ -131,9 +132,12 @@ Se probó primero una variante «en órbita», sin salir del sistema y con merca
 
 | Estado | Fondo | Motores |
 |---|---|---|
-| En el sistema | Planeta en la esquina, todo quieto | Apagados: la nave espera |
-| En misión (con plazo o sin él) | Sin planeta; las estrellas caen como trazos cortos | Encendidos |
+| En el sistema | El planeta del sistema asoma por la esquina, todo quieto | Apagados: la nave espera |
+| Capítulo de la historia de un sistema | El planeta del sistema, de cerca, ocupa todo el lateral izquierdo: la nave está en órbita | Encendidos |
+| Otra misión (con plazo o sin él) | Sin planeta; las estrellas caen como trazos cortos | Encendidos |
 | Salto | Túnel de luz violeta delante del morro del que brotan las estrellas | A tope, estela larga |
+
+Cada sistema tiene su planeta (`PLANETS` en `ui/ship-view.js`), el mismo en la esquina y en órbita: el Umbral, azul celeste de mar y hielo; Canopo, desierto color arena; Zeta Reticuli, gris verdoso industrial con tormentas; Betelgeuse, gigante gaseoso en rojos con alguna banda naranja.
 
 ## Servidor
 
@@ -169,4 +173,3 @@ En el cliente:
 - **Cobro al cancelar por zarpar.** Aquí se cobra la parte hecha; la alternativa es no cobrar nada.
 - **Motores.** No acortan el salto, para que la alianza llegue junta. Se podría usar el nivel de la nave más lenta.
 - **Misiones en grupo**: plan aparte.
-- **Escena de planeta**: el dibujo del planeta grande (estaba en el commit `27d0f7e`) podría volver para las misiones que pasan claramente en un planeta o en su órbita. Se decidirá con todas las misiones escritas.
