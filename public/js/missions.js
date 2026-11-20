@@ -4,13 +4,21 @@
  *   win     — cuota cumplida
  *   partial — el plazo se agota con parte hecha (se cobra la parte)
  *   fail    — urgente fallida, o el plazo se agota sin nada hecho
+ * Esta lista es la del Sistema Madre. Los demás sistemas traen su catálogo y su
+ * historia en systems/<id>.js; MISSIONS los junta a todos (con `system`) para
+ * que una misión aceptada encuentre su relato esté donde esté.
  * Las 24 primeras frases son las de antes del catálogo: no las cambies, que
  * las partidas viejas encuentran su historia por la frase.
  *
  * `open: true`: misión sin plazo (nunca sale con plazo): la nave
  * pasa semanas trabajando en un mismo sitio y su `win` lo cuenta así. Sus
  * `partial` y `fail` quedan para los contratos con plazo de antes. */
-export const MISSIONS = [
+import ZETA from './systems/zeta.js';
+import UMBRAL from './systems/umbral.js';
+import CANOPO from './systems/canopo.js';
+import BETELGEUSE from './systems/betelgeuse.js';
+
+const MADRE = [
   /* ---------- Exploración ---------- */
   {id:'exp-nebulosa', topic:'Exploración', flavor:'Cartografiar una nebulosa sin nombre',
    win:'La nave se adentró en la nebulosa con los sensores al límite y salió con un mapa completo de sus corrientes de gas. Las cartas ya circulan por las estaciones del sector. Por primera vez, aquella nube tiene rutas seguras.',
@@ -282,4 +290,11 @@ export const MISSIONS = [
    win:'La colonia llevaba meses sin responder. La nave se acercó con cautela y descubrió que su antena había caído en una tormenta. Los colonos estaban bien, y vuelven a estar conectados con el sector.',
    partial:'La nave sobrevoló la colonia y confirmó que hay vida, pero no logró contactar. Alguien tendrá que bajar.',
    fail:'La colonia sigue en silencio. Nadie llegó a tiempo para averiguar qué pasa.'},
+];
+
+// Fichas de los demás sistemas (systems.js las convierte en SYSTEMS).
+export const SYSTEM_DATA = [ZETA, UMBRAL, CANOPO, BETELGEUSE];
+export const MISSIONS = [
+  ...MADRE,
+  ...SYSTEM_DATA.flatMap(s=>[...s.missions,...s.story].map(m=>({...m,system:s.id})))
 ];

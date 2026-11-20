@@ -7,7 +7,7 @@ import { crewPayroll, returnHome } from '../public/js/core/crew.js';
 import { agedMc, avgDaily, checkContractEnd, contractFrom, docked, freshOffer, genOffer, genOpenOffer } from '../public/js/core/missions.js';
 import { addEffort, onUndo } from '../public/js/core/ship.js';
 import { normShip } from '../public/js/store.js';
-import { MISSIONS } from '../public/js/missions.js';
+import { HOME, SYSTEMS } from '../public/js/systems.js';
 import { addDays } from '../public/js/util.js';
 import { clock, seed, fresh, restore } from './helpers.js';
 
@@ -26,7 +26,7 @@ test('por ahora no llegan misiones sin plazo al tablón', () => {
   for (let i = 0; i < 200; i++) assert.equal(genOffer('2026-11-14').kind, 'run');
 });
 
-const OPEN_IDS = new Set(MISSIONS.filter((m) => m.open).map((m) => m.id));
+const OPEN_IDS = new Set(SYSTEMS[HOME].missions.filter((m) => m.open).map((m) => m.id));
 
 test('las misiones marcadas solo salen sin plazo, y las demás solo con plazo', () => {
   fresh({ modules: { engines: { lv: 3, cond: 100 } } });

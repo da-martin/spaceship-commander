@@ -60,6 +60,8 @@ export const hasDeadline=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.deadline!==false;
 // Misiones sin plazo: parte de las transmisiones que lo son (0: por ahora no llegan
 // al tablón) y su cuota, en días de ritmo medio.
 export const OPEN_P = 0, OPEN_DAYS = [4,7];
+// Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
+export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
 // dificultad: cuánto pide sobre tu ritmo (push), ¢ por unidad de cuota (pay),
 // material extra (mats) y probabilidad de salir (w)
