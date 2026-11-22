@@ -142,6 +142,11 @@ export function render(){
   if(aFilterTasks.size>0) tasks=tasks.filter(x=>matchAreas(x,aFilterTasks));
   if(view.pFilter==='none') tasks=tasks.filter(x=>!x.projectId);
   else if(view.pFilter) tasks=tasks.filter(x=>x.projectId===view.pFilter);
+  // Proyectos con el interruptor apagado: sus tareas no salen en la lista
+  // (salvo filtrando por ese proyecto, que ya es pedirlas).
+  const hiddenP=new Set(state.projects.filter(p=>p.hideTasks).map(p=>p.id));
+  const shown=view.pFilter?tasks:tasks.filter(x=>!hiddenP.has(x.projectId));
+  const hiddenN=tasks.length-shown.length; tasks=shown;
   tasks.sort((a,b)=>(taskFolded(a)-taskFolded(b))||(b.priority-a.priority)||((a.dueDate||'9999')<(b.dueDate||'9999')?-1:1));
   const open=state.tasks.filter(x=>!x.done).length;
   document.getElementById('taskCount').textContent=open+' abiertas';
@@ -164,6 +169,7 @@ export function render(){
     if(hechas.length) tl.appendChild(doneFoldEl(hechas,view.tasksDoneOpen,()=>{ view.tasksDoneOpen=!view.tasksDoneOpen; },
       `${hechas.length} ${hechas.length===1?'completada':'completadas'}`,x=>taskRowEl(x,t)));
   }
+  if(hiddenN) tl.insertAdjacentHTML('beforeend',`<p class="mono text-[11px] text-slate-400 text-center py-1">${hiddenN} ${hiddenN===1?'tarea oculta por su proyecto':'tareas ocultas por su proyecto'}</p>`);
 
   // --- 3) Hábitos: todos, libres incluidos, y se marcan desde aquí ---
   document.getElementById('habitCount').textContent=state.habits.length;

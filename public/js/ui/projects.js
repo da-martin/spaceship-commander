@@ -80,14 +80,14 @@ export function renderProjects(){
   ps.forEach(p=>{
     if(view.projEdit===p.id){ body.appendChild(projFormEl(p)); return; }
     if(view.projDel===p.id){ body.appendChild(projDelEl(p)); return; }
-    const on=view.pFilter===p.id, c=projTaskCount(p.id), m=projDue(p), pct=c.total?Math.round(c.done/c.total*100):0;
+    const on=view.pFilter===p.id, c=projTaskCount(p.id), m=projDue(p), pct=c.total?Math.round(c.done/c.total*100):0, name=escapeHtml(p.name);
     const el=document.createElement('div');
     el.className='relative flex items-center gap-1 rounded-lg border pr-1 '+(on?'border-cyan-700 bg-cyan-500/5':'border-[#1f2a3d] bg-[#0d1526]');
     el.innerHTML=`
       <button data-act="pick" aria-pressed="${on}" class="flex-1 min-w-0 flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg">
         <span class="mono text-[13px] leading-none shrink-0 ${on?'text-cyan-300':'text-slate-400'}" aria-hidden="true">▣</span>
         <span class="min-w-0 flex-1">
-          <span class="block text-[13px] font-semibold truncate">${escapeHtml(p.name)}</span>
+          <span class="block text-[13px] font-semibold truncate ${p.hideTasks?'text-slate-400':''}">${name}</span>
           <span class="block mono text-[11px] mt-0.5 ${m.cls}">${m.text}</span>
         </span>
         <span class="shrink-0 flex items-center gap-1.5">
@@ -95,6 +95,7 @@ export function renderProjects(){
           <span class="mono text-[11px] text-slate-400 w-7 text-right">${c.done}/${c.total}</span>
         </span>
       </button>
+      <button data-act="show" type="button" role="switch" aria-checked="${!p.hideTasks}" class="switch" title="${p.hideTasks?'Mostrar':'Ocultar'} sus tareas en la lista" aria-label="Mostrar las tareas de ${name} en la lista"><span class="switch-knob" aria-hidden="true"></span></button>
       <button data-act="gear" class="shrink-0 text-slate-400 hover:text-cyan-300 p-1.5 leading-none" title="Opciones del proyecto" aria-label="Opciones del proyecto">${GEAR_SVG}</button>
       <div data-act="menu" class="gear-menu hidden right-2 top-10">
         <button data-m="edit">✎ Renombrar o cambiar fecha</button>
@@ -102,6 +103,12 @@ export function renderProjects(){
         <button data-m="del" class="danger">✕ Eliminar proyecto</button>
       </div>`;
     el.querySelector('[data-act="pick"]').onclick=()=>{ view.pFilter=on?null:p.id; render(); };
+    // El interruptor solo quita sus tareas de la lista de Tareas: en Hoy siguen
+    // saliendo las que vencen, y filtrar por el proyecto las enseña igual.
+    el.querySelector('[data-act="show"]').onclick=()=>{
+      p.hideTasks=!p.hideTasks; save(); render();
+      toast(p.hideTasks?`Tareas de «${p.name}» ocultas`:`Tareas de «${p.name}» a la vista`);
+    };
     const gear=el.querySelector('[data-act="gear"]'), menu=el.querySelector('[data-act="menu"]');
     gear.onclick=(e)=>{ e.stopPropagation(); document.querySelectorAll('.gear-menu').forEach(o=>{ if(o!==menu) o.classList.add('hidden'); }); menu.classList.toggle('hidden'); };
     menu.onclick=(e)=>e.stopPropagation();
