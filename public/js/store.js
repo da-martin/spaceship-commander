@@ -115,6 +115,7 @@ export function normProjects(a){
   return (Array.isArray(a)?a:[]).filter(p=>p&&typeof p==='object'&&typeof p.name==='string'&&p.name.trim())
     .map(p=>({id:typeof p.id==='string'&&p.id?p.id:uid(), name:p.name.trim().slice(0,80),
       due:/^\d{4}-\d{2}-\d{2}$/.test(p.due||'')?p.due:null,
+      hideTasks:p.hideTasks===true,
       createdAt:Number.isFinite(+p.createdAt)?+p.createdAt:Date.now()}))
     .filter(p=>!seen.has(p.id)&&seen.add(p.id));
 }

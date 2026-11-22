@@ -107,3 +107,11 @@ test('el ascenso de rango sobrevive en la bitácora al recargar la partida', asy
   assert.equal(e.seen, true);
   assert.equal(e.read, false);
 });
+
+test('el interruptor de un proyecto (ocultar sus tareas) se guarda y por defecto está a la vista', async () => {
+  const { normProjects } = await import('../public/js/store.js');
+  const [a, b, c] = normProjects([{ id: 'a', name: 'A', hideTasks: true }, { id: 'b', name: 'B' }, { id: 'c', name: 'C', hideTasks: 'sí' }]);
+  assert.equal(a.hideTasks, true);
+  assert.equal(b.hideTasks, false);
+  assert.equal(c.hideTasks, false);
+});
