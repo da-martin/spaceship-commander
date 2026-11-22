@@ -39,8 +39,9 @@ export function shipArrive(){
   if(L.some(e=>e.big&&!e.read)) openReport(); else announceLog(fresh);
 }
 export function announceLog(fresh){
-  if(fresh.length===1) toast(logText(fresh[0]));
-  else if(fresh.length) toast(`${fresh.length} novedades en la bitácora · menú › Bitácora`);
+  // Tocar el aviso abre la bitácora: no hace falta ir a buscarla al menú.
+  if(fresh.length===1) toast(logText(fresh[0]),undefined,openLog);
+  else if(fresh.length) toast(`${fresh.length} novedades en la bitácora · toca para verlas`,undefined,openLog);
   paintLog();
 }
 export let rpOpen=null;
