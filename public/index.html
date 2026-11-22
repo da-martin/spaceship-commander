@@ -187,11 +187,12 @@
   }
   /* Pantalla completa de Hábitos o Tareas, solo en lg+: la sección tapa la
      ventana (cabecera incluida) pero queda bajo los modales (z-50) y los avisos,
-     así que editar sigue funcionando. El relleno lateral centra el contenido. */
+     así que editar sigue funcionando. El relleno lateral centra el contenido y
+     lo deja en 800 px como mucho: más ancho, el título y el engranaje se alejan. */
   .full-btn .full-off,.full-btn[aria-pressed="true"] .full-on{display:none}
   .full-btn[aria-pressed="true"] .full-off{display:block}
   @media (min-width:1024px){
-    .cmd-full{position:fixed;inset:0;z-index:45;overflow-y:auto;border:0;border-radius:0;padding:28px max(32px,calc((100vw - 1040px)/2)) 56px !important}
+    .cmd-full{position:fixed;inset:0;z-index:45;overflow-y:auto;border:0;border-radius:0;padding:28px max(32px,calc((100vw - 800px)/2)) 56px !important}
     /* sin scroll detrás solo mientras Commander está a la vista */
     html:has(#commander-view:not(.hidden) .cmd-full){overflow:hidden}
   }
