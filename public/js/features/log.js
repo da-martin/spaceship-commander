@@ -10,7 +10,8 @@ import { addDays, escapeHtml, fDate, todayStr } from '../util.js';
 /* ---------- bitácora de a bordo e informes de misión ---------- */
 // Lo que la vista hace con cada entrada nueva (avisos de core/log.js). Dentro de
 // Spaceship lo pequeño se da por leído y sale como aviso; lo grande abre su informe.
-export function onLog(e){ if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e)); } }
+// Como el de llegada, el aviso se toca para abrir la bitácora.
+export function onLog(e){ if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e),undefined,openLog); } }
 export function onLogged(e){ if(uiMode==='ship'&&e.big) openReport(); else paintLog(); }
 export const LOG_TONE={
   win: {label:'text-amber-300', edge:'border-amber-600', panel:'#92400e', ring:'bg-amber-950/60 border-amber-500 text-amber-300', btn:'bg-[#b45309] hover:bg-[#c2410c] border-amber-500',
