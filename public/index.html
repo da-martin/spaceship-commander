@@ -185,6 +185,16 @@
     #commander-view:not(.tab-habits) [data-cmd="habits"],
     #commander-view:not(.tab-tasks) [data-cmd="tasks"]{display:none}
   }
+  /* Pantalla completa de Hábitos o Tareas, solo en lg+: la sección tapa la
+     ventana (cabecera incluida) pero queda bajo los modales (z-50) y los avisos,
+     así que editar sigue funcionando. El relleno lateral centra el contenido. */
+  .full-btn .full-off,.full-btn[aria-pressed="true"] .full-on{display:none}
+  .full-btn[aria-pressed="true"] .full-off{display:block}
+  @media (min-width:1024px){
+    .cmd-full{position:fixed;inset:0;z-index:45;overflow-y:auto;border:0;border-radius:0;padding:28px max(32px,calc((100vw - 1040px)/2)) 56px !important}
+    /* sin scroll detrás solo mientras Commander está a la vista */
+    html:has(#commander-view:not(.hidden) .cmd-full){overflow:hidden}
+  }
   input[type="date"],input[type="text"],select,textarea{color-scheme:dark}
   /* iOS da a los date un ancho mínimo propio que se salta el w-full, y vacíos
      salen más altos que el resto de campos y sin texto. Solo en iOS. */
@@ -376,6 +386,7 @@
       <h2 class="text-lg font-bold">Hábitos</h2>
       <span id="habitCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">0</span>
       <button id="btnNewHabit" class="ml-auto btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">+ Hábito</button>
+      <button id="btnFullHabits" data-full="habits" type="button" aria-pressed="false" class="full-btn hidden lg:grid shrink-0 place-items-center w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600" title="Pantalla completa" aria-label="Hábitos a pantalla completa"><svg class="full-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="full-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
     </div>
     <div id="habitsBody">
       <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
@@ -405,6 +416,7 @@
         <h2 class="text-lg font-bold">Tareas</h2>
         <span id="taskCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
         <button id="btnNewTask" class="ml-auto btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">+ Tarea</button>
+        <button id="btnFullTasks" data-full="tasks" type="button" aria-pressed="false" class="full-btn hidden lg:grid shrink-0 place-items-center w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600" title="Pantalla completa" aria-label="Tareas a pantalla completa"><svg class="full-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="full-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
       </div>
       <!-- Una sola fila: las áreas son un filtro de segunda y viven detrás de su
            botón, que lleva la cuenta de las activas. -->
