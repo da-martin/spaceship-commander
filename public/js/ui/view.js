@@ -14,6 +14,10 @@ export const view = {
   projDel: null,
   // Las 13 semanas a pantalla completa (móvil); en escritorio es un panel.
   weeksScreen: false,
+  // Hábitos o Tareas a pantalla completa (lg+): null | 'habits' | 'tasks'. En la
+  // de Tareas las 13 semanas salen al lado (fullWeeks), y se pueden cerrar.
+  fullSec: null,
+  fullWeeks: false,
   // Calendarios: hay una descarga en marcha; id del que pide confirmación para quitarlo.
   calBusy: false,
   calRemoving: null,

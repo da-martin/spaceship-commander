@@ -196,9 +196,8 @@ export function render(){
 /* ---------- wiring: lo llama main.js al arrancar ---------- */
 // Hábitos o Tareas a pantalla completa (el botón solo se ve en lg+; por debajo
 // la clase no hace nada y la sección vuelve sola a su sitio).
-let fullSec=null;
 function setFull(k){
-  fullSec=k;
+  view.fullSec=k; view.fullWeeks=k==='tasks';
   document.querySelectorAll('[data-full]').forEach(b=>{
     const on=b.dataset.full===k, sec=b.closest('section');
     sec.classList.toggle('cmd-full',on);
@@ -206,6 +205,7 @@ function setFull(k){
     b.title=on?'Salir de pantalla completa (Esc)':'Pantalla completa';
     if(on) sec.scrollTop=0;
   });
+  applyWeeks();
 }
 export function init(){
   // acordeón de la vista nave: todas empiezan colapsadas y solo una abierta a la vez
@@ -225,15 +225,18 @@ export function init(){
     l.addEventListener('pointermove',e=>{ if(e.pointerType==='mouse') noteTouch(); },{passive:true});
   }
   document.getElementById('btnNewTask').onclick=()=>openModal('task');
-  document.querySelectorAll('[data-full]').forEach(b=>b.onclick=()=>setFull(fullSec===b.dataset.full?null:b.dataset.full));
+  document.querySelectorAll('[data-full]').forEach(b=>b.onclick=()=>setFull(view.fullSec===b.dataset.full?null:b.dataset.full));
+  document.getElementById('btnFullWeeks').onclick=()=>{ view.fullWeeks=!view.fullWeeks; applyWeeks(); };
   // Esc sale de la pantalla completa, salvo que haya un modal abierto encima.
   // En captura: hay que mirarlo antes de que el propio Esc cierre ese modal.
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'&&fullSec&&!document.querySelector('#modal:not(.hidden),[id$="Modal"]:not(.hidden)')) setFull(null);
+    if(e.key==='Escape'&&view.fullSec&&!document.querySelector('#modal:not(.hidden),[id$="Modal"]:not(.hidden)')) setFull(null);
   },true);
   document.getElementById('projToggle').onclick=()=>{ setProjOpen(!projOpen); renderProjects(); };
   document.getElementById('btnWeeks').onclick=()=>setWeeks(!(wideMQ.matches?weeksOpen:view.weeksScreen));
-  document.getElementById('weeksClose').onclick=()=>setWeeks(false);
+  // En la pantalla completa de Tareas, cerrar solo quita el panel de ahí: el
+  // panel de siempre (y su preferencia guardada) no se toca.
+  document.getElementById('weeksClose').onclick=()=>{ if(document.body.classList.contains('weeks-full')){ view.fullWeeks=false; applyWeeks(); } else setWeeks(false); };
   document.getElementById('wkmClose').onclick=closeWkModal;
   document.getElementById('wkModal').addEventListener('click',e=>{ if(e.target.id==='wkModal') closeWkModal(); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWkModal(); });

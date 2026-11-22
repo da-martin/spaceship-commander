@@ -146,6 +146,10 @@ export function applyWeeks(){
   const wide=wideMQ.matches, ship=uiMode==='ship'||uiMode==='alliance'||uiMode==='vr', on=!ship&&(wide?weeksOpen:view.weeksScreen);
   document.body.classList.toggle('weeks-open',on&&wide);
   document.body.classList.toggle('weeks-screen',on&&!wide);
+  const full=!ship&&wide&&view.fullSec==='tasks'&&view.fullWeeks;
+  document.body.classList.toggle('weeks-full',full);
+  const fb=document.getElementById('btnFullWeeks');
+  fb.setAttribute('aria-pressed',String(full)); fb.title=full?'Cerrar las 13 semanas':'Ver las 13 semanas';
   const b=document.getElementById('btnWeeks');
   b.classList.toggle('hidden',ship); b.setAttribute('aria-expanded',String(on));
 }

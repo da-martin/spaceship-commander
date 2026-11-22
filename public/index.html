@@ -193,6 +193,11 @@
   .full-btn[aria-pressed="true"] .full-off{display:block}
   @media (min-width:1024px){
     .cmd-full{position:fixed;inset:0;z-index:45;overflow-y:auto;border:0;border-radius:0;padding:28px max(32px,calc((100vw - 800px)/2)) 56px !important}
+    /* Tareas a pantalla completa abre al lado las 13 semanas (weeks-full), por
+       encima de la sección; el contenido se recentra en el hueco que queda. */
+    .cmd-full .full-weeks-btn{display:grid}
+    body.weeks-full #weeksPanel{z-index:46;top:0;padding-top:28px;transform:none;visibility:visible}
+    body.weeks-full .cmd-full{padding-left:max(32px,calc((100vw - 384px - 800px)/2)) !important;padding-right:calc(384px + max(16px,(100vw - 384px - 800px)/2)) !important}
     /* sin scroll detrás solo mientras Commander está a la vista */
     html:has(#commander-view:not(.hidden) .cmd-full){overflow:hidden}
   }
@@ -417,6 +422,7 @@
         <h2 class="text-lg font-bold">Tareas</h2>
         <span id="taskCount" class="mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"></span>
         <button id="btnNewTask" class="ml-auto btn-primary px-3.5 h-11 rounded-lg text-sm font-medium">+ Tarea</button>
+        <button id="btnFullWeeks" type="button" aria-pressed="false" aria-controls="weeksPanel" class="full-weeks-btn hidden shrink-0 place-items-center w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600 aria-pressed:border-cyan-600 aria-pressed:text-cyan-300" title="Ver las 13 semanas" aria-label="Próximas 13 semanas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button>
         <button id="btnFullTasks" data-full="tasks" type="button" aria-pressed="false" class="full-btn hidden lg:grid shrink-0 place-items-center w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-600" title="Pantalla completa" aria-label="Tareas a pantalla completa"><svg class="full-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="full-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
       </div>
       <!-- Una sola fila: las áreas son un filtro de segunda y viven detrás de su
