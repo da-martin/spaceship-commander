@@ -79,6 +79,12 @@ export function rowEl(o,acts){
   el.innerHTML=rowHTML(o);
   return wireRow(el.firstElementChild,acts);
 }
+// El −1 de los hábitos con contador: círculo de la misma talla que el control
+// de la izquierda (antes era un rectángulo y se confundía con una caja de
+// texto). Neutro y con borde liso para no pasar por el propio contador.
+function minusHTML(tip,label){
+  return `<button type="button" data-act="minus" class="row-hit row-minus" title="${tip}" aria-label="${label}"><span class="row-mark minus mono" aria-hidden="true">−1</span></button>`;
+}
 // Un hábito, en cualquiera de sus dos listas. Entre Hoy y la gestión solo cambia
 // la talla: en las dos se marca el día desde el mismo control, que es
 // justamente lo que faltaba en la de gestión.
@@ -104,7 +110,7 @@ export function habitRowEl(h,size,t){
     markText:free?String(c):(d?'✓':''),
     markLabel:(free?'Registrar ':d?'Desmarcar ':'Completar ')+title,
     meta,
-    extras:(free&&c>0)?`<button type="button" data-act="minus" class="shrink-0 mono text-sm text-slate-300 border border-slate-700 rounded-lg h-11 min-w-[44px] px-3 hover:border-cyan-600" title="Quitar uno" aria-label="Quitar un registro de ${title}">−1</button>`:''
+    extras:(free&&c>0)?minusHTML('Quitar uno',`Quitar un registro de ${title}`):''
   },{
     done:()=>toggleHabitToday(h),
     edit:()=>openModal('habit',h.id),
@@ -131,7 +137,7 @@ export function negRowEl(h,size,t){
     off:!c, markText:c?String(c):'−',
     markLabel:'Anotar una caída: '+title,
     meta,
-    extras:c>0?`<button type="button" data-act="minus" class="shrink-0 mono text-sm text-slate-300 border border-slate-700 rounded-lg h-11 min-w-[44px] px-3 hover:border-cyan-600" title="Quitar una caída" aria-label="Quitar una caída de ${title}">−1</button>`:''
+    extras:c>0?minusHTML('Quitar una caída',`Quitar una caída de ${title}`):''
   },{
     done:()=>toggleHabitToday(h),
     edit:()=>openModal('habit',h.id),

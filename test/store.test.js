@@ -98,3 +98,12 @@ test('el nombre de la nave se limpia y se recorta a 20 caracteres', () => {
   assert.equal(name(42), '');
   assert.equal(freshState().ship.name, '');
 });
+
+test('el ascenso de rango sobrevive en la bitácora al recargar la partida', async () => {
+  const { normLog } = await import('../public/js/store.js');
+  const [e] = normLog([{ id: 'r1', at: 1, day: '2026-11-22', kind: 'rank', tone: 'win', title: '★ Ascenso: ahora eres Teniente', seen: true, read: false }]);
+  assert.equal(e?.kind, 'rank');
+  assert.equal(e.tone, 'win');
+  assert.equal(e.seen, true);
+  assert.equal(e.read, false);
+});

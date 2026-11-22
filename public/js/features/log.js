@@ -10,7 +10,9 @@ import { addDays, escapeHtml, fDate, todayStr } from '../util.js';
 /* ---------- bitácora de a bordo e informes de misión ---------- */
 // Lo que la vista hace con cada entrada nueva (avisos de core/log.js). Dentro de
 // Spaceship lo pequeño se da por leído y sale como aviso; lo grande abre su informe.
-export function onLog(e){ if(uiMode==='ship'&&!e.big){ e.seen=e.read=true; toast(logText(e)); } }
+// Como el de llegada, el aviso se toca para abrir la bitácora.
+// Lo que llega ya visto (el ascenso, que se anuncia por su cuenta) no repite aviso.
+export function onLog(e){ if(uiMode==='ship'&&!e.big&&!e.seen){ e.seen=e.read=true; toast(logText(e),undefined,openLog); } }
 export function onLogged(e){ if(uiMode==='ship'&&e.big) openReport(); else paintLog(); }
 export const LOG_TONE={
   win: {label:'text-amber-300', edge:'border-amber-600', panel:'#92400e', ring:'bg-amber-950/60 border-amber-500 text-amber-300', btn:'bg-[#b45309] hover:bg-[#c2410c] border-amber-500',
@@ -21,7 +23,7 @@ export const LOG_TONE={
         icon:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'},
   info:{label:'text-slate-300', edge:'border-slate-600'}
 };
-export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN',books:'CONTABILIDAD',travel:'SALTO'};
+export const LOG_KIND_TXT={mission:'MISIÓN',crew:'TRIPULACIÓN',wear:'DESGASTE',board:'TABLÓN',books:'CONTABILIDAD',travel:'SALTO',rank:'RANGO'};
 export const logDay=(d)=>d===todayStr()?'Hoy':d===addDays(todayStr(),-1)?'Ayer':fDate(d);
 export const rewChips=(r)=>!r?'':[chip(`+${r.mc} ¢`,RES.mc.chip),...Object.entries(r.mats||{}).filter(([k])=>RES[k]).map(([k,n])=>chip(`+${n} ${RES[k].sym} ${RES[k].name}`,RES[k].chip)),
   ...(r.xp?[chip(`+${r.xp} méritos`,'border-slate-600 text-slate-300')]:[])].join('');
@@ -39,8 +41,9 @@ export function shipArrive(){
   if(L.some(e=>e.big&&!e.read)) openReport(); else announceLog(fresh);
 }
 export function announceLog(fresh){
-  if(fresh.length===1) toast(logText(fresh[0]));
-  else if(fresh.length) toast(`${fresh.length} novedades en la bitácora · menú › Bitácora`);
+  // Tocar el aviso abre la bitácora: no hace falta ir a buscarla al menú.
+  if(fresh.length===1) toast(logText(fresh[0]),undefined,openLog);
+  else if(fresh.length) toast(`${fresh.length} novedades en la bitácora · toca para verlas`,undefined,openLog);
   paintLog();
 }
 export let rpOpen=null;

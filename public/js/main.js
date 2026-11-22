@@ -3,9 +3,10 @@
  * alguna preferencia de localStorage) y exportan init() si tienen botones. */
 import { RANKS } from './config.js';
 import { on } from './core/events.js';
+import { logShip } from './core/log.js';
 import { docked, checkContractEnd, logBoardNews, tickBoard } from './core/missions.js';
 import { scheduleShare, shareEvent, shareSync } from './features/alliance-share.js';
-import { onLog, onLogged } from './features/log.js';
+import { onLog, onLogged, openLog } from './features/log.js';
 import { dailyTick, needsReview } from './features/review.js';
 import { loadCalEvents } from './integrations/calendars.js';
 import { thFlush, thTrack } from './integrations/taskhero.js';
@@ -39,7 +40,13 @@ on('saved',schedulePush);
 on('log',onLog);
 on('logged',onLogged);
 // Un ascenso no es noticia de la nave: es del comandante, y sale donde esté.
-on('rankUp',i=>toast(`★ Ascenso: ahora eres ${RANKS[i][0]}`,'win'));
+// El ascenso sale donde estés y queda en la bitácora; tocar el aviso la abre.
+// Llega ya visto (no enciende el punto de Spaceship) pero sin leer.
+on('rankUp',i=>{
+  const title=`★ Ascenso: ahora eres ${RANKS[i][0]}`;
+  logShip({kind:'rank',tone:'win',title,seen:true});
+  toast(title,'win',openLog);
+});
 on('track',thTrack);
 // VR Training: cada contratación deja un holoperfil (lo guarda el save() de la contratación).
 on('crewJoined',()=>syncCrew(state.rpg,state.ship.crew));
