@@ -144,10 +144,10 @@ export const REGEN = 0.1, HEAVY_P_ART = 0.5, WINDOW_MULT = 2;   // Ventana de la
 // y Directo sale siempre. `mult`: distancia del tramo sobre la base.
 export const LEGS = {short:2, mid:3, long:4};
 export const LEG_KINDS = {
-  direct: {name:'Directo',    mult:1,   desc:'Sin sorpresas'},
-  short:  {name:'Atajo',      mult:0.7, desc:'Un 30 % más corto, pero el próximo impacto será fuerte'},
-  mine:   {name:'Yacimiento', mult:1.3, desc:'Un 30 % más largo; al completarlo, +2 materiales a la recompensa'},
-  station:{name:'Estación',   mult:1,   desc:'Al completarla, repara un 10 % el módulo más dañado y recarga el escudo'},
+  direct: {name:'Directo',             mult:1,   desc:'Sin sorpresas'},
+  short:  {name:'Maniobra arriesgada', mult:0.7, desc:'Un 30 % más corta, pero el próximo impacto será fuerte'},
+  mine:   {name:'Yacimiento',          mult:1.3, desc:'Un 30 % más largo; al completarlo, +2 materiales a la recompensa'},
+  station:{name:'Parada técnica',      mult:1.3, desc:'Un 30 % más larga; al completarla, repara un 10 % el módulo más dañado y recarga el escudo'},
 };
 export const LEG_CARDS = 3, LEG_MATS = 2, LEG_REPAIR = 10;
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
@@ -262,7 +262,7 @@ export const UPDATES = [
   ]},
   {id:'missions-route-2026-11', kind:'mission', title:'Novedades: rutas por etapas', lines:[
     'Las misiones sin plazo se dividen en tramos: la corta en 2, la media en 3 y la larga en 4. El primero siempre es directo.',
-    'Al acabar cada tramo eliges el siguiente entre 3 cartas: Directo (sin sorpresas), Atajo (un 30 % más corto, pero el próximo impacto será fuerte), Yacimiento (un 30 % más largo, con 2 materiales más) o Estación (repara un 10 % el módulo más dañado y recarga el escudo).',
+    'Al acabar cada tramo eliges el siguiente entre 3 cartas: Directo (sin sorpresas), Maniobra arriesgada (un 30 % más corta, pero el próximo impacto será fuerte), Yacimiento (un 30 % más largo, con 2 materiales más) o Parada técnica (un 30 % más larga, repara un 10 % el módulo más dañado y recarga el escudo).',
     'Elegir cambia la distancia total, así que también cuenta para la bonificación de rapidez.',
     'Nada se bloquea: si no eliges, lo que haces sigue sumando, y el tramo cuenta como Directo.',
     'Los capítulos de historia y las misiones que ya tenías en marcha no tienen tramos.',

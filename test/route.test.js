@@ -54,7 +54,7 @@ test('al acabar un tramo llega el punto de ruta, y lo que sobra ya cuenta para e
   assert.ok(s.ship.log.some((e) => e.title === 'Tramo 1 de 3 completado'));
 });
 
-test('el atajo acorta el tramo y la misión, y el próximo impacto será fuerte', () => {
+test('la maniobra arriesgada acorta el tramo y la misión, y el próximo impacto será fuerte', () => {
   const s = fresh();
   s.ship.contract = { ...accept(), heavy: false };
   go(10);
@@ -78,12 +78,15 @@ test('el yacimiento da sus materiales al completarse, una sola vez aunque se des
   assert.equal(mats(), LEG_MATS);
 });
 
-test('la estación repara el módulo más dañado y recarga el escudo', () => {
+test('la parada técnica alarga el tramo, repara el módulo más dañado y recarga el escudo', () => {
   const s = fresh({ modules: { comms: { lv: 1, cond: 50 }, bridge: { lv: 1, cond: 80 } } });
   s.ship.contract = { ...accept(), shield: { armed: false, readyOn: '2026-11-20' } };
   go(10);
   s.ship.contract.route.pick = ['direct', 'station', 'short'];
-  pickLeg('station'); go(10);
+  pickLeg('station');
+  assert.equal(s.ship.contract.route.legs[1].len, 13);
+  go(10); assert.equal(s.ship.modules.comms.cond, 50);   // aún no ha terminado
+  go(3);
   assert.equal(s.ship.modules.comms.cond, 60);
   assert.equal(s.ship.contract.shield.readyOn, '2026-11-14');
 });
@@ -98,7 +101,7 @@ test('si no eliges, el tramo cuenta como directo; un avance grande cruza dos pun
   assert.equal(r.pick.length, 3);
 });
 
-test('un atajo que deja la misión cumplida la completa al elegirlo', () => {
+test('una maniobra arriesgada que deja la misión cumplida la completa al elegirlo', () => {
   const s = fresh();
   s.ship.contract = accept({ size: 'short', quota: 15 });   // dos tramos de 7,5
   go(13);

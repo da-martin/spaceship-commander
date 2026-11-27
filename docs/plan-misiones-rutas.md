@@ -28,7 +28,7 @@ Las misiones que ya estén en marcha siguen como hasta ahora: sin `route`, no ha
 
 - El primer tramo siempre es directo. Al terminar cada tramo menos el último, llegas a un **punto de ruta** y eliges el siguiente entre **3 cartas** sorteadas.
 - La distancia total (`quota`) es la suma de los tramos. Si eliges un tramo más largo o más corto, la misión cambia de tamaño.
-- La bonificación de rapidez sigue contando desde la aceptación con los mismos días. Un atajo ayuda a conseguirla y un yacimiento lo pone más difícil: es parte de la decisión.
+- La bonificación de rapidez sigue contando desde la aceptación con los mismos días. Una maniobra arriesgada ayuda a conseguirla, y un yacimiento o una parada técnica la ponen más difícil: es parte de la decisión.
 - Los capítulos de historia no tienen ruta. Son un solo tramo, como ahora.
 
 ### Tipos de tramo
@@ -36,9 +36,9 @@ Las misiones que ya estén en marcha siguen como hasta ahora: sin `route`, no ha
 | Tramo | Distancia | Efecto |
 |---|---|---|
 | Directo | ×1 | Ninguno |
-| Atajo | ×0,7 | El próximo impacto será fuerte |
+| Maniobra arriesgada | ×0,7 | El próximo impacto será fuerte |
 | Yacimiento | ×1,3 | Al completarlo, +2 materiales a la recompensa |
-| Estación | ×1 | Al completarlo, repara un 10 % el módulo más dañado y recarga el escudo |
+| Parada técnica | ×1,3 | Al completarla, repara un 10 % el módulo más dañado y recarga el escudo |
 | Señal desconocida | ×1 | Al empezarlo, un evento (D2) |
 
 - Las 3 cartas no se repiten. Directo sale siempre, para que nunca falte una opción neutra.
@@ -100,7 +100,7 @@ route: {
 |---|---|
 | `config.js` | `LEGS = {short:2, mid:3, long:4}` y `LEG_KINDS` (nombre, ×distancia, efecto, peso). |
 | `core/route.js` (nuevo) | `newRoute(c)`, `legEnd(r, i)`, `checkLegs(c)` (marca tramos hechos, aplica sus efectos y prepara las cartas), `pickLeg(i)` y, en D2, `resolveEvent(opt)`. |
-| `core/missions.js` | `contractFrom()` crea la ruta. `missionNight()` aplica el «próximo impacto fuerte» del atajo. |
+| `core/missions.js` | `contractFrom()` crea la ruta. `missionNight()` aplica el «próximo impacto fuerte» de la maniobra arriesgada. |
 | `core/ship.js` | `addEffort()` llama a `checkLegs()` después de sumar. La parte de «misión completada» pasa a `finishIfDone()`, que también se usa al elegir un tramo más corto. |
 | `store.js` | Normaliza `route`: tramos válidos y `quota` igual a su suma. |
 | `ui/ship-view.js` | Tira de tramos en el panel de misión (hechos, actual y por venir) y la tarjeta del punto de ruta con las 3 cartas. |

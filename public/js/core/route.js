@@ -35,8 +35,8 @@ function legDone(c,l,i){
   }
   if(l.kind==='station'){
     const mods=state.ship.modules, hurt=Object.keys(MODS).filter(k=>mods[k].lv>0&&mods[k].cond<100);
-    if(hurt.length){ const k=hurt.reduce((a,b)=>mods[b].cond<mods[a].cond?b:a), before=mods[k].cond; mods[k].cond=Math.min(100,before+LEG_REPAIR); lines.push(`Estación: ${MODS[k].name} +${mods[k].cond-before} %.`); }
-    if(c.shield){ c.shield.readyOn=todayStr(); lines.push('Estación: el escudo vuelve a estar listo.'); }
+    if(hurt.length){ const k=hurt.reduce((a,b)=>mods[b].cond<mods[a].cond?b:a), before=mods[k].cond; mods[k].cond=Math.min(100,before+LEG_REPAIR); lines.push(`Parada técnica: ${MODS[k].name} +${mods[k].cond-before} %.`); }
+    if(c.shield){ c.shield.readyOn=todayStr(); lines.push('Parada técnica: el escudo vuelve a estar listo.'); }
   }
   logShip({kind:'mission',tone:'info',title:`Tramo ${i+1} de ${n} completado`,lines:[...lines,...(i+1<n?['Elige el siguiente tramo en el panel de la misión.']:[])]});
 }
@@ -61,7 +61,7 @@ export function pickLeg(kind){
   const l=r.legs[r.at];
   l.kind=kind; l.len=legLen(l.base,kind); r.pick=null;
   c.quota=routeTotal(r);
-  if(kind==='short'&&c.shield) c.heavy=true;   // el atajo pasa cerca de la amenaza
+  if(kind==='short'&&c.shield) c.heavy=true;   // la maniobra arriesgada pasa cerca de la amenaza
   checkLegs(c);
   return true;
 }
