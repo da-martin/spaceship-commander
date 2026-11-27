@@ -196,7 +196,7 @@ export function focusProgress(l){
   // Recompensa pequeña: 0,1 puntos de esfuerzo, 1 mérito y ¢ solo con Pilotaje
   const pm=perk('pilot');
   if(pm){ addW('mc',pm); earn(pm,'forster'); focusCount('mc',pm); }
-  addXP(XP_PROGRESS); addEffort(EF_PROGRESS); focusCount('progress',1); closeFocusModal(); save(); render();
+  addXP(XP_PROGRESS); addEffort(EF_PROGRESS,undefined,null,{kind:'task',diff:'micro'}); focusCount('progress',1); closeFocusModal(); save(); render();
   const round=focusRoundDone(dotted);
   if(round) openRoundModal(round,'Progreso anotado');
   else toast('Progreso anotado · vuelve al final de la lista');

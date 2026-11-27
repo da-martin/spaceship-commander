@@ -3,7 +3,7 @@ import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, ENGINE_PUSH, hasDeadline, H
 import { returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
-import { finishContract, logBoardNews, missionStory } from './missions.js';
+import { finishContract, logBoardNews, missionStory, traitMult } from './missions.js';
 import { addW, addXP, perk, subW, subXP } from './rewards.js';
 import { state } from '../store.js';
 import { sysOf, sysPrep } from '../systems.js';
@@ -53,17 +53,19 @@ export function selfHeal(){
 
 // Suma puntos de esfuerzo al día y a la misión en curso (solo lo hecho dentro
 // de su plazo, si lo tiene). Devuelve el id de la misión si contó, para poder restarlo.
-// En las misiones con tamaño (las sin plazo de ahora) los Motores suben el avance; lo que
-// contó se guarda en `g.cef` para que deshacer reste exactamente eso.
-export function addEffort(ef,day=todayStr(),g=null){
+// En las misiones con tamaño (las sin plazo de ahora) los Motores y los rasgos cambian el avance;
+// lo que contó se guarda en `g.cef` para que deshacer reste exactamente eso.
+// `src`: de dónde llega ({kind:'task'|'habit', diff}), para los rasgos.
+export function addEffort(ef,day=todayStr(),g=null,src={}){
   const sh=state.ship, c=sh.contract;
   sh.activity[day]=efRound((sh.activity[day]||0)+ef);
   // lo de hoy cuenta hasta la hora del plazo; lo de días pasados (repaso de ayer) si ese día empezó antes del plazo
   if(!c||c.kind==='jump'||(c.acceptedOn||'')>day) return null;   // el salto no tiene cuota
   if(hasDeadline(c)&&(day===todayStr()?Date.now()>=c.endsAt:dayParse(day).getTime()>=c.endsAt)) return null;
-  const cef=c.size?r2(ef*enginePush()):ef;
+  const cef=c.size?r2(ef*enginePush()*traitMult(c,src,day)):ef;
   c.progress=c.size?r2(c.progress+cef):efRound(c.progress+ef);
   if(g&&c.size) g.cef=cef;
+  if(c.daily) c.daily[day]=r2((c.daily[day]||0)+cef);
   if(c.progress>=c.quota){
     // la bonificación mira cuándo se hizo: lo del repaso de ayer, como hecho al empezar ese día
     const when=day===todayStr()?Date.now():dayParse(day).getTime(), fast=!!c.bonusAt&&when<c.bonusAt;
@@ -76,14 +78,15 @@ export function addEffort(ef,day=todayStr(),g=null){
   }
   return c.id;
 }
-// `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer)
-export function onComplete(x,g,day=todayStr()){
+// `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer). `kind`: 'task' o 'habit'.
+// Las acciones rápidas del Focus cuentan como tareas fáciles.
+export function onComplete(x,g,day=todayStr(),kind='task'){
   const ef=g.ef??1; g.day=day; g.at=Date.now();   // at: cuándo se marcó (lo recién marcado se queda a la vista)
   const h=healFor(x,ef); if(h) g.heal=h;
   // El material extra solo lo da Prospección: los módulos de área ya no suben
   // la ganancia del material que ellos mismos cuestan.
   if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=1; }
-  const c=addEffort(ef,day,g); if(c) g.c=c;
+  const c=addEffort(ef,day,g,{kind,diff:x.kind==='acc'?'easy':(x.diff||'normal')}); if(c) g.c=c;
   g.xp=addXP(payRound(EF_XP*ef,ef));
 }
 export function onUndo(g){
@@ -93,7 +96,11 @@ export function onUndo(g){
   if(g.bonus&&g.res) subW(g.res,g.bonus);
   if(g.xp) subXP(g.xp);
   if(g.heal) mod(g.heal.k).cond=Math.max(0,mod(g.heal.k).cond-g.heal.n);
-  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,g.cef!=null?r2(sh.contract.progress-g.cef):efRound(sh.contract.progress-ef));
+  const c=sh.contract;
+  if(g.c&&c?.id===g.c){
+    c.progress=Math.max(0,g.cef!=null?r2(c.progress-g.cef):efRound(c.progress-ef));
+    if(c.daily&&g.cef!=null&&c.daily[t]>0){ c.daily[t]=r2(c.daily[t]-g.cef); if(!(c.daily[t]>0)) delete c.daily[t]; }
+  }
 }
 
 export const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');

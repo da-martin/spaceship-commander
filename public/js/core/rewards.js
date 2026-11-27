@@ -3,9 +3,10 @@
 import { AREA_RES, EF_MC, effOf, FREE_MC, MODS, payRound, RANKS, RES, ROLES, WAGE_CUT, WEAR_NEG, XP_BONUS } from '../config.js';
 import { earn, unearn } from './books.js';
 import { emit } from './events.js';
+import { stormLoss, stormUndo } from './missions.js';
 import { eff, mod, onComplete, onUndo, wear } from './ship.js';
 import { state } from '../store.js';
-import { dayParse, todayStr } from '../util.js';
+import { dayParse, fmtEf, todayStr } from '../util.js';
 
 /* ---------- rango y ventajas de la tripulación ---------- */
 export const rankIdx=(xp=state.cmd.xp)=>{ let i=0; while(i+1<RANKS.length&&xp>=RANKS[i+1][1]) i++; return i; };
@@ -53,7 +54,7 @@ export function revokeTask(x){
 export function checkHabit(h,k){
   const ef=effOf(h), g={mc:payRound((EF_MC+perk('instructor'))*ef,ef),res:pickAreaRes(h),ef};
   addW('mc',g.mc); earn(g.mc,'habit',k); if(g.res) addW(g.res,1);
-  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); emit('track',h,'habit','+',k,ef); return g;
+  h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k,'habit'); emit('track',h,'habit','+',k,ef); return g;
 }
 export function uncheckHabit(h,k){
   if(h.g?.[k]){ emit('track',h,'habit','-',k); subW('mc',h.g[k].mc); unearn(h.g[k].mc,'habit',k); if(h.g[k].res) subW(h.g[k].res,1); onUndo(h.g[k]); delete h.g[k]; }
@@ -66,7 +67,7 @@ export function tapFree(h,k){
   const g={mc:freeTap(h,k),res:null};
   addW('mc',g.mc); earn(g.mc,'free',k);
   // solo el primer registro del día cuenta como actividad (material, contrato, reparación, méritos)
-  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k); }
+  if(first){ g.res=pickAreaRes(h); if(g.res) addW(g.res,1); g.ef=effOf(h); g.tap=g.mc; h.g=h.g||{}; h.g[k]=g; onComplete(h,g,k,'habit'); }
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   if(h.g?.[k]) h.g[k].at=Date.now();   // último toque: la mecha de la fila marca cuándo se sincroniza
   emit('track',h,'habit','+',k,first?effOf(h):0);   // con pareja, cada toque es una repetición allí
@@ -74,10 +75,12 @@ export function tapFree(h,k){
 }
 // Hábito negativo: cada toque daña un módulo y no da nada. Se guarda qué
 // módulo y cuánto dañó cada toque (h.g[k].hits) para que −1 lo devuelva exacto.
+// Con Tormenta iónica, además resta a la misión (h.g[k].storm, en paralelo a hits).
 export function tapNeg(h,k){
-  const hit=wear(h,WEAR_NEG*effOf(h));
+  const hit=wear(h,WEAR_NEG*effOf(h)), st=stormLoss(h,k);
   h.log=h.log||{}; h.log[k]=(h.log[k]||0)+1;
   h.g=h.g||{}; const g=h.g[k]=h.g[k]||{hits:[]}; (g.hits=g.hits||[]).push(hit);
+  if(st||g.storm){ g.storm=g.storm||g.hits.slice(0,-1).map(()=>null); g.storm.push(st); }
   return hit;
 }
 export function untapNeg(h,k){
@@ -85,9 +88,10 @@ export function untapNeg(h,k){
   h.log[k]--;
   const hit=h.g?.[k]?.hits?.pop();
   if(hit&&mod(hit.k)) mod(hit.k).cond=Math.min(100,mod(hit.k).cond+hit.n);
+  stormUndo(h.g?.[k]?.storm?.pop());
   if(h.log[k]===0){ delete h.log[k]; if(h.g) delete h.g[k]; }
 }
-export const negText=(hit)=>hit?`−${hit.n} % ${MODS[hit.k].name}`:'Caída anotada';
+export const negText=(hit,st)=>[hit?`−${hit.n} % ${MODS[hit.k].name}`:'Caída anotada',...(st?[`−${fmtEf(st.n)} a la misión por la Tormenta iónica`]:[])].join(' · ');
 // Días seguidos sin caer, contando hoy si aún no ha caído.
 export function cleanDays(h){
   const t=todayStr(); let last=null;

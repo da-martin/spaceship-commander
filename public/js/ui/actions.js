@@ -153,7 +153,7 @@ export function sellMat(k){
 /* ---------- listas de Commander ---------- */
 export function toggleHabitToday(h){
   const k=todayStr(); h.log=h.log||{};
-  if(h.type==='neg'){ const hit=tapNeg(h,k); save(); render(); toast(negText(hit)); return; }
+  if(h.type==='neg'){ const hit=tapNeg(h,k); save(); render(); toast(negText(hit,h.g?.[k]?.storm?.at(-1))); return; }
   if(h.type==='free'){ const g=tapFree(h,k); save(); render(); toast(gainText(g)); return; }
   if((h.log[k]||0)>=1){ uncheckHabit(h,k); h.log[k]=0; }
   else { h.log[k]=1; const g=checkHabit(h,k); save(); render(); toast(gainText(g)); return; }
