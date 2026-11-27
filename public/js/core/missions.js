@@ -1,4 +1,4 @@
-import { AGE_BONUS, DIFFS, effOf, hasDeadline, HEAVY_P, HIT, isAway, MATS, MISSION_BY_ID, MODS, OFFER_TTL, REP_DAYS, SHIELD_GAP, SIZES, SPEED_BONUS, SWEEP_MC, threatFor, THREATS, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, HEAVY_P, HEAVY_P_ART, HIT, isAway, MATS, MISSION_BY_ID, MODS, OFFER_TTL, REGEN, REP_DAYS, RES, SHIELD_GAP, SIZES, SPEED_BONUS, SWEEP_MC, threatFor, THREATS, TRAIT_ROLL, TRAITS, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
@@ -84,6 +84,40 @@ export function pickSize(){
   for(const [k,S] of Object.entries(SIZES)){ r-=S.w; if(r<0) return k; }
   return 'mid';
 }
+// Rasgos (fase C): uno por casilla de TRAIT_ROLL, sin repetir, de los tipos que admite la casilla.
+export function rollTraits(diff){
+  const out=[];
+  for(const kinds of TRAIT_ROLL[diff]||TRAIT_ROLL.normal){
+    const pool=Object.keys(TRAITS).filter(k=>kinds.includes(TRAITS[k].kind)&&!out.includes(k));
+    if(pool.length) out.push(pick(pool));
+  }
+  return out;
+}
+export const hasTrait=(c,k)=>!!c?.traits?.includes(k);
+const r2=(v)=>Math.round(v*100)/100;
+// Cuánto cuenta para la misión lo que llega de `src` ({kind:'task'|'habit', diff}) el día `day`.
+export function traitMult(c,src={},day=todayStr()){
+  const kind=src.kind==='habit'?'habit':'task', diff=src.diff||'normal';
+  let m=1;
+  for(const t of c?.traits||[]){
+    if(t==='solar'&&(diff==='hard'||diff==='epic')) m*=1.5;
+    else if(t==='window'&&!(c.daily?.[day]>0)) m*=3;
+    else if(t==='habits') m*=kind==='habit'?1.5:0.5;
+    else if(t==='errands') m*=kind==='task'?1.5:0.5;
+    else if(t==='armored'&&(diff==='micro'||diff==='easy')) m*=0.5;
+  }
+  return m;
+}
+// Tormenta iónica: una caída de un hábito negativo resta sus puntos a la misión. Devuelve
+// lo que restó ({c,n}) para que deshacer la caída lo devuelva, o null.
+export function stormLoss(h,day=todayStr()){
+  const c=state.ship.contract;
+  if(!hasTrait(c,'storm')||hasDeadline(c)||(c.acceptedOn||'')>day) return null;
+  const n=Math.min(c.progress,effOf(h)); if(!(n>0)) return null;
+  c.progress=r2(c.progress-n);
+  return {c:c.id,n};
+}
+export function stormUndo(x){ const c=state.ship.contract; if(x&&c?.id===x.c) c.progress=r2(c.progress+x.n); }
 function rollMats(days,D){
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
   for(let i=0;i<units;i++){ const k=pick(MATS); mats[k]=(mats[k]||0)+1; }
@@ -97,7 +131,7 @@ export function genOpenOffer(day,safe=false){
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const quota=S.pts, mc=Math.round(quota*12*D.pay);
   const mats=rollMats(S.days,D), [tlo,thi]=OFFER_TTL;
-  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,size,window:S.days,threat:threatFor(m.topic),quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
+  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,size,window:S.days,threat:threatFor(m.topic),traits:rollTraits(diff),quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
 }
 // Historia del sistema: el capítulo pendiente llega al tablón como misión sin plazo,
 // media y de dificultad normal. No caduca ni ocupa hueco, y vuelve si se abandona.
@@ -124,7 +158,8 @@ export function contractFrom(o,now=new Date()){
   if(!hasDeadline(o)){
     if(o.window) c.bonusAt=now.getTime()+o.window*864e5;
     // amenaza: el escudo empieza cargado y el primer impacto ya se sabe si será fuerte
-    if(THREATS[o.threat]) Object.assign(c,{shield:{armed:false,readyOn:c.acceptedOn},heavy:Math.random()<HEAVY_P,hits:0,blocked:0});
+    if(THREATS[o.threat]) Object.assign(c,{shield:{armed:false,readyOn:c.acceptedOn},heavy:Math.random()<heavyP(c),hits:0,blocked:0});
+    if(c.traits?.length) c.daily={};   // puntos que contaron cada día: Ventana de lanzamiento y Regenerativo
     return c;
   }
   const end=new Date(now); end.setDate(end.getDate()+o.days);
@@ -198,11 +233,18 @@ export function checkContractEnd(){
 // Amenaza (docs/plan-misiones.md, fase B): el impacto de la noche que cierra `day`.
 // El día en que se acepta no hay impacto. El daño es fijo, no depende del ritmo.
 export const hitOf=(c,heavy=c.heavy)=>(HIT[c.diff]||HIT.normal)*(heavy?2:1);
+export const heavyP=(c)=>hasTrait(c,'artillery')?HEAVY_P_ART:HEAVY_P;
 export function missionNight(day){
   const c=state.ship.contract;
   if(!c||!THREATS[c.threat]||!c.shield||hasDeadline(c)||day<=c.acceptedOn) return;
   const T=THREATS[c.threat], heavy=!!c.heavy, sh=c.shield;
-  c.heavy=Math.random()<HEAVY_P;   // el siguiente se sortea ya, para poder avisar
+  c.heavy=Math.random()<heavyP(c);   // el siguiente se sortea ya, para poder avisar
+  // Regenerativo: un día sin avance, la misión retrocede (el escudo no lo para)
+  if(hasTrait(c,'regen')&&!(c.daily?.[day]>0)&&c.progress>0){
+    const n=Math.min(c.progress,r2(c.quota*REGEN)); c.progress=r2(c.progress-n);
+    logShip({kind:'mission',tone:'warn',title:`Regenerativo: la misión retrocede ${fmtEf(n)} ${n===1?'punto':'puntos'}`,lines:['Un día entero sin avanzar.']});
+  }
+  if(c.daily) for(const d of Object.keys(c.daily)) if(d<addDays(day,-7)) delete c.daily[d];   // solo hacen falta los últimos días
   if(sh.armed){
     sh.armed=false; sh.readyOn=addDays(day,SHIELD_GAP+1); c.blocked++;
     logShip({kind:'mission',tone:'info',title:`Escudo: impacto${heavy?' fuerte':''} bloqueado`,
@@ -210,9 +252,11 @@ export function missionNight(day){
     return;
   }
   c.hits++;
-  const w=wear({},hitOf(c,heavy));
-  logShip({kind:'mission',tone:'warn',title:`${T.name}: impacto${heavy?' fuerte':''}${w?` en ${MODS[w.k].name} −${w.n} %`:''}`,
-    lines:[w?pick(T.hits).replace('{m}',MODS[w.k].the):T.hit+'.']});   // sin daño (Ingeniería lo absorbe todo), la frase general
+  const w=wear({},hitOf(c,heavy)), lines=[w?pick(T.hits).replace('{m}',MODS[w.k].the):T.hit+'.'];   // sin daño (Ingeniería lo absorbe todo), la frase general
+  // Saqueadores: el impacto se lleva 1 material de la recompensa
+  const loot=hasTrait(c,'looters')&&Object.keys(c.reward.mats||{}).filter(k=>c.reward.mats[k]>0);
+  if(loot&&loot.length){ const k=pick(loot); if(!--c.reward.mats[k]) delete c.reward.mats[k]; lines.push(`Los saqueadores se llevan 1 ${RES[k].sym} ${RES[k].name} de la recompensa.`); }
+  logShip({kind:'mission',tone:'warn',title:`${T.name}: impacto${heavy?' fuerte':''}${w?` en ${MODS[w.k].name} −${w.n} %`:''}`,lines});
 }
 // El escudo bloquea el siguiente impacto. Tras bloquear, se recarga durante SHIELD_GAP impactos.
 // Desactivarlo no lo gasta.

@@ -123,6 +123,22 @@ export const threatFor = (topic) => Object.keys(THREATS).find(k=>THREATS[k].topi
 export const HIT = {easy:4, normal:6, hard:8};
 export const HEAVY_P = 0.3;     // probabilidad de que el siguiente impacto sea fuerte (se avisa antes)
 export const SHIELD_GAP = 2;    // tras bloquear, impactos que pasan antes de poder volver a usar el escudo
+// Rasgos de las misiones sin plazo (fase C): cambian cuánto cuenta el esfuerzo PARA LA MISIÓN
+// (¢, méritos y material no cambian). `kind`: good (favorable), mid (neutro) o bad (adverso).
+export const TRAITS = {
+  solar:    {name:'Viento solar',           kind:'good', desc:'Lo Difícil y lo Épico cuenta ×1,5'},
+  window:   {name:'Ventana de lanzamiento', kind:'good', desc:'Lo primero que completas cada día cuenta ×3'},
+  habits:   {name:'Ruta de hábitos',        kind:'mid',  desc:'Los hábitos cuentan ×1,5 y las tareas ×0,5'},
+  errands:  {name:'Ruta de encargos',       kind:'mid',  desc:'Las tareas cuentan ×1,5 y los hábitos ×0,5'},
+  armored:  {name:'Blindado',               kind:'bad',  desc:'Lo Micro y lo Fácil cuenta ×0,5'},
+  regen:    {name:'Regenerativo',           kind:'bad',  desc:'Una noche sin avance, la misión retrocede un 10 %'},
+  storm:    {name:'Tormenta iónica',        kind:'bad',  desc:'Cada caída de un hábito negativo resta sus puntos a la misión'},
+  looters:  {name:'Saqueadores',            kind:'bad',  desc:'Cada impacto sin bloquear quita 1 material de la recompensa'},
+  artillery:{name:'Artillería pesada',      kind:'bad',  desc:'Los impactos fuertes salen la mitad de las veces'},
+};
+// Rasgos por dificultad: fácil, 1 favorable; normal, 1 neutro o adverso; difícil, 2 adversos.
+export const TRAIT_ROLL = {easy:[['good']], normal:[['mid','bad']], hard:[['bad'],['bad']]};
+export const REGEN = 0.1, HEAVY_P_ART = 0.5;
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
 export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
@@ -225,6 +241,13 @@ export const UPDATES = [
     'Con el escudo bloqueas el próximo impacto. Después deja pasar dos impactos antes de poder usarlo otra vez, así que guárdalo para los fuertes. Desactivarlo no lo gasta.',
     'Ir despacio nunca hace fallar una misión: solo desgasta más la nave. Ingeniería reduce el daño y los módulos se reparan como siempre.',
     'Las misiones que ya tenías en marcha no tienen amenaza.',
+  ]},
+  {id:'missions-traits-2026-11', kind:'mission', title:'Novedades: rasgos de misión', lines:[
+    'Las misiones sin plazo traen rasgos que cambian cuánto cuenta lo que haces para la misión. Las ¢, los méritos y el material de cada tarea o hábito no cambian.',
+    'Fáciles: un rasgo a favor, como Viento solar (lo Difícil y lo Épico cuenta ×1,5) o Ventana de lanzamiento (lo primero de cada día cuenta ×3).',
+    'Normales: un rasgo neutro o en contra, como Ruta de hábitos (los hábitos cuentan ×1,5 y las tareas ×0,5).',
+    'Difíciles: dos rasgos en contra, como Blindado (lo Micro y lo Fácil cuenta la mitad), Regenerativo (una noche sin avance, la misión retrocede un 10 %), Tormenta iónica, Saqueadores o Artillería pesada.',
+    'Los ves en el tablón antes de aceptar y en el panel de la misión. Los capítulos de historia no traen rasgos.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).

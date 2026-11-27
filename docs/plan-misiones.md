@@ -6,7 +6,7 @@ Este plan cambia el modelo:
 
 1. **Distancia** (fase A, hecha): la misión es un tramo fijo de puntos, sin plazo. El plazo pasa a ser una bonificación opcional.
 2. **Amenaza y escudo** (fase B, hecha): cada noche de misión hay un impacto contra la nave. El escudo lo bloquea, pero tarda en recargarse.
-3. **Rasgos** (fase C): modificadores que cambian *qué* cuenta y *cuánto*, no la cantidad que se pide.
+3. **Rasgos** (fase C, hecha): modificadores que cambian *qué* cuenta y *cuánto*, no la cantidad que se pide.
 
 Cada fase se puede publicar por separado. La fase A ya quita el problema de raíz.
 
@@ -145,10 +145,10 @@ Los rasgos van en la tarjeta de oferta, antes de aceptar, con una línea que exp
 
 ### Cómo se aplican
 
-- `addEffort(ef, día, src)` recibe un tercer parámetro con el origen: `{kind:'task'|'habit'|'acc'|'focus', diff}`. Lo pasan `onComplete()` (con `x`) y el Progreso del Focus.
+- `addEffort(ef, día, g, src)` recibe el origen: `{kind:'task'|'habit', diff}`. `onComplete(x, g, día, kind)` lo arma: las acciones rápidas del Focus cuentan como tareas fáciles, y el Progreso del Focus, como tarea Micro.
 - El multiplicador de los rasgos se aplica después del de Motores. El resultado se guarda en `g.cef` (fase A), así que deshacer resta lo mismo que sumó aunque ya no sea «lo primero del día».
 - El contrato guarda `daily[día]`, los puntos que contaron para la misión cada día. Ventana de lanzamiento mira si `daily[hoy]` está vacío y Regenerativo mira `daily[ayer]` en `missionNight()`. Deshacer también resta de `daily`.
-- Tormenta iónica: en `core/rewards.js`, donde se registra la caída de un negativo (`WEAR_NEG`), restar `effOf(h)` del progreso (sin bajar de 0).
+- Tormenta iónica: en `core/rewards.js`, `tapNeg()` resta `effOf(h)` del progreso (sin bajar de 0) y lo guarda en `h.g[día].storm`, en paralelo a `hits`, para que `untapNeg()` lo devuelva. El aviso de la caída lo dice.
 - Saqueadores: en `missionNight()`, si el impacto no se bloquea, quitar 1 unidad de un material sorteado de `c.reward.mats`.
 
 ### Cambios en el código
