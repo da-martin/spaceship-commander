@@ -1,7 +1,7 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
  * en localStorage. save() avisa con `saved` (la nube programa la subida). */
 import { UPDATES } from './config.js';
-import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES, SIZES, THREATS, TRAITS } from './config.js';
+import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, LEG_KINDS, ROLES, SIZES, THREATS, TRAITS } from './config.js';
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
@@ -41,9 +41,17 @@ export function normShip(s){
   // contratos y ofertas de antes de los viajes: todos eran misiones normales
   const kinded=(o)=>CONTRACT_KINDS[o.kind]?o:{...o,kind:'run'};
   // misiones sin plazo con tamaño (docs/plan-misiones.md): sin un tamaño conocido siguen las reglas de antes
+  // la ruta por etapas (fase D): tramos válidos o nada; `quota` pasa a ser su suma
+  const normRoute=(rt)=>{
+    if(!rt||!Array.isArray(rt.legs)||rt.legs.length<2||rt.legs.length>8) return null;
+    const legs=rt.legs.map(l=>({kind:Object.hasOwn(LEG_KINDS,l?.kind??'')?l.kind:null,base:+l?.base>0?+l.base:0,len:+l?.len>0?+l.len:0,done:!!l?.done}));
+    if(legs.some(l=>!l.base||!l.len)||!legs[0].kind) return null;
+    const at=clampInt(rt.at,0,legs.length-1,0), pick=Array.isArray(rt.pick)?rt.pick.filter(k=>Object.hasOwn(LEG_KINDS,k)):[];
+    return {legs,at,pick:pick.length&&!legs[at].kind?pick:null};
+  };
   // su amenaza (fase B): sin una amenaza conocida, sin impactos ni escudo; y sus rasgos (fase C)
   const sized=(o)=>{
-    const {size,window:w,bonusAt,threat,shield,heavy,hits,blocked,traits,daily,...r}=o;
+    const {size,window:w,bonusAt,threat,shield,heavy,hits,blocked,traits,daily,route,...r}=o;
     if(!SIZES[size]||hasDeadline(o)) return r;
     const x={...r,size,window:clampInt(w,1,60,SIZES[size].days),...(Number.isFinite(+bonusAt)&&+bonusAt>0?{bonusAt:+bonusAt}:{})};
     const tr=[...new Set(Array.isArray(traits)?traits.filter(k=>Object.hasOwn(TRAITS,k)):[])];
@@ -51,6 +59,8 @@ export function normShip(s){
       x.traits=tr;
       if(typeof o.acceptedOn==='string') x.daily=Object.fromEntries(Object.entries(daily&&typeof daily==='object'?daily:{}).filter(([d,n])=>DAY_RE.test(d)&&Number.isFinite(+n)&&+n>0).map(([d,n])=>[d,+n]));
     }
+    const rt=typeof o.acceptedOn==='string'&&normRoute(route);
+    if(rt){ x.route=rt; x.quota=Math.round(rt.legs.reduce((a,l)=>a+l.len,0)*2)/2; }
     if(!THREATS[threat]) return x;
     x.threat=threat;
     if(typeof o.acceptedOn!=='string') return x;   // oferta: solo la amenaza

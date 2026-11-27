@@ -1,12 +1,13 @@
 /* Lo que hacen los botones de la nave, la tripulación, los proyectos y las listas:
  * aplican la regla de core/, guardan, repintan y avisan. */
-import { CREW_DAYS, CREW_LV, hasDeadline, MISSION_BY_ID, MODS, REP_DAYS, RES } from '../config.js';
+import { CREW_DAYS, CREW_LV, hasDeadline, LEG_KINDS, MISSION_BY_ID, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
 import { armShield, contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, onAccepted, slotsUsed, sweepCost, tickBoard } from '../core/missions.js';
 import { isJump } from '../core/travel.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
-import { boardCap, herePrep, mod } from '../core/ship.js';
+import { boardCap, finishIfDone, herePrep, mod } from '../core/ship.js';
+import { pickLeg } from '../core/route.js';
 import { buyPrice, canAfford, modCost, onSale, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { dropFocusRef } from '../features/focus.js';
 import { emit } from '../core/events.js';
@@ -80,6 +81,12 @@ export function acceptOffer(id){
   save(); render(); scrollTo({top:0,behavior:'smooth'});
   const ch=o.story&&MISSION_BY_ID[o.mid];
   toast(`${ch?`Capítulo ${ch.chapter} aceptado: ${ch.title}`:`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic}`} · zarpas ${herePrep('de')}`);
+}
+// Punto de ruta: elegir el siguiente tramo. Si el nuevo tramo es más corto, la misión puede quedar ya cumplida.
+export function chooseLeg(kind){
+  if(!pickLeg(kind)) return;
+  const done=finishIfDone();
+  save(); render(); if(!done) toast(`Rumbo elegido: ${LEG_KINDS[kind].name}`);
 }
 // Escudo de la misión sin plazo: activarlo bloquea el próximo impacto; desactivarlo no lo gasta.
 export function toggleShield(){

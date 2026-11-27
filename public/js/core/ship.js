@@ -4,6 +4,7 @@ import { returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
 import { finishContract, logBoardNews, missionStory, traitMult } from './missions.js';
+import { checkLegs } from './route.js';
 import { addW, addXP, perk, subW, subXP } from './rewards.js';
 import { state } from '../store.js';
 import { sysOf, sysPrep } from '../systems.js';
@@ -66,17 +67,24 @@ export function addEffort(ef,day=todayStr(),g=null,src={}){
   c.progress=c.size?r2(c.progress+cef):efRound(c.progress+ef);
   if(g&&c.size) g.cef=cef;
   if(c.daily) c.daily[day]=r2((c.daily[day]||0)+cef);
-  if(c.progress>=c.quota){
-    // la bonificación mira cuándo se hizo: lo del repaso de ayer, como hecho al empezar ese día
-    const when=day===todayStr()?Date.now():dayParse(day).getTime(), fast=!!c.bonusAt&&when<c.bonusAt;
-    const p=finishContract(1,fast); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
-    const ch=c.story&&MISSION_BY_ID[c.mid];   // capítulo de historia: el siguiente llega al tablón
-    if(ch?.system) sh.story[ch.system]=Math.max(sh.story[ch.system]||0,ch.chapter);
-    logShip({kind:'mission',big:true,tone:'win',title:ch?`Capítulo ${ch.chapter} completado: ${ch.title}`:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:[...(fast?[`Bonificación de rapidez: +${Math.round(SPEED_BONUS*100)} % de ¢`]:[]),...(isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[])]});
-    logBoardNews();
-    emit('missionWon',c);
-  }
+  checkLegs(c);   // rutas por etapas: tramos terminados y punto de ruta
+  finishIfDone(day);
   return c.id;
+}
+// Si la misión en curso ya reúne su cuota, la cobra y vuelve. También tras elegir un tramo
+// más corto. `day`: cuándo se hizo lo último (para la bonificación de rapidez).
+export function finishIfDone(day=todayStr()){
+  const sh=state.ship, c=sh.contract;
+  if(!c||c.kind==='jump'||!(c.quota>0)||c.progress<c.quota) return false;
+  // la bonificación mira cuándo se hizo: lo del repaso de ayer, como hecho al empezar ese día
+  const when=day===todayStr()?Date.now():dayParse(day).getTime(), fast=!!c.bonusAt&&when<c.bonusAt;
+  const p=finishContract(1,fast); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
+  const ch=c.story&&MISSION_BY_ID[c.mid];   // capítulo de historia: el siguiente llega al tablón
+  if(ch?.system) sh.story[ch.system]=Math.max(sh.story[ch.system]||0,ch.chapter);
+  logShip({kind:'mission',big:true,tone:'win',title:ch?`Capítulo ${ch.chapter} completado: ${ch.title}`:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:[...(fast?[`Bonificación de rapidez: +${Math.round(SPEED_BONUS*100)} % de ¢`]:[]),...(isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[])]});
+  logBoardNews();
+  emit('missionWon',c);
+  return true;
 }
 // `day`: el día en que se hizo (ayer, si llega desde el repaso de ayer). `kind`: 'task' o 'habit'.
 // Las acciones rápidas del Focus cuentan como tareas fáciles.
