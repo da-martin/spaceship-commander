@@ -99,9 +99,9 @@ route: {
 | Dónde | Qué |
 |---|---|
 | `config.js` | `LEGS = {short:2, mid:3, long:4}` y `LEG_KINDS` (nombre, ×distancia, efecto, peso). |
-| `core/route.js` (nuevo) | `newRoute(c)`, `legEnds(c)`, `checkLegs(c)` (marca tramos hechos, aplica sus efectos y prepara las cartas), `pickLeg(i)` y, en D2, `resolveEvent(opt)`. |
+| `core/route.js` (nuevo) | `newRoute(c)`, `legEnd(r, i)`, `checkLegs(c)` (marca tramos hechos, aplica sus efectos y prepara las cartas), `pickLeg(i)` y, en D2, `resolveEvent(opt)`. |
 | `core/missions.js` | `contractFrom()` crea la ruta. `missionNight()` aplica el «próximo impacto fuerte» del atajo. |
-| `core/ship.js` | `addEffort()` llama a `checkLegs()` después de sumar. |
+| `core/ship.js` | `addEffort()` llama a `checkLegs()` después de sumar. La parte de «misión completada» pasa a `finishIfDone()`, que también se usa al elegir un tramo más corto. |
 | `store.js` | Normaliza `route`: tramos válidos y `quota` igual a su suma. |
 | `ui/ship-view.js` | Tira de tramos en el panel de misión (hechos, actual y por venir) y la tarjeta del punto de ruta con las 3 cartas. |
 | `ui/actions.js` | `chooseLeg()` y, en D2, `chooseEvent()`. |
@@ -150,7 +150,7 @@ En el contrato: `cd: {role: readyAt}` para los enfriamientos, `used: [role]` par
 
 ## Orden propuesto
 
-1. **D1**: rutas y cartas, sin eventos.
+1. **D1** (hecha): rutas y cartas, sin eventos.
 2. **E**: habilidades. Rumbo alternativo usa los puntos de ruta si existen.
 3. **D2**: eventos. Es lo que más texto pide, y se puede ir ampliando el catálogo poco a poco.
 
@@ -176,8 +176,8 @@ D2:
 - Cada efecto del catálogo; probabilidades con semilla fija.
 - Todos los eventos del catálogo tienen opciones válidas.
 
-## Decisiones abiertas
+## Decisiones tomadas
 
-- **¿Cobro parcial al abandonar?** Hoy abandonar no paga nada. Con tramos se podría cobrar la mitad de lo que valen los tramos completados. Recomiendo dejarlo como está: si no, abandonar en cuanto se acaba un tramo se vuelve rentable.
-- **¿Energía además del enfriamiento?** La idea 5 original cargaba una barra de energía al completar hábitos. La he quitado: volvería a premiar hacer más al día, que es justo lo que este rediseño evita. Con enfriamientos basta para tener decisiones.
-- **¿Módulo Escudos?** Un módulo nuevo que acorte la recarga del escudo. Cambia el nivel máximo de la nave y su dibujo, así que lo dejaría fuera mientras Mantenimiento ya permita recargarlo.
+- **Abandonar no cobra nada**, como hasta ahora, aunque haya tramos completados. Así no compensa abandonar justo al acabar un tramo.
+- **Sin energía**: las habilidades solo se recargan con el tiempo. Una barra que se carga con hábitos volvería a premiar hacer más al día.
+- **Sin módulo Escudos** por ahora: Mantenimiento ya permite recargar el escudo.

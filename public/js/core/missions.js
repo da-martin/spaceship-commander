@@ -6,6 +6,7 @@ import { addW, perk } from './rewards.js';
 import { boardCap, cargoMult, here, herePrep, maxDays, mod, repDamaged, signalRate, wear } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { arrive, isJump, tellJump } from './travel.js';
+import { newRoute } from './route.js';
 import { MISSIONS } from '../missions.js';
 import { state } from '../store.js';
 import { addDays, dayParse, fDate, fmtEf, pick, todayStr, uid } from '../util.js';
@@ -160,6 +161,7 @@ export function contractFrom(o,now=new Date()){
     // amenaza: el escudo empieza cargado y el primer impacto ya se sabe si será fuerte
     if(THREATS[o.threat]) Object.assign(c,{shield:{armed:false,readyOn:c.acceptedOn},heavy:Math.random()<heavyP(c),hits:0,blocked:0});
     if(c.traits?.length) c.daily={};   // puntos que contaron cada día: Ventana de lanzamiento y Regenerativo
+    const route=newRoute(c); if(route) c.route=route;   // rutas por etapas (fase D)
     return c;
   }
   const end=new Date(now); end.setDate(end.getDate()+o.days);

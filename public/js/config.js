@@ -139,6 +139,17 @@ export const TRAITS = {
 // Rasgos por dificultad: fácil, 1 favorable; normal, 1 neutro o adverso; difícil, 2 adversos.
 export const TRAIT_ROLL = {easy:[['good']], normal:[['mid','bad']], hard:[['bad'],['bad']]};
 export const REGEN = 0.1, HEAVY_P_ART = 0.5, WINDOW_MULT = 2;   // Ventana de lanzamiento: lo primero del día
+// Rutas por etapas (docs/plan-misiones-rutas.md, fase D): tramos por tamaño y tipos de tramo.
+// El primero siempre es directo; al acabar cada uno se elige el siguiente entre LEG_CARDS cartas,
+// y Directo sale siempre. `mult`: distancia del tramo sobre la base.
+export const LEGS = {short:2, mid:3, long:4};
+export const LEG_KINDS = {
+  direct: {name:'Directo',    mult:1,   desc:'Sin sorpresas'},
+  short:  {name:'Atajo',      mult:0.7, desc:'Un 30 % más corto, pero el próximo impacto será fuerte'},
+  mine:   {name:'Yacimiento', mult:1.3, desc:'Un 30 % más largo; al completarlo, +2 materiales a la recompensa'},
+  station:{name:'Estación',   mult:1,   desc:'Al completarla, repara un 10 % el módulo más dañado y recarga el escudo'},
+};
+export const LEG_CARDS = 3, LEG_MATS = 2, LEG_REPAIR = 10;
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
 export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
@@ -248,6 +259,13 @@ export const UPDATES = [
     'Normales: un rasgo neutro o en contra, como Ruta de hábitos (los hábitos cuentan ×1,5 y las tareas ×0,5).',
     'Difíciles: dos rasgos en contra, como Blindado (lo Micro y lo Fácil cuenta la mitad), Regenerativo (una noche sin avance, la misión retrocede un 10 %), Tormenta iónica, Saqueadores o Artillería pesada.',
     'Los ves en el tablón antes de aceptar y en el panel de la misión. Los capítulos de historia no traen rasgos.',
+  ]},
+  {id:'missions-route-2026-11', kind:'mission', title:'Novedades: rutas por etapas', lines:[
+    'Las misiones sin plazo se dividen en tramos: la corta en 2, la media en 3 y la larga en 4. El primero siempre es directo.',
+    'Al acabar cada tramo eliges el siguiente entre 3 cartas: Directo (sin sorpresas), Atajo (un 30 % más corto, pero el próximo impacto será fuerte), Yacimiento (un 30 % más largo, con 2 materiales más) o Estación (repara un 10 % el módulo más dañado y recarga el escudo).',
+    'Elegir cambia la distancia total, así que también cuenta para la bonificación de rapidez.',
+    'Nada se bloquea: si no eliges, lo que haces sigue sumando, y el tramo cuenta como Directo.',
+    'Los capítulos de historia y las misiones que ya tenías en marcha no tienen tramos.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).

@@ -1,16 +1,17 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, HIT, SHIELD_GAP, THREATS, TRAITS, WINDOW_MULT, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, HIT, LEG_KINDS, LEGS, SHIELD_GAP, THREATS, TRAITS, WINDOW_MULT, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
 import { agedMc, hitOf, missionHint, missionsUnlocked, offerAge, shieldReady, slotsUsed, sweepCost } from '../core/missions.js';
 import { isJump } from '../core/travel.js';
+import { legLen, legName } from '../core/route.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
 import { sysOf, sysPrep } from '../systems.js';
-import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep, toggleShield } from './actions.js';
+import { abandonContract, acceptOffer, buildMod, buyMat, chooseLeg, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep, toggleShield } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
 import { uiMode } from './mode.js';
@@ -279,6 +280,23 @@ function traitList(o,live=false){
     const now=live&&k==='window'?(o.daily?.[todayStr()]>0?' · ya usada hoy':' · <span class="text-emerald-300">lo próximo de hoy cuenta ×${WINDOW_MULT}</span>'):'';
     return `<div class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="mono text-[11px] px-1.5 py-0.5 rounded border ${TRAIT_CHIP[T.kind]}">${T.name.toUpperCase()}</span><span class="mono text-[11px] text-slate-400">${T.desc}${now}</span></div>`; }).join('')}</div>`;
 }
+// Rutas por etapas (fase D): la tira de tramos y, en un punto de ruta, las cartas del siguiente.
+function routeBox(c){
+  const r=c.route; if(!r) return '';
+  const n=r.legs.length;
+  const strip=r.legs.map((l,i)=>{
+    const cls=l.done?'border-emerald-800 text-emerald-300':i===r.at?'border-cyan-600 text-cyan-200':'border-slate-700 text-slate-400';
+    return `<div class="flex-1 min-w-0 rounded border ${cls} px-1.5 py-1"><div class="mono text-[11px] truncate">${l.done?'✓ ':''}${i+1}. ${legName(l.kind)}</div><div class="mono text-[11px] text-slate-400">${fmtEf(l.len)} pts</div></div>`;
+  }).join('');
+  const cards=r.pick?`<div class="rounded-lg border border-amber-600 p-3 mt-3">
+      <div class="sys-label">Punto de ruta</div>
+      <div class="text-sm text-slate-300 mt-1">Elige el tramo ${r.at+1} de ${n}. Lo que hagas mientras tanto ya cuenta; si no eliges, irá directo.</div>
+      <div class="grid sm:grid-cols-3 gap-2 mt-2">${r.pick.map(k=>`<button data-leg="${k}" class="text-left rounded-lg border border-slate-700 hover:border-cyan-400 bg-slate-900 p-2">
+        <div class="font-semibold text-sm">${LEG_KINDS[k].name}</div>
+        <div class="mono text-[11px] text-slate-400 mt-0.5">${fmtEf(legLen(r.legs[r.at].base,k))} puntos · ${LEG_KINDS[k].desc}</div></button>`).join('')}</div>
+    </div>`:'';
+  return `<div class="flex gap-1 mt-3" aria-label="Ruta de la misión">${strip}</div>${cards}`;
+}
 function bonusLine(c){
   if(!c.bonusAt) return '';
   return Date.now()<c.bonusAt
@@ -344,6 +362,7 @@ export function renderMission(c){
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
     ${bonusLine(c)}
+    ${routeBox(c)}
     ${traitList(c,true)}
     <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2${c.size&&eff('engines')>0?` · <span class="text-cyan-300">+${Math.round(ENGINE_PUSH*eff('engines')*100)} % de avance por Motores</span>`:''} · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
     ${threatBox(c)}
@@ -354,6 +373,7 @@ export function renderMission(c){
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
   const shb=el.querySelector('[data-shield]'); if(shb&&!shb.disabled) shb.onclick=toggleShield;
+  el.querySelectorAll('[data-leg]').forEach(bt=>{ bt.onclick=()=>chooseLeg(bt.dataset.leg); });
   wireAbandon(el.querySelector('[data-act="abandon"]'),c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago');
 }
 // «Abandonar misión» pide un segundo toque en 3 s
@@ -470,7 +490,7 @@ export function renderShip(){
       </div>
       ${ch?`<div class="text-sm font-semibold text-violet-100 mt-1.5">${escapeHtml(ch.title)}</div>`:''}
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo${o.window?` · <span class="text-emerald-300">+${BONUS_PCT} % si llegas en ${o.window} días</span>`:''}`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo${LEGS[o.size]&&!o.story?` en ${LEGS[o.size]} tramos`:''}, sin plazo${o.window?` · <span class="text-emerald-300">+${BONUS_PCT} % si llegas en ${o.window} días</span>`:''}`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
       ${THREATS[o.threat]?`<div class="mono text-[11px] text-slate-400 mt-1">Amenaza: ${THREATS[o.threat].name} · −${HIT[o.diff]||HIT.normal} % a un módulo cada noche</div>`:''}
       ${traitList(o)}
       ${ch?'':`<div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>`}
