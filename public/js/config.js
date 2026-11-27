@@ -59,11 +59,12 @@ export const isAway=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.away!==false;          // 
 export const hasDeadline=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.deadline!==false;
 // Misiones sin plazo (docs/plan-misiones.md): todas las no urgentes. Su distancia
 // es fija en puntos según el tamaño, no depende del ritmo: hacer más no agranda las
-// siguientes. `days`: si llegas en esos días desde que la aceptas, la paga sube SPEED_BONUS.
+// siguientes. Calibradas a 10 puntos al día: a ese ritmo se llega con un día de margen
+// sobre `days`, los días desde que la aceptas en los que la paga sube SPEED_BONUS.
 export const SIZES = {
-  short:{name:'Corta', pts:15, days:4,  w:0.35},
-  mid:  {name:'Media', pts:30, days:7,  w:0.45},
-  long: {name:'Larga', pts:60, days:12, w:0.20},
+  short:{name:'Corta', pts:15, days:3, w:0.35},
+  mid:  {name:'Media', pts:30, days:4, w:0.45},
+  long: {name:'Larga', pts:60, days:7, w:0.20},
 };
 export const SPEED_BONUS = 0.25;
 export const ENGINE_PUSH = 0.06;   // Motores: avance extra en misión por nivel efectivo
@@ -157,7 +158,7 @@ export const UPDATES = [
   {id:'missions-2026-11', kind:'mission', title:'Novedades: misiones sin plazo', lines:[
     'Las misiones ya no tienen plazo. Cada una es una distancia fija en puntos de esfuerzo: corta (15), media (30) o larga (60). Termina cuando la reúnes, tardes lo que tardes.',
     'La dificultad ya no sube los puntos que pide una misión: cambia la paga y el material. Hacer más tampoco agranda las misiones siguientes.',
-    'Si llegas en los días que marca la misión (4, 7 o 12 desde que la aceptas), cobras un 25 % más. Si tardas más, no pasa nada: cobras lo normal.',
+    'Si llegas en los días que marca la misión (3, 4 o 7 desde que la aceptas), cobras un 25 % más. Si tardas más, no pasa nada: cobras lo normal.',
     'Las urgentes siguen igual: tienen plazo, pagan más y, si fallan, dañan la reputación.',
     'Los Motores suman un 6 % por nivel a lo que avanzas en las misiones sin plazo. En las urgentes siguen alargando el plazo máximo.',
     'Las misiones que ya tenías en marcha o en el tablón terminan con las reglas de antes.',

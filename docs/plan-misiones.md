@@ -27,13 +27,13 @@ Cada oferta sortea un tamaño, independiente de la dificultad. **La distancia es
 
 | Tamaño | Distancia | Bonificación si llegas en | Probabilidad |
 |---|---|---|---|
-| Corta | 15 puntos | 4 días | 35 % |
-| Media | 30 puntos | 7 días | 45 % |
-| Larga | 60 puntos | 12 días | 20 % |
+| Corta | 15 puntos | 3 días | 35 % |
+| Media | 30 puntos | 4 días | 45 % |
+| Larga | 60 puntos | 7 días | 20 % |
 
-- Las cifras son constantes (`SIZES` en `config.js`) para poder ajustarlas tras jugar unas semanas. Están pensadas para un ritmo de unos 4 o 5 puntos al día.
+- Las cifras son constantes (`SIZES` en `config.js`) para poder ajustarlas tras jugar unas semanas. Están calibradas a **10 puntos al día**: a ese ritmo una misión dura 1,5, 3 o 6 días, y la bonificación se consigue con un día de margen.
 - La distancia se guarda en la oferta como `quota`, igual que ahora, junto con `size` y `window` (los días de la bonificación).
-- El tablón muestra «Media · 30 puntos · +25 % si llegas en 7 días».
+- El tablón muestra «Media · 30 puntos · +25 % si llegas en 4 días».
 
 ### Paga
 
@@ -56,7 +56,7 @@ Cada oferta sortea un tamaño, independiente de la dificultad. **La distancia es
 
 | Dónde | Qué |
 |---|---|
-| `config.js` | `SIZES = {short:{pts:15,days:4,w:.35}, mid:{pts:30,days:7,w:.45}, long:{pts:60,days:12,w:.20}}`, `SPEED_BONUS = 0.25`, `ENGINE_PUSH = 0.06`. Quitar `push` de `DIFFS`. Quitar `OPEN_P` y `OPEN_DAYS`: toda oferta no urgente es sin plazo. Texto de Motores en `MODS`. |
+| `config.js` | `SIZES = {short:{pts:15,days:3,w:.35}, mid:{pts:30,days:4,w:.45}, long:{pts:60,days:7,w:.20}}`, `SPEED_BONUS = 0.25`, `ENGINE_PUSH = 0.06`. Quitar `push` de `DIFFS`. Quitar `OPEN_P` y `OPEN_DAYS`: toda oferta no urgente es sin plazo. Texto de Motores en `MODS`. |
 | `core/missions.js` | `genOffer()`: urgente → `run` como ahora, sin push; si no, `genOpenOffer()`. `genOpenOffer()` sortea el tamaño y guarda `size`, `quota` y `window`; los capítulos de historia (`storyOffer()`) son siempre medios. `pickMission(open)` pasa a filtrar «puede salir sin plazo» (todas) o «puede salir urgente» (las que no son `open`). `contractFrom()` añade `bonusAt`. `freshOffer()`: la oferta «segura» ya no hace falta para el plazo, solo para la dificultad (fácil o normal). |
 | `core/ship.js` | `addEffort()`: multiplica por `1 + ENGINE_PUSH × eff('engines')` lo que suma a la misión (no lo que suma a `activity`). Al completar, aplica la bonificación si `Date.now() < c.bonusAt`. Guarda en `g.cef` lo que contó para la misión, para que `onUndo()` reste exactamente eso. |
 | `core/crew.js` | `missionCrewXp()`: sin plazo, los días de experiencia se limitan a `window`, para que ir despacio no dé más experiencia. |
@@ -95,7 +95,7 @@ Datos: `THREATS` en `config.js` (`id`, `name`, `bar`, `hit`, que es la frase del
 - **Se avisa antes**: después de cada impacto (y al aceptar) se sortea si el siguiente será fuerte (30 %). El panel lo dice: «Próximo impacto esta noche · **fuerte**». Es lo que da sentido a elegir cuándo usar el escudo.
 - Cada impacto va a la bitácora como entrada pequeña (`kind:'mission'`, `tone:'warn'`): «Piratas: impacto en Motores −6 %» o «Escudo: impacto bloqueado».
 
-Referencia: una misión media normal hecha en 7 días (7 noches, 2 bloqueadas, 30 % fuertes) deja unos 40 puntos de estado repartidos entre los módulos. Es más o menos lo que desgastan 8 hábitos fallados, y se repara en el astillero o a bordo como siempre.
+Referencia: una misión larga normal hecha en 7 días (7 noches, 2 bloqueadas, 30 % fuertes) deja unos 40 puntos de estado repartidos entre los módulos. Es más o menos lo que desgastan 8 hábitos fallados, y se repara en el astillero o a bordo como siempre.
 
 ### Escudo deflector
 
@@ -189,6 +189,6 @@ Fase C:
 
 ## Decisiones tomadas
 
-- **Distancia fija en puntos** (15 / 30 / 60), no según el ritmo de cada uno.
+- **Distancia fija en puntos** (15 / 30 / 60), no según el ritmo de cada uno, calibrada a 10 puntos al día.
 - **Las urgentes se quedan** como reto opcional con plazo.
 - **Sin escalada**: una misión larga no aumenta su daño con el tiempo. El coste de ir despacio es el desgaste de cada noche y perder la bonificación.
