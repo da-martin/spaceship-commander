@@ -1,4 +1,4 @@
-import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, MISSION_BY_ID, OFFER_TTL, OPEN_DAYS, OPEN_P, REP_DAYS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SIZES, SPEED_BONUS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
@@ -18,9 +18,11 @@ export function missionStory(c,kind){
   return m?.[kind]||null;
 }
 
-export function finishContract(frac){
+// `fast`: llegó dentro de los días de la bonificación de rapidez (+SPEED_BONUS de ¢)
+export function finishContract(frac,fast=false){
   const c=state.ship.contract; if(!c) return null;
-  const p={mc:Math.floor(c.reward.mc*frac*cargoMult()*(1+perk('navigator'))),mats:{}};
+  const p={mc:Math.floor(c.reward.mc*frac*cargoMult()*(1+perk('navigator'))*(fast?1+SPEED_BONUS:1)),mats:{}};
+  if(fast) p.fast=true;
   addW('mc',p.mc); earn(p.mc,'mission');
   for(const [k,n] of Object.entries(c.reward.mats||{})){ const q=Math.floor(n*frac); if(q){ addW(k,q); p.mats[k]=q; } }
   missionCrewXp(c,true);
@@ -54,26 +56,33 @@ export function pickDiff(keys=Object.keys(DIFFS)){
   return keys[keys.length-1];
 }
 // La misión se sortea del catálogo del sistema, entre las que no han salido hace poco ni están en el tablón o en curso.
-// Las marcadas `open: true` solo salen sin plazo, y las demás solo con plazo.
-export const openCatalog=()=>here().missions.filter(m=>m.open);
-export function pickMission(open=false){
-  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]), cat=here().missions.filter(m=>!!m.open===open);
+// Sin plazo sale cualquiera. Las urgentes, solo las que no son `open: true` (sus finales hablan de plazos).
+export function pickMission(urgent=false){
+  const sh=state.ship, busy=new Set([...sh.recentMissions,...sh.board.offers.map(o=>o.mid),sh.contract?.mid]);
+  const all=here().missions, timed=all.filter(m=>!m.open), cat=urgent&&timed.length?timed:all;
   const free=cat.filter(m=>!busy.has(m.id));
   const m=pick(free.length?free:cat);
   sh.recentMissions=[...sh.recentMissions.filter(id=>id!==m.id),m.id].slice(-RECENT_MAX);
   return m;
 }
-// la Bodega se aplica al cobrar; las urgentes caducan antes y pagan más (no llegan con mala reputación).
+// La Bodega se aplica al cobrar. Las urgentes son las únicas con plazo: caducan antes y pagan
+// más (no llegan con mala reputación). Las demás, sin plazo (genOpenOffer).
 // `safe`: fácil o normal y no urgente, para que el tablón nunca se quede solo con retos.
 export function genOffer(day,safe=false){
-  if(!safe&&OPEN_P>0&&openCatalog().length&&Math.random()<OPEN_P) return genOpenOffer(day);   // con OPEN_P a 0 no se tira el dado
-  const m=pickMission(), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
-  const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
-  const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P, [lo,hi]=urgent?URGENT_TTL:OFFER_TTL;
-  const quota=Math.max(2,Math.round(days*avgDaily()*D.push));
-  const mc=Math.round(quota*12*D.pay*(1+0.08*(days-1))*(urgent?1+URGENT_BONUS:1));
+  const urgent=!safe&&!repDamaged(day)&&Math.random()<URGENT_P;
+  if(!urgent) return genOpenOffer(day,safe);
+  const m=pickMission(true), topic=m.topic, days=2+Math.floor(Math.random()*(maxDays()-1));
+  const diff=pickDiff(), D=DIFFS[diff], [lo,hi]=URGENT_TTL;
+  // con plazo, la cuota sigue tu ritmo medio, pero la dificultad no la sube
+  const quota=Math.max(2,Math.round(days*avgDaily()));
+  const mc=Math.round(quota*12*D.pay*(1+0.08*(days-1))*(1+URGENT_BONUS));
   const mats=rollMats(days,D);
   return {id:uid(),kind:'run',mid:m.id,topic,flavor:m.flavor,days,quota,diff,reward:{mc,mats},urgent,postedOn:day,expiresOn:addDays(day,lo+Math.floor(Math.random()*(hi-lo+1))-1)};
+}
+export function pickSize(){
+  let r=Math.random();
+  for(const [k,S] of Object.entries(SIZES)){ r-=S.w; if(r<0) return k; }
+  return 'mid';
 }
 function rollMats(days,D){
   const mats={}, units=1+Math.floor(Math.random()*3)+Math.floor(days/3)+D.mats;
@@ -81,28 +90,25 @@ function rollMats(days,D){
   return mats;
 }
 // Misión sin plazo: te saca del sistema como cualquier otra y termina al reunir la cuota (o al abandonarla).
-// Cuota de 4 a 7 días al ritmo medio; la paga por punto es la de una misión de 1 día
-// (sin plazo no hay prisa que pagar) y no sube con la espera. Nunca es urgente.
-export function genOpenOffer(day){
-  if(!openCatalog().length) return genOffer(day);   // sistema sin misiones sin plazo: una normal
-  const m=pickMission(true), [lo,hi]=OPEN_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1));
-  const diff=pickDiff(), D=DIFFS[diff];
-  const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
-  const mc=Math.round(quota*12*D.pay);
-  const mats=rollMats(span,D), [tlo,thi]=OFFER_TTL;
-  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
+// La cuota es la distancia fija de su tamaño, sin mirar tu ritmo. La paga por punto es la de
+// una misión de 1 día y no sube con la espera; llegar en `window` días suma SPEED_BONUS. Nunca es urgente.
+export function genOpenOffer(day,safe=false){
+  const m=pickMission(), size=pickSize(), S=SIZES[size];
+  const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
+  const quota=S.pts, mc=Math.round(quota*12*D.pay);
+  const mats=rollMats(S.days,D), [tlo,thi]=OFFER_TTL;
+  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,size,window:S.days,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
 }
-// Historia del sistema: el capítulo pendiente llega al tablón como misión sin plazo
-// de dificultad normal. No caduca ni ocupa hueco, y vuelve si se abandona.
+// Historia del sistema: el capítulo pendiente llega al tablón como misión sin plazo,
+// media y de dificultad normal. No caduca ni ocupa hueco, y vuelve si se abandona.
 export const STORY_TTL='9999-12-31';
 export const storyDone=(id=state.ship.system)=>state.ship.story[id]||0;
 export const nextChapter=()=>here().story[storyDone(here().id)]||null;
 export function storyOffer(day=todayStr()){
   const ch=nextChapter(); if(!ch) return null;
-  const [lo,hi]=OPEN_DAYS, span=lo+Math.floor(Math.random()*(hi-lo+1)), D=DIFFS.normal;
-  const quota=Math.max(2,Math.round(span*avgDaily()*D.push));
-  return {id:uid(),kind:'open',story:true,chapter:ch.chapter,mid:ch.id,topic:ch.topic,flavor:ch.flavor,quota,diff:'normal',
-    reward:{mc:Math.round(quota*12*D.pay),mats:rollMats(span,D)},urgent:false,postedOn:day,expiresOn:STORY_TTL};
+  const S=SIZES.mid, D=DIFFS.normal, quota=S.pts;
+  return {id:uid(),kind:'open',story:true,chapter:ch.chapter,mid:ch.id,topic:ch.topic,flavor:ch.flavor,size:'mid',window:S.days,quota,diff:'normal',
+    reward:{mc:Math.round(quota*12*D.pay),mats:rollMats(S.days,D)},urgent:false,postedOn:day,expiresOn:STORY_TTL};
 }
 // Las ofertas que ocupan hueco en el tablón (las de historia, no).
 export const slotsUsed=(b=state.ship.board)=>b.offers.filter(o=>!o.story).length;
@@ -112,15 +118,16 @@ export function onAccepted(c){
   if(m) logShip({kind:'mission',tone:'info',title:`Capítulo ${m.chapter}: ${m.title}`,story:m.brief||null});
 }
 // El contrato que sale de aceptar una oferta. Con plazo, cada día son 24 h desde ahora.
+// Sin plazo, `bonusAt` es hasta cuándo cuenta la bonificación de rapidez.
 export function contractFrom(o,now=new Date()){
   const c={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),progress:0};
-  if(!hasDeadline(o)) return c;
+  if(!hasDeadline(o)){ if(o.window) c.bonusAt=now.getTime()+o.window*864e5; return c; }
   const end=new Date(now); end.setDate(end.getDate()+o.days);
   return {...c,endsOn:todayStr(end),endsAt:end.getTime()};
 }
-// si en el tablón no queda ninguna fácil o normal sin urgencia y con plazo, la que llega lo es
+// si en el tablón no queda ninguna fácil o normal sin urgencia (sin contar la historia), la que llega lo es
 export function freshOffer(existing,day=todayStr()){
-  const safe=!existing.some(o=>hasDeadline(o)&&o.diff!=='hard'&&!o.urgent);
+  const safe=!existing.some(o=>!o.story&&o.diff!=='hard'&&!o.urgent);
   return genOffer(day,safe);   // pickMission ya evita las del tablón y las recientes
 }
 export const offerAge=(o)=>Math.max(0,Math.round((dayParse(todayStr())-dayParse(o.postedOn))/864e5));

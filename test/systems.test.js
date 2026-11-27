@@ -88,7 +88,7 @@ test('el tablón sortea solo del catálogo del sistema', () => {
   for (let i = 0; i < 10; i++) assert.ok(ids.has(pickMission().id));
   const o = genOffer('2026-11-14');
   assert.ok(ids.has(o.mid));
-  assert.equal(o.kind, 'run');
+  assert.ok(['run', 'open'].includes(o.kind));
   assert.equal(s.ship.system, 'prueba');
 });
 
@@ -175,8 +175,8 @@ test('en cada sistema, el tablón saca de su catálogo y el mercado respeta sus 
   for (const sys of OTHERS) {
     const s = fresh();
     s.ship.system = sys.id;
-    const ids = new Set(sys.missions.filter((m) => !m.open).map((m) => m.id));
-    for (let i = 0; i < 40; i++) assert.ok(ids.has(genOffer('2026-11-14').mid), sys.id);
+    const all = new Set(sys.missions.map((m) => m.id)), timed = new Set(sys.missions.filter((m) => !m.open).map((m) => m.id));
+    for (let i = 0; i < 40; i++) { const o = genOffer('2026-11-14'); assert.ok((o.urgent ? timed : all).has(o.mid), sys.id); }
     for (const k of MATS) assert.equal(onSale(k), (sys.market[k] ?? 1) > 0, `${sys.id}: ${k}`);
   }
   const s = fresh();

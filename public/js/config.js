@@ -29,7 +29,7 @@ export const MATS = ['ecos','nexos','ale','bio'];
 // generales que sirvan etiquetes o no por áreas.
 export const MODS = {
   bridge: {name:'Puente',       kind:'gen',  mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
-  engines:{name:'Motores',      kind:'gen',  desc:'+1 día de duración máx. de misión por nivel'},
+  engines:{name:'Motores',      kind:'gen',  desc:'+6% de avance en misión por nivel; urgentes de hasta 1 día más'},
   cargo:  {name:'Bodega',       kind:'gen',  desc:'+10% ¢ en recompensas de misión por nivel'},
   comms:  {name:'Antena',       kind:'gen',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
   quarters:{name:'Camarotes',   kind:'gen',  desc:'+1 litera para la tripulación por nivel'},
@@ -57,18 +57,26 @@ export const BOARD_BASE = 3, SIGNAL_DAY = 1, SIGNAL_LV = 0.5, SWEEP_MC = 15, OFF
 export const CONTRACT_KINDS = {run:{away:true,deadline:true}, open:{away:true,deadline:false}, jump:{away:true,deadline:true}};
 export const isAway=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.away!==false;          // sin tipo conocido: fuera, por si acaso
 export const hasDeadline=(c)=>!!c&&CONTRACT_KINDS[c.kind]?.deadline!==false;
-// Misiones sin plazo: parte de las transmisiones que lo son (0: por ahora no llegan
-// al tablón) y su cuota, en días de ritmo medio.
-export const OPEN_P = 0, OPEN_DAYS = [4,7];
+// Misiones sin plazo (docs/plan-misiones.md): todas las no urgentes. Su distancia
+// es fija en puntos según el tamaño, no depende del ritmo: hacer más no agranda las
+// siguientes. Calibradas a 10 puntos al día: a ese ritmo se llega con un día de margen
+// sobre `days`, los días desde que la aceptas en los que la paga sube SPEED_BONUS.
+export const SIZES = {
+  short:{name:'Corta', pts:15, days:3, w:0.35},
+  mid:  {name:'Media', pts:30, days:4, w:0.45},
+  long: {name:'Larga', pts:60, days:7, w:0.20},
+};
+export const SPEED_BONUS = 0.25;
+export const ENGINE_PUSH = 0.06;   // Motores: avance extra en misión por nivel efectivo
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
 export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
-// dificultad: cuánto pide sobre tu ritmo (push), ¢ por unidad de cuota (pay),
-// material extra (mats) y probabilidad de salir (w)
+// dificultad: ¢ por unidad de cuota (pay), material extra (mats) y probabilidad
+// de salir (w). Nunca sube la cuota: pedir más que tu ritmo hacía que el listón no parase de subir.
 export const DIFFS = {
-  easy:  {name:'Fácil',   push:0.95, pay:0.85, mats:0, w:0.30, chip:'border-emerald-600 text-emerald-300'},
-  normal:{name:'Normal',  push:1.10, pay:1,    mats:0, w:0.45, chip:'border-cyan-600 text-cyan-300'},
-  hard:  {name:'Difícil', push:1.25, pay:1.3,  mats:1, w:0.25, chip:'border-red-600 text-red-300'},
+  easy:  {name:'Fácil',   pay:0.85, mats:0, w:0.30, chip:'border-emerald-600 text-emerald-300'},
+  normal:{name:'Normal',  pay:1,    mats:0, w:0.45, chip:'border-cyan-600 text-cyan-300'},
+  hard:  {name:'Difícil', pay:1.3,  mats:1, w:0.25, chip:'border-red-600 text-red-300'},
 };
 // bitácora de a bordo: lo leído se borra pasados LOG_DAYS días, y nunca hay más de LOG_MAX entradas
 export const LOG_MAX = 60, LOG_DAYS = 30;
@@ -146,6 +154,14 @@ export const UPDATES = [
     'Una pestaña nueva en Spaceship con los próximos 7 días: lo que prevés ganar, los sueldos que se cobran y el saldo que quedaría. Cada cifra explica de dónde sale.',
     'Viene apagada. Actívala en Ajustes › Contabilidad.',
     'El aviso de impago de la tripulación sale siempre, en Nave: en rojo si un sueldo no llega ni con lo que sueles ganar, en ámbar si llega solo si ganas lo de siempre.',
+  ]},
+  {id:'missions-2026-11', kind:'mission', title:'Novedades: misiones sin plazo', lines:[
+    'Las misiones ya no tienen plazo. Cada una es una distancia fija en puntos de esfuerzo: corta (15), media (30) o larga (60). Termina cuando la reúnes, tardes lo que tardes.',
+    'La dificultad ya no sube los puntos que pide una misión: cambia la paga y el material. Hacer más tampoco agranda las misiones siguientes.',
+    'Si llegas en los días que marca la misión (3, 4 o 7 desde que la aceptas), cobras un 25 % más. Si tardas más, no pasa nada: cobras lo normal.',
+    'Las urgentes siguen igual: tienen plazo, pagan más y, si fallan, dañan la reputación.',
+    'Los Motores suman un 6 % por nivel a lo que avanzas en las misiones sin plazo. En las urgentes siguen alargando el plazo máximo.',
+    'Las misiones que ya tenías en marcha o en el tablón terminan con las reglas de antes.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).

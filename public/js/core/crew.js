@@ -63,7 +63,8 @@ export function gainCrewXp(members,n){
 export function missionCrewXp(c,end=false){
   if(!c||!Number.isFinite(+c.acceptedAt)) return [];
   const ms=Math.max(0,Math.min(Date.now(),+c.endsAt||Infinity)-c.acceptedAt)/864e5;
-  const days=Math.min(+c.days||Infinity,end?Math.max(1,Math.ceil(ms-1e-9)):Math.floor(ms+1e-9));
+  // sin plazo, como mucho los días de la bonificación: ir despacio no da más experiencia
+  const days=Math.min(+c.days||+c.window||Infinity,end?Math.max(1,Math.ceil(ms-1e-9)):Math.floor(ms+1e-9));
   const done=Number.isFinite(+c.xpDays)?+c.xpDays:0;
   if(days<=done) return [];
   c.xpDays=days;

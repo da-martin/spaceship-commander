@@ -86,4 +86,7 @@ test('las novedades del juego llegan una vez a las partidas que ya existían, no
   assert.deepEqual(s.ship.updates, UPDATES.map((u) => u.id));
   processDays();
   assert.equal(news().length, UPDATES.length);
+  // y siguen ahí al recargar la partida, sea cual sea su tipo
+  const { normLog } = await import('../public/js/store.js');
+  assert.equal(normLog(s.ship.log).filter((e) => UPDATES.some((u) => u.title === e.title)).length, UPDATES.length);
 });
