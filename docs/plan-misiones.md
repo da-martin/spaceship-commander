@@ -10,7 +10,7 @@ Este plan cambia el modelo:
 
 Cada fase se puede publicar por separado. La fase A ya quita el problema de raíz.
 
-Las rutas por etapas (idea 4) y las habilidades de tripulación (idea 5) quedan fuera de este plan. Se apoyarán en el escudo y en los rasgos.
+Las rutas por etapas (idea 4) y las habilidades de tripulación (idea 5) tienen su propio plan: [plan-misiones-rutas.md](plan-misiones-rutas.md).
 
 ## Reglas de fondo
 
