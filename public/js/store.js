@@ -82,7 +82,7 @@ export function normShip(s){
 // La bitácora va en la partida —y en la nube— para que lo que pasó mientras
 // no mirabas sobreviva a recargar. `seen`: ya se avisó al entrar en la nave;
 // `read`: ya se abrió en la bitácora (o se aceptó, si es un informe).
-export const LOG_KINDS=['mission','crew','wear','board','travel','rank'], LOG_TONES=['win','warn','bad','info'];
+export const LOG_KINDS=['mission','crew','wear','board','books','travel','rank'], LOG_TONES=['win','warn','bad','info'];
 export function normLog(a){
   const num=(v)=>Number.isFinite(+v)?+v:0;
   return (Array.isArray(a)?a:[]).filter(e=>e&&typeof e.title==='string'&&LOG_KINDS.includes(e.kind)).map(e=>({

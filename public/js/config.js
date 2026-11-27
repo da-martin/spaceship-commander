@@ -141,14 +141,6 @@ export const CREW_LAST = [
 // Novedades del juego: cada una llega una vez a la bitácora de cada partida que
 // ya existía (state.ship.updates guarda los id ya avisados; las nuevas las traen todas).
 export const UPDATES = [
-  {id:'missions-2026-11', kind:'mission', title:'Novedades: misiones sin plazo', lines:[
-    'Las misiones ya no tienen plazo. Cada una es una distancia fija en puntos de esfuerzo: corta (15), media (30) o larga (60). Termina cuando la reúnes, tardes lo que tardes.',
-    'La dificultad ya no sube los puntos que pide una misión: cambia la paga y el material. Hacer más tampoco agranda las misiones siguientes.',
-    'Si llegas en los días que marca la misión (4, 7 o 12 desde que la aceptas), cobras un 25 % más. Si tardas más, no pasa nada: cobras lo normal.',
-    'Las urgentes siguen igual: tienen plazo, pagan más y, si fallan, dañan la reputación.',
-    'Los Motores suman un 6 % por nivel a lo que avanzas en las misiones sin plazo. En las urgentes siguen alargando el plazo máximo.',
-    'Las misiones que ya tenías en marcha o en el tablón terminan con las reglas de antes.',
-  ]},
   {id:'crew-xp-2026-11', kind:'crew', title:'Novedades: experiencia y ascensos', lines:[
     'Hay un nivel nuevo. Los niveles son ahora Aprendiz, Veterano, Oficial y Élite. Tus tripulantes conservan su nivel con otro nombre: los Oficiales pasan a llamarse Veteranos y los Élite, Oficiales.',
     'A Élite no se llega contratando, solo ascendiendo. Cobra 225 ¢/sem y da el mayor bonus de su rol.',
@@ -161,6 +153,14 @@ export const UPDATES = [
     'Una pestaña nueva en Spaceship con los próximos 7 días: lo que prevés ganar, los sueldos que se cobran y el saldo que quedaría. Cada cifra explica de dónde sale.',
     'Viene apagada. Actívala en Ajustes › Contabilidad.',
     'El aviso de impago de la tripulación sale siempre, en Nave: en rojo si un sueldo no llega ni con lo que sueles ganar, en ámbar si llega solo si ganas lo de siempre.',
+  ]},
+  {id:'missions-2026-11', kind:'mission', title:'Novedades: misiones sin plazo', lines:[
+    'Las misiones ya no tienen plazo. Cada una es una distancia fija en puntos de esfuerzo: corta (15), media (30) o larga (60). Termina cuando la reúnes, tardes lo que tardes.',
+    'La dificultad ya no sube los puntos que pide una misión: cambia la paga y el material. Hacer más tampoco agranda las misiones siguientes.',
+    'Si llegas en los días que marca la misión (4, 7 o 12 desde que la aceptas), cobras un 25 % más. Si tardas más, no pasa nada: cobras lo normal.',
+    'Las urgentes siguen igual: tienen plazo, pagan más y, si fallan, dañan la reputación.',
+    'Los Motores suman un 6 % por nivel a lo que avanzas en las misiones sin plazo. En las urgentes siguen alargando el plazo máximo.',
+    'Las misiones que ya tenías en marcha o en el tablón terminan con las reglas de antes.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).
