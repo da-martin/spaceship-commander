@@ -5,7 +5,7 @@ Hoy la cuota de una misión es `días × ritmo medio de 14 días × push`, y `pu
 Este plan cambia el modelo:
 
 1. **Distancia** (fase A, hecha): la misión es un tramo fijo de puntos, sin plazo. El plazo pasa a ser una bonificación opcional.
-2. **Amenaza y escudo** (fase B): cada noche de misión hay un impacto contra la nave. El escudo lo bloquea, pero tarda en recargarse.
+2. **Amenaza y escudo** (fase B, hecha): cada noche de misión hay un impacto contra la nave. El escudo lo bloquea, pero tarda en recargarse.
 3. **Rasgos** (fase C): modificadores que cambian *qué* cuenta y *cuánto*, no la cantidad que se pide.
 
 Cada fase se puede publicar por separado. La fase A ya quita el problema de raíz.
@@ -104,6 +104,7 @@ Referencia: una misión larga normal hecha en 7 días (7 noches, 2 bloqueadas, 3
 - Cada misión empieza con el escudo cargado.
 - Estados del botón: «Activar escudo» · «Escudo activo: protegerá el impacto de esta noche» · «Recargando: listo el jueves».
 - Se puede desactivar el mismo día sin gastarlo (por si se activa sin querer).
+- Los capítulos de historia también traen amenaza (la de su tema).
 - Más adelante, la idea 5 (habilidades de tripulación) y un posible módulo Escudos mejorarán la recarga. Ahora no se añade módulo, para no tocar el nivel de la nave ni el dibujo.
 
 ### Cambios en el código
@@ -112,7 +113,7 @@ Referencia: una misión larga normal hecha en 7 días (7 noches, 2 bloqueadas, 3
 |---|---|
 | `config.js` | `THREATS`, `HIT = {easy:4, normal:6, hard:8}`, `HEAVY_P = 0.3`, `SHIELD_GAP = 2`. |
 | `core/missions.js` | La amenaza al generar la oferta. Contrato: `shield:{armed:false, readyOn:día}`, `heavy:bool`, `hits:0`, `blocked:0`. Funciones `missionNight(día)` (resuelve el impacto) y `armShield()` / `disarmShield()`. |
-| `core/day.js` | `processDays()`: en el bucle de días llama a `missionNight(day)` y junta sus líneas para la bitácora. |
+| `core/day.js` | `processDays()`: después del aviso de desgaste, llama a `missionNight(day)` por cada noche. Va aparte para que los impactos no salgan como desgaste por hábitos o tareas. |
 | `ui/ship-view.js` | La barra con la etiqueta de la amenaza. Línea «Próximo impacto», botón del escudo y resumen «3 impactos · 1 bloqueado». |
 | `ui/actions.js` | Acciones del escudo (activar y desactivar, `save()` y `render()`). |
 

@@ -68,6 +68,20 @@ export const SIZES = {
 };
 export const SPEED_BONUS = 0.25;
 export const ENGINE_PUSH = 0.06;   // Motores: avance extra en misión por nivel efectivo
+// Amenazas de las misiones sin plazo (fase B): cada noche de misión, un impacto de daño fijo
+// (HIT, puntos de estado según la dificultad; ×2 si es fuerte) en un módulo general.
+// `bar`: lo que mide la barra de progreso; `hit`: la frase del impacto en la bitácora.
+export const THREATS = {
+  pirates:  {name:'Piratas',              bar:'Casco enemigo',    hit:'Los piratas abren fuego contra la nave',        topics:['Escolta','Patrulla']},
+  asteroids:{name:'Lluvia de asteroides', bar:'Mineral extraído', hit:'Una lluvia de asteroides golpea la nave', topics:['Minería']},
+  radiation:{name:'Radiación',            bar:'Distancia',        hit:'Una tormenta de radiación azota la nave', topics:['Exploración','Reconocimiento']},
+  structure:{name:'Fallos estructurales', bar:'Rescate',          hit:'Un fallo estructural sacude la nave',     topics:['Rescate']},
+  saboteurs:{name:'Saboteadores',         bar:'Distancia',        hit:'Los saboteadores dañan la nave',          topics:['Transporte','Chárter']},
+};
+export const threatFor = (topic) => Object.keys(THREATS).find(k=>THREATS[k].topics.includes(topic)) || 'radiation';
+export const HIT = {easy:4, normal:6, hard:8};
+export const HEAVY_P = 0.3;     // probabilidad de que el siguiente impacto sea fuerte (se avisa antes)
+export const SHIELD_GAP = 2;    // tras bloquear, impactos que pasan antes de poder volver a usar el escudo
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
 export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
@@ -162,6 +176,14 @@ export const UPDATES = [
     'Las urgentes siguen igual: tienen plazo, pagan más y, si fallan, dañan la reputación.',
     'Los Motores suman un 6 % por nivel a lo que avanzas en las misiones sin plazo. En las urgentes siguen alargando el plazo máximo.',
     'Las misiones que ya tenías en marcha o en el tablón terminan con las reglas de antes.',
+  ]},
+  {id:'missions-threats-2026-11', kind:'mission', title:'Novedades: amenazas y escudo', lines:[
+    'Cada misión sin plazo trae una amenaza según su tipo: piratas, lluvia de asteroides, radiación, fallos estructurales o saboteadores.',
+    'Cada noche de misión, al cambiar de día, la amenaza golpea la nave: un 4 %, 6 % u 8 % de estado en un módulo según la dificultad. El día en que aceptas no hay impacto.',
+    'Antes de cada impacto ya sabes si será fuerte: hace el doble de daño.',
+    'Con el escudo bloqueas el próximo impacto. Después deja pasar dos impactos antes de poder usarlo otra vez, así que guárdalo para los fuertes. Desactivarlo no lo gasta.',
+    'Ir despacio nunca hace fallar una misión: solo desgasta más la nave. Ingeniería reduce el daño y los módulos se reparan como siempre.',
+    'Las misiones que ya tenías en marcha no tienen amenaza.',
   ]},
 ];
 // El catálogo de misiones vive en missions.js (MISSIONS).

@@ -3,7 +3,7 @@
 import { CREW_DAYS, CREW_LV, hasDeadline, MISSION_BY_ID, MODS, REP_DAYS, RES } from '../config.js';
 import { earn, spend } from '../core/books.js';
 import { crewUnlocked, hireBlock, nextLv, payDebt, promoteBlock, returnHome } from '../core/crew.js';
-import { contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, onAccepted, slotsUsed, sweepCost, tickBoard } from '../core/missions.js';
+import { armShield, contractFrom, docked, boardNews, failUrgent, freshOffer, missionsUnlocked, onAccepted, slotsUsed, sweepCost, tickBoard } from '../core/missions.js';
 import { isJump } from '../core/travel.js';
 import { addW, checkHabit, gainText, grantTask, negText, subW, tapFree, tapNeg, uncheckHabit, wageOf } from '../core/rewards.js';
 import { boardCap, herePrep, mod } from '../core/ship.js';
@@ -80,6 +80,13 @@ export function acceptOffer(id){
   save(); render(); scrollTo({top:0,behavior:'smooth'});
   const ch=o.story&&MISSION_BY_ID[o.mid];
   toast(`${ch?`Capítulo ${ch.chapter} aceptado: ${ch.title}`:`${hasDeadline(o)?'Misión aceptada':'Misión sin plazo aceptada'}: ${o.topic}`} · zarpas ${herePrep('de')}`);
+}
+// Escudo de la misión sin plazo: activarlo bloquea el próximo impacto; desactivarlo no lo gasta.
+export function toggleShield(){
+  const c=state.ship.contract; if(!c?.shield) return;
+  const on=!c.shield.armed;
+  if(!armShield(on)) return;
+  save(); render(); toast(on?'Escudo activado: bloqueará el próximo impacto':'Escudo desactivado: sigue cargado');
 }
 export function abandonContract(){
   const c=state.ship.contract; if(!c||isJump(c)) return;   // el salto no se puede abandonar

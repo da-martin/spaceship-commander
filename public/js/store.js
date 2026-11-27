@@ -1,7 +1,7 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
  * en localStorage. save() avisa con `saved` (la nube programa la subida). */
 import { UPDATES } from './config.js';
-import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES, SIZES } from './config.js';
+import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES, SIZES, THREATS } from './config.js';
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
@@ -41,10 +41,16 @@ export function normShip(s){
   // contratos y ofertas de antes de los viajes: todos eran misiones normales
   const kinded=(o)=>CONTRACT_KINDS[o.kind]?o:{...o,kind:'run'};
   // misiones sin plazo con tamaño (docs/plan-misiones.md): sin un tamaño conocido siguen las reglas de antes
+  // y su amenaza (fase B): sin una amenaza conocida, sin impactos ni escudo
   const sized=(o)=>{
-    const {size,window:w,bonusAt,...r}=o;
+    const {size,window:w,bonusAt,threat,shield,heavy,hits,blocked,...r}=o;
     if(!SIZES[size]||hasDeadline(o)) return r;
-    return {...r,size,window:clampInt(w,1,60,SIZES[size].days),...(Number.isFinite(+bonusAt)&&+bonusAt>0?{bonusAt:+bonusAt}:{})};
+    const x={...r,size,window:clampInt(w,1,60,SIZES[size].days),...(Number.isFinite(+bonusAt)&&+bonusAt>0?{bonusAt:+bonusAt}:{})};
+    if(!THREATS[threat]) return x;
+    x.threat=threat;
+    if(typeof o.acceptedOn!=='string') return x;   // oferta: solo la amenaza
+    return {...x,shield:{armed:!!shield?.armed,readyOn:DAY_RE.test(shield?.readyOn||'')?shield.readyOn:o.acceptedOn},
+      heavy:!!heavy,hits:clampInt(hits,0,999,0),blocked:clampInt(blocked,0,999,0)};
   };
   // con plazo hace falta su fin; sin plazo, cuándo se aceptó (la experiencia de la tripulación cuenta desde ahí)
   const normContract=(c)=>!c?null:hasDeadline(c)?(c.endsOn?timed(unCargo(c,c.acceptedOn||t)):null)

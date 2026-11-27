@@ -1,16 +1,16 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, HIT, SHIELD_GAP, THREATS, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
-import { agedMc, missionHint, missionsUnlocked, offerAge, slotsUsed, sweepCost } from '../core/missions.js';
+import { agedMc, hitOf, missionHint, missionsUnlocked, offerAge, shieldReady, slotsUsed, sweepCost } from '../core/missions.js';
 import { isJump } from '../core/travel.js';
 import { perk } from '../core/rewards.js';
 import { baseSignal, berths, berthsUsable, boardCap, cargoMult, eff, here, herePrep, maxDays, mod, msLeft, repDamaged, rewardText, signalRate } from '../core/ship.js';
 import { buyPrice, canAfford, fmtCost, modCost, onSale, priceOf, repairCost, repairQuote, sellOf, yardClosed } from '../core/shipyard.js';
 import { SHIP_NAME_DEFAULT, areaName, state } from '../store.js';
 import { sysOf, sysPrep } from '../systems.js';
-import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep } from './actions.js';
+import { abandonContract, acceptOffer, buildMod, buyMat, discardOffer, offerDiscarding, offerSailing, repairMod, sellMat, sweep, toggleShield } from './actions.js';
 import { render } from './commander.js';
 import { renderCrew, renderRank } from './crew-view.js';
 import { uiMode } from './mode.js';
@@ -248,6 +248,28 @@ export const missionEndTxt=(c)=>'hasta '+atTxt(c.endsAt);
 // Misiones sin plazo con tamaño: «media · sin plazo» y la bonificación de rapidez
 const BONUS_PCT=Math.round(SPEED_BONUS*100);
 const openTag=(o)=>(SIZES[o.size]?SIZES[o.size].name.toLowerCase()+' · ':'')+'sin plazo';
+// Amenaza y escudo (fase B): el próximo impacto se conoce antes, para decidir cuándo usar el escudo.
+function threatBox(c){
+  const T=THREATS[c.threat]; if(!T||!c.shield) return '';
+  const sh=c.shield, ready=shieldReady(c), heavy=!!c.heavy;
+  const dmg=Math.round(hitOf(c)*(1-perk('engineer')));
+  const when=c.acceptedOn>=todayStr()?'mañana por la noche':'esta noche';
+  const stTxt=sh.armed?'<span class="text-cyan-300">Escudo activo: bloqueará el próximo impacto</span>'
+    :ready?'Escudo listo':`Escudo recargando: listo el ${fDate(sh.readyOn)}`;
+  const btn=sh.armed?'<button data-shield class="ml-auto text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-300">Desactivar</button>'
+    :`<button data-shield class="${btnCls(ready)} ml-auto" ${ready?'':'disabled'}>Activar escudo</button>`;
+  return `<div class="rounded-lg border ${heavy&&!sh.armed?'border-red-800':'border-slate-700'} p-3 mt-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="sys-label">Amenaza</span><span class="font-semibold text-sm">${T.name}</span>
+        <span class="mono text-[11px] text-slate-400 ml-auto">${c.hits} ${c.hits===1?'impacto':'impactos'} · ${c.blocked} ${c.blocked===1?'bloqueado':'bloqueados'}</span>
+      </div>
+      <div class="mono text-[11px] mt-1.5 ${heavy?'text-red-300':'text-slate-300'}">Próximo impacto: ${when}, al cambiar de día · ${heavy?'FUERTE':'normal'} · −${dmg} % a un módulo</div>
+      <div class="flex flex-wrap items-center gap-2 mt-2">
+        <span class="text-sm text-slate-400">${stTxt}</span>${btn}
+      </div>
+      <div class="mono text-[11px] text-slate-500 mt-1.5">El escudo bloquea un impacto. Después deja pasar ${SHIELD_GAP} impactos antes de poder usarlo otra vez.</div>
+    </div>`;
+}
 function bonusLine(c){
   if(!c.bonusAt) return '';
   return Date.now()<c.bonusAt
@@ -308,17 +330,20 @@ export function renderMission(c){
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
-      <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
+      ${THREATS[c.threat]?`<span class="mono text-[11px] text-slate-400">${THREATS[c.threat].bar}</span>`:''}
+      <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="${THREATS[c.threat]?.bar||'Progreso de la misión'}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
     ${bonusLine(c)}
     <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2${c.size&&eff('engines')>0?` · <span class="text-cyan-300">+${Math.round(ENGINE_PUSH*eff('engines')*100)} % de avance por Motores</span>`:''} · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
+    ${threatBox(c)}
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">${repairCards(dmg)}</div>
     <div class="flex mt-5"><button data-act="abandon" class="ml-auto text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500 text-slate-300">Abandonar misión</button></div>`;
   el.querySelectorAll('[data-rep]').forEach(bt=>{ if(!bt.disabled) bt.onclick=()=>repairMod(bt.dataset.rep); });
+  const shb=el.querySelector('[data-shield]'); if(shb&&!shb.disabled) shb.onclick=toggleShield;
   wireAbandon(el.querySelector('[data-act="abandon"]'),c.urgent?'¿Seguro? Sin pago y mala reputación':'¿Seguro? Sin pago');
 }
 // «Abandonar misión» pide un segundo toque en 3 s
@@ -436,6 +461,7 @@ export function renderShip(){
       ${ch?`<div class="text-sm font-semibold text-violet-100 mt-1.5">${escapeHtml(ch.title)}</div>`:''}
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
       <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo${o.window?` · <span class="text-emerald-300">+${BONUS_PCT} % si llegas en ${o.window} días</span>`:''}`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
+      ${THREATS[o.threat]?`<div class="mono text-[11px] text-slate-400 mt-1">Amenaza: ${THREATS[o.threat].name} · −${HIT[o.diff]||HIT.normal} % a un módulo cada noche</div>`:''}
       ${ch?'':`<div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>`}
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">

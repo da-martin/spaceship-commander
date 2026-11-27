@@ -4,7 +4,7 @@ import { trimBooks } from './books.js';
 import { crewPayroll, genCandidates, missionCrewXp } from './crew.js';
 import { isDoneToday, isScheduledOn, isScheduledToday } from './habits.js';
 import { logShip, logUpdates } from './log.js';
-import { docked, checkContractEnd, logBoardNews, tickBoard } from './missions.js';
+import { docked, checkContractEnd, logBoardNews, missionNight, tickBoard } from './missions.js';
 import { logWear, mod, selfHeal, wear } from './ship.js';
 import { state } from '../store.js';
 import { addDays, dayParse, todayStr, weekStart } from '../util.js';
@@ -42,9 +42,11 @@ export function processDays(){
   let day=addDays(sh.lastTick,1); const oldest=addDays(t,-7); if(day<oldest) day=oldest;
   const before={}, miss={habits:0,tasks:0};
   for(const k of Object.keys(MODS)) before[k]=mod(k).cond;
-  for(;day<t;day=addDays(day,1)){ decayDay(day,miss); selfHeal(); }   // la Enfermería recupera algo cada día
+  const nights=[];
+  for(;day<t;day=addDays(day,1)){ decayDay(day,miss); selfHeal(); nights.push(day); }   // la Enfermería recupera algo cada día
   sh.lastTick=y;
   logWear(before,miss);
+  for(const d of nights) missionNight(d);   // impactos de la amenaza: aparte, no son desgaste por hábitos ni tareas
   missionCrewXp(sh.contract);   // experiencia de la tripulación por los días de misión cumplidos
   if(!checkContractEnd()) tickBoard();   // si vence, ya avanza la señal tras dañar la reputación
   // tripulación: sueldos semanales automáticos; el tablón de candidatos se renueva cada domingo
