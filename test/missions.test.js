@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { DIFFS, OFFER_TTL, URGENT_TTL, REP_DAYS, XP_CONTRACT } from '../public/js/config.js';
+import { DIFFS, OFFER_TTL, SIZES, URGENT_TTL, REP_DAYS, XP_CONTRACT } from '../public/js/config.js';
 import { agedMc, finishContract, checkContractEnd, genOffer, tickBoard } from '../public/js/core/missions.js';
 import { addEffort, maxDays } from '../public/js/core/ship.js';
 import { addDays } from '../public/js/util.js';
@@ -80,7 +80,8 @@ test('las ofertas salen dentro de sus límites', () => {
   fresh({ modules: { comms: { lv: 1, cond: 100 }, engines: { lv: 2, cond: 100 } } });
   for (let i = 0; i < 200; i++) {
     const safe = i % 2 === 0, o = genOffer('2026-11-14', safe);
-    assert.ok(o.days >= 2 && o.days <= maxDays(), `días ${o.days}`);
+    if (o.urgent) assert.ok(o.days >= 2 && o.days <= maxDays(), `días ${o.days}`);
+    else { assert.equal(o.kind, 'open'); assert.equal(o.days, undefined); assert.equal(o.quota, SIZES[o.size].pts); }
     assert.ok(o.quota >= 2);
     assert.ok(o.reward.mc > 0);
     assert.ok(DIFFS[o.diff]);

@@ -1,7 +1,7 @@
 /* La partida: normalización (también de partidas antiguas), carga y guardado
  * en localStorage. save() avisa con `saved` (la nube programa la subida). */
 import { UPDATES } from './config.js';
-import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES } from './config.js';
+import { AREAS, BOOKS, CONTRACT_KINDS, CREW_HIRE_MAX, hasDeadline, CREW_LV, DIFFS, EFFORT, HABIT_TYPES, LOG_MAX, MISSION_BY_ID, MODS, NOTES_MAX, OFFER_TTL, ROLES, SIZES } from './config.js';
 import { emit, on } from './core/events.js';
 import { RECENT_MAX } from './core/missions.js';
 import { clampInt, todayStr, uid } from './util.js';
@@ -40,6 +40,12 @@ export function normShip(s){
   const timed=(c)=>Number.isFinite(+c.endsAt)&&+c.endsAt>0?c:{...c,endsAt:at(c.endsOn,1),acceptedAt:at(c.acceptedOn||c.endsOn)};
   // contratos y ofertas de antes de los viajes: todos eran misiones normales
   const kinded=(o)=>CONTRACT_KINDS[o.kind]?o:{...o,kind:'run'};
+  // misiones sin plazo con tamaño (docs/plan-misiones.md): sin un tamaño conocido siguen las reglas de antes
+  const sized=(o)=>{
+    const {size,window:w,bonusAt,...r}=o;
+    if(!SIZES[size]||hasDeadline(o)) return r;
+    return {...r,size,window:clampInt(w,1,60,SIZES[size].days),...(Number.isFinite(+bonusAt)&&+bonusAt>0?{bonusAt:+bonusAt}:{})};
+  };
   // con plazo hace falta su fin; sin plazo, cuándo se aceptó (la experiencia de la tripulación cuenta desde ahí)
   const normContract=(c)=>!c?null:hasDeadline(c)?(c.endsOn?timed(unCargo(c,c.acceptedOn||t)):null)
     :Number.isFinite(+c.acceptedAt)&&c.acceptedOn?unCargo(c,c.acceptedOn):null;
@@ -50,9 +56,9 @@ export function normShip(s){
     // último salto de la alianza ya aplicado (core/travel.js, followJump)
     trip:typeof s?.trip==='string'?s.trip:null,
     // el salto no tiene cuota: vale si su destino existe
-    contract:normContract(c&&c.id&&(c.kind==='jump'?Object.hasOwn(SYSTEMS,c.to??''):c.quota>0)?kinded(c):null),
+    contract:normContract(c&&c.id&&(c.kind==='jump'?Object.hasOwn(SYSTEMS,c.to??''):c.quota>0)?sized(kinded(c)):null),
     board:{
-      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward&&(!o.story||MISSION_BY_ID[o.mid]?.chapter)).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(kinded).map(o=>hasDeadline(o)&&o.days<2?{...o,days:2}:o),   // mínimo 2 días
+      offers:(Array.isArray(b?.offers)?b.offers:[]).filter(o=>o&&o.id&&o.quota>0&&o.reward&&(!o.story||MISSION_BY_ID[o.mid]?.chapter)).map(o=>o.postedOn?unCargo(o,t):{...unCargo(o,t),expiresOn:todayStr(exp)}).map(kinded).map(sized).map(o=>hasDeadline(o)&&o.days<2?{...o,days:2}:o),   // mínimo 2 días
       signal:Math.min(1,Math.max(0,+b?.signal||0)), sigAt:Number.isFinite(+b?.sigAt)&&+b.sigAt>0?+b.sigAt:null,
       repUntil:typeof b?.repUntil==='string'?b.repUntil:null,
       news:{got:clampInt(b?.news?.got,0,999,0),lost:clampInt(b?.news?.lost,0,999,0)}

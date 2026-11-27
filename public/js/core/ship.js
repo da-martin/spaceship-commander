@@ -1,5 +1,5 @@
 /* Nave: nivel efectivo de los módulos, desgaste y reparación, esfuerzo del día. */
-import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, hasDeadline, HEAL, isAway, MISSION_BY_ID, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, XP_CONTRACT } from '../config.js';
+import { AREA_MOD, BERTHS, BOARD_BASE, DIFFS, EF_XP, ENGINE_PUSH, hasDeadline, HEAL, isAway, MISSION_BY_ID, MODS, payRound, RES, SELFHEAL, SIGNAL_DAY, SIGNAL_LV, SPEED_BONUS, XP_CONTRACT } from '../config.js';
 import { returnHome } from './crew.js';
 import { emit } from './events.js';
 import { logShip } from './log.js';
@@ -12,7 +12,9 @@ import { dayParse, efRound, plural, todayStr } from '../util.js';
 export const mod=(k)=>state.ship.modules[k];
 export const eff=(k)=>mod(k).lv*mod(k).cond/100;   // niveles efectivos: el bonus baja con el estado
 export const boardCap=()=>BOARD_BASE+Math.floor(eff('bridge'));
-export const maxDays=()=>Math.min(7,3+Math.floor(eff('engines')));   // las misiones duran de 2 a este máximo
+export const maxDays=()=>Math.min(7,3+Math.floor(eff('engines')));   // las urgentes duran de 2 a este máximo
+export const enginePush=()=>1+ENGINE_PUSH*eff('engines');            // avance por punto en las misiones sin plazo
+const r2=(v)=>Math.round(v*100)/100;   // el avance con Motores lleva centésimas: con décimas, 0,5 × 1,06 se quedaría en 0,5
 export const cargoMult=()=>1+0.1*eff('cargo');
 // Literas: las hay según el nivel de los Camarotes, así que el desgaste nunca
 // echa a nadie de la nave. Lo que sí hace es dejar inservibles las que pasan
@@ -51,18 +53,24 @@ export function selfHeal(){
 
 // Suma puntos de esfuerzo al día y a la misión en curso (solo lo hecho dentro
 // de su plazo, si lo tiene). Devuelve el id de la misión si contó, para poder restarlo.
-export function addEffort(ef,day=todayStr()){
+// En las misiones con tamaño (las sin plazo de ahora) los Motores suben el avance; lo que
+// contó se guarda en `g.cef` para que deshacer reste exactamente eso.
+export function addEffort(ef,day=todayStr(),g=null){
   const sh=state.ship, c=sh.contract;
   sh.activity[day]=efRound((sh.activity[day]||0)+ef);
   // lo de hoy cuenta hasta la hora del plazo; lo de días pasados (repaso de ayer) si ese día empezó antes del plazo
   if(!c||c.kind==='jump'||(c.acceptedOn||'')>day) return null;   // el salto no tiene cuota
   if(hasDeadline(c)&&(day===todayStr()?Date.now()>=c.endsAt:dayParse(day).getTime()>=c.endsAt)) return null;
-  c.progress=efRound(c.progress+ef);
+  const cef=c.size?r2(ef*enginePush()):ef;
+  c.progress=c.size?r2(c.progress+cef):efRound(c.progress+ef);
+  if(g&&c.size) g.cef=cef;
   if(c.progress>=c.quota){
-    const p=finishContract(1); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
+    // la bonificación mira cuándo se hizo: lo del repaso de ayer, como hecho al empezar ese día
+    const when=day===todayStr()?Date.now():dayParse(day).getTime(), fast=!!c.bonusAt&&when<c.bonusAt;
+    const p=finishContract(1,fast); state.cmd.stats.missions++; p.xp=addXP(XP_CONTRACT);
     const ch=c.story&&MISSION_BY_ID[c.mid];   // capítulo de historia: el siguiente llega al tablón
     if(ch?.system) sh.story[ch.system]=Math.max(sh.story[ch.system]||0,ch.chapter);
-    logShip({kind:'mission',big:true,tone:'win',title:ch?`Capítulo ${ch.chapter} completado: ${ch.title}`:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[]});
+    logShip({kind:'mission',big:true,tone:'win',title:ch?`Capítulo ${ch.chapter} completado: ${ch.title}`:`Misión ${c.topic} (${(DIFFS[c.diff]||DIFFS.normal).name.toLowerCase()}) completada`,rew:p,story:missionStory(c,'win'),lines:[...(fast?[`Bonificación de rapidez: +${Math.round(SPEED_BONUS*100)} % de ¢`]:[]),...(isAway(c)?['De vuelta '+herePrep('en'),returnHome()].filter(Boolean):[])]});
     logBoardNews();
     emit('missionWon',c);
   }
@@ -75,7 +83,7 @@ export function onComplete(x,g,day=todayStr()){
   // El material extra solo lo da Prospección: los módulos de área ya no suben
   // la ganancia del material que ellos mismos cuestan.
   if(g.res&&Math.random()<perk('prospector')){ addW(g.res,1); g.bonus=1; }
-  const c=addEffort(ef,day); if(c) g.c=c;
+  const c=addEffort(ef,day,g); if(c) g.c=c;
   g.xp=addXP(payRound(EF_XP*ef,ef));
 }
 export function onUndo(g){
@@ -85,7 +93,7 @@ export function onUndo(g){
   if(g.bonus&&g.res) subW(g.res,g.bonus);
   if(g.xp) subXP(g.xp);
   if(g.heal) mod(g.heal.k).cond=Math.max(0,mod(g.heal.k).cond-g.heal.n);
-  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,efRound(sh.contract.progress-ef));
+  if(g.c&&sh.contract?.id===g.c) sh.contract.progress=Math.max(0,g.cef!=null?r2(sh.contract.progress-g.cef):efRound(sh.contract.progress-ef));
 }
 
 export const rewardText=(r)=>[`${r.mc} ¢`,...Object.entries(r.mats||{}).map(([k,n])=>`${n} ${RES[k].sym}`)].join(' + ');

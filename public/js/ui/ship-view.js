@@ -1,6 +1,6 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, hasDeadline, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
 import { agedMc, missionHint, missionsUnlocked, offerAge, slotsUsed, sweepCost } from '../core/missions.js';
@@ -243,7 +243,17 @@ function offSale(k,w){
     <div class="text-sm text-slate-400 mt-2">No se comercia ${herePrep('en')}</div>`;
   return el;
 }
-export const missionEndTxt=(c)=>{ const d=new Date(c.endsAt); return `hasta ${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const atTxt=(ms)=>{ const d=new Date(ms); return `${fDate(todayStr(d))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+export const missionEndTxt=(c)=>'hasta '+atTxt(c.endsAt);
+// Misiones sin plazo con tamaño: «media · sin plazo» y la bonificación de rapidez
+const BONUS_PCT=Math.round(SPEED_BONUS*100);
+const openTag=(o)=>(SIZES[o.size]?SIZES[o.size].name.toLowerCase()+' · ':'')+'sin plazo';
+function bonusLine(c){
+  if(!c.bonusAt) return '';
+  return Date.now()<c.bonusAt
+    ?`<div class="mono text-[11px] text-emerald-300 mt-1">+${BONUS_PCT} % de ¢ si llegas antes del ${atTxt(c.bonusAt)}</div>`
+    :'<div class="mono text-[11px] text-slate-400 mt-1">Sin bonificación de rapidez: al llegar cobras lo normal</div>';
+}
 export const shortLeft=(c)=>{ const ms=Math.max(0,msLeft(c)), h=Math.ceil(ms/36e5); return h>48?`${Math.round(h/24)}d`:ms>=36e5?`${h}h`:'<1h'; };
 export const leftTone=(c)=>msLeft(c)<864e5?'text-amber-300':'text-slate-400';
 // Lo que dice la línea de estado y el chip de la cabecera: el salto no tiene puntos.
@@ -294,14 +304,15 @@ export function renderMission(c){
     <h2 class="text-lg font-bold mt-1">En misión</h2>
     <div class="flex flex-wrap items-center gap-2 mt-1">
       <h3 class="font-semibold text-cyan-100">${c.topic}</h3>${diffChip(c.diff)}${c.urgent?URGENT_CHIP:''}
-      ${hasDeadline(c)?`<span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>`:'<span class="mono text-[11px] text-slate-400">sin plazo</span>'}
+      ${hasDeadline(c)?`<span data-mission-left="panel" class="mono text-[11px] ${leftTone(c)}">${missionLeftTxt(c)} · ${missionEndTxt(c)}</span>`:`<span class="mono text-[11px] text-slate-400">${openTag(c)}</span>`}
     </div>
     <div class="text-slate-200 mt-1">${c.flavor}</div>
     <div class="flex items-center gap-2 mt-3">
       <div class="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-label="Progreso de la misión" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="h-full bg-cyan-400 rounded-full transition-all" style="width:${pct}%"></div></div>
       <span class="mono text-sm text-cyan-200">${fmtEf(c.progress)}/${c.quota}</span>
     </div>
-    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2 · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
+    ${bonusLine(c)}
+    <div class="mono text-[11px] text-slate-400 mt-1.5">Puntos de esfuerzo: fácil 0,5 · normal 1 · difícil 2${c.size&&eff('engines')>0?` · <span class="text-cyan-300">+${Math.round(ENGINE_PUSH*eff('engines')*100)} % de avance por Motores</span>`:''} · recompensa <span class="text-amber-300">${rewardText({mc:Math.floor(c.reward.mc*cargoMult()),mats:c.reward.mats})}</span>${perk('navigator')?` <span class="text-cyan-300">+${pctTxt(perk('navigator'))} ¢ por Navegación</span>`:''} · ${c.urgent?`<span class="text-amber-300">urgente: si falla, sin cobro y reputación dañada ${REP_DAYS} días</span>`:hasDeadline(c)?'si expira, cobro parcial':'sin plazo: termina al reunir la cuota'}</div>
     <p class="text-sm text-slate-400 border border-dashed border-slate-700 rounded-lg p-3 mt-4">Estás fuera ${herePrep('de')}: misiones, ${crewUnlocked()?'tripulantes, ':''}mercado y astillero vuelven a estar disponibles al terminar la misión. ${crewUnlocked()?'La tripulación sigue a bordo y cobra su sueldo cada semana, y el':'El'} tablón sigue recibiendo transmisiones.
       <span class="block mono text-[11px] text-slate-300 mt-2">${boardLine()}</span></p>
     <div class="sys-label mt-5 mb-2">Reparaciones a bordo</div>
@@ -419,12 +430,12 @@ export function renderShip(){
     el.innerHTML=`
       <div class="flex items-center gap-2">
         ${ch?`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-violet-600 text-violet-300">HISTORIA · CAPÍTULO ${ch.chapter}</span>`:`<span class="mono text-[11px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-300">${o.topic.toUpperCase()}</span>`}${diffChip(o.diff)}${o.urgent?URGENT_CHIP:''}
-        <span class="mono text-[11px] text-slate-400">${open?'sin plazo':`${o.days} ${o.days===1?'día':'días'}`}</span>
+        <span class="mono text-[11px] text-slate-400">${open?openTag(o):`${o.days} ${o.days===1?'día':'días'}`}</span>
         ${ch?'':`<button data-drop="${o.id}" aria-label="Descartar misión" class="ml-auto mono text-[11px] px-1.5 py-0.5 rounded border ${drop?'border-red-700 text-red-300':'border-transparent text-slate-400 hover:text-red-300'}">${drop?'¿Descartar?':'✕'}</button>`}
       </div>
       ${ch?`<div class="text-sm font-semibold text-violet-100 mt-1.5">${escapeHtml(ch.title)}</div>`:''}
       <div class="text-sm font-medium mt-1.5">${o.flavor}</div>
-      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
+      <div class="mono text-[11px] text-slate-400 mt-1">${open?`Reúne ${o.quota} puntos de esfuerzo, sin plazo${o.window?` · <span class="text-emerald-300">+${BONUS_PCT} % si llegas en ${o.window} días</span>`:''}`:`Reúne ${o.quota} puntos de esfuerzo en ${o.days===1?'1 día':o.days+' días'}`}</div>
       ${ch?'':`<div class="mono text-[11px] mt-1 ${o.expiresOn<=todayStr()?'text-amber-300':'text-slate-400'}">${expiryTxt(o)}${age?` · <span class="text-emerald-300">+${Math.round(AGE_BONUS*age*100)}% por espera</span>`:''}</div>`}
       ${o.urgent?`<div class="mono text-[11px] text-amber-300 mt-1">Si fallas: sin cobro y reputación dañada ${REP_DAYS} días</div>`:''}
       <div class="flex flex-wrap items-center gap-2 mt-2">
@@ -440,7 +451,7 @@ export function renderShip(){
   const ml=document.getElementById('modList'); ml.innerHTML='';
   for(const [k,def] of Object.entries(MODS)){
     const m=mod(k), up=m.lv>0, closed=yardClosed(k), cost=modCost(k), ok=!closed&&cost&&canAfford(cost), rc=repairCost(k), q=repairQuote(k);
-    const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`misiones de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`,
+    const effTxt={bridge:`${boardCap()} huecos en el tablón`,engines:`+${Math.round(ENGINE_PUSH*eff(k)*100)}% de avance en misión · urgentes de hasta ${maxDays()} días`,cargo:`+${Math.round(eff(k)*10)}% ¢ en misiones`,comms:`${fmtNum(baseSignal())} misiones/día`,
       quarters:`${berths()} literas`+(berthsUsable()<berths()?` · ${berths()-berthsUsable()} dañada${berths()-berthsUsable()>1?'s':''}`:''),
       spirit:`+${Math.round(XP_BONUS*eff(k)*100)}% de méritos`,social:`−${Math.round(WAGE_CUT*eff(k)*100)}% en los sueldos`,
       craft:`−${Math.round(YARD_CUT*eff(k)*100)}% en el astillero`,health:`+${Math.round(SELFHEAL*eff(k))} de estado al día`}[k];
