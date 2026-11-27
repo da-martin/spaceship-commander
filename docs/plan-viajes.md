@@ -2,7 +2,7 @@
 
 La alianza puede viajar junta a otro sistema siguiendo una historia. Lo que se propone y se vota es un **viaje**; la misión de ir de un sistema a otro es el **salto**. Viajar es **mudarse**: no hay vuelta obligatoria. En el nuevo sistema hay misiones propias y, según su historia, otros precios en el mercado, otro astillero y otro tablón de tripulación. Volver al Sistema Madre, o seguir hacia otro sistema, es otro viaje.
 
-Las misiones en grupo quedan fuera de este plan: se planificarán aparte.
+Los capítulos de la historia de cada sistema son misiones de toda la alianza: se proponen y se votan como un viaje (ver «Capítulos de historia en grupo»). Las demás misiones en grupo quedan fuera de este plan.
 
 ## Reglas de fondo
 
@@ -92,11 +92,71 @@ Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará
 
 - Mercado, astillero, tablón de misiones y tablón de tripulación funcionan con la ficha del sistema.
 - Los textos que hoy dicen «de vuelta en el Sistema Madre» pasan a nombrar el sistema actual.
-- **Historia del sistema**: los capítulos de `story[]` llegan al tablón de uno en uno, y cada uno cuando se termina el anterior. Son misiones sin plazo (ver abajo) con relato propio. De momento cada jugador avanza su historia por su cuenta (`state.ship.story`, capítulos hechos por sistema).
-  - El capítulo pendiente está siempre en el tablón (con la Antena): no caduca, no ocupa hueco, no se puede descartar y no espera a la señal. Dificultad normal, cuota y paga como las otras sin plazo.
-  - Al aceptarlo, su relato de entrada (`brief`) va a la bitácora. Al completarlo llega el siguiente; si se abandona, vuelve el mismo.
+- **Historia del sistema**: los capítulos de `story[]` se hacen de uno en uno y en orden, en grupo con la alianza (ver «Capítulos de historia en grupo»). Son misiones sin plazo (ver abajo) con relato propio.
   - Mientras dura un capítulo, el dibujo de la nave la muestra en órbita, con el planeta grande de cerca (ver «La nave en pantalla»).
 - Cuando se acaba la historia se puede seguir en el sistema todo el tiempo que se quiera, con sus misiones normales.
+
+## Capítulos de historia en grupo
+
+Los capítulos de la historia de un sistema son misiones de toda la alianza. Se proponen y se votan igual que un viaje, y los que dicen que sí salen juntos y reúnen una sola cuota entre todos. La historia avanza para la alianza entera.
+
+Hasta ahora cada jugador hacía su historia por su cuenta: el capítulo pendiente estaba siempre en el tablón y se aceptaba como cualquier misión. Eso desaparece. El Sistema Madre no tiene historia, y a los demás sistemas solo se llega con una alianza, así que siempre hay alianza a la que proponer.
+
+### Propuesta y votación
+
+Las mismas reglas que el viaje (ver «Propuesta y votación»), con estas diferencias:
+
+- Se propone desde la vista de alianza: «Proponer el capítulo 3: título». Siempre es el capítulo siguiente de la alianza en su sistema; no se elige.
+- Viajes y capítulos comparten el límite de **una propuesta abierta a la vez**. Además, no se puede proponer un capítulo durante un salto ni con otro capítulo en curso, ni un viaje mientras la alianza hace un capítulo.
+- **Quien dice que no, o no vota, no va, pero sigue en la alianza.** Se queda en el sistema con su tablón, su mercado y su astillero, y sigue con su misión si tenía una. A diferencia del viaje, nadie sale de la alianza: todos siguen en el mismo sistema.
+- Como en el viaje: si todos dicen que sí, salen en ese momento; si más de la mitad dice que no, o el fundador dice que no, se cancela en ese momento; al cabo de 3 días, con el sí del fundador salen los que han dicho que sí, y sin él se cancela. Quien propone puede retirar la propuesta mientras esté abierta.
+- Al votar que sí con una misión en curso, la tarjeta avisa de que se cancelará al salir.
+- Quien juega solo tiene una alianza de uno: su propuesta sale al momento.
+
+### Al salir
+
+- Para los que van, la misión en curso se cancela sin penalización y se cobra la parte hecha, como al zarpar. El tablón no se vacía: siguen en el mismo sistema y lo encuentran al volver.
+- Cada uno recibe el contrato del capítulo (`kind: 'open'`, `story: true` y `group` con el id de la propuesta) y su relato de entrada (`brief`) va a la bitácora.
+- La hora de salida es la del servidor, como en el salto: quien tenía la app cerrada lo aplica al abrirla (`followChapter`), igual que `followJump`.
+- El capítulo ya no sale en el tablón. En su lugar, una línea dice qué capítulo toca y que se propone desde la alianza.
+
+### Cuota compartida
+
+- **Una sola barra para todos.** La cuota es la de un capítulo (30 puntos, el tamaño medio de `SIZES`) por cada participante: con 3 a bordo, 90 puntos.
+- Cada uno suma a la barra con sus tareas y hábitos, como en cualquier misión, y envía al servidor su total de puntos en el capítulo, no la diferencia: reenviar no cuenta doble, y deshacer lo baja. Sin conexión, los puntos esperan en el dispositivo y se envían al volver.
+- La barra muestra el total de la última foto de la alianza más lo tuyo aún sin enviar, y debajo la parte de cada participante.
+- **Termina para todos a la vez**, cuando la suma llega a la cuota. Lo decide el servidor (`settle`), con su hora, y cada cliente lo aplica en cuanto lo ve, aunque ese día no haya aportado nada.
+- **Cada participante cobra la paga entera del capítulo**, la de un capítulo de 30 puntos (no se multiplica ni se reparte), y la bonificación de rapidez si la alianza termina en `window` días desde la salida.
+- Lo que no se comparte: la amenaza, los impactos de cada noche y el escudo son de cada nave, como ahora. Los capítulos siguen sin rasgos ni rutas por etapas.
+
+### Abandonar
+
+- Cada uno puede abandonar el capítulo cuando quiera y vuelve al sistema sin cobrar, como en cualquier misión sin plazo. Lo que ya aportó sigue contando para los demás.
+- La cuota baja 30 puntos por cada uno que se va, pero nunca por debajo de lo ya reunido: si con la bajada ya se llega, el capítulo termina para los que quedan.
+- Salir de la alianza durante un capítulo es abandonarlo.
+- Si abandonan todos, el capítulo se cancela sin completarse y se puede volver a proponer.
+- Quien entra en la alianza con un capítulo en curso no se suma: espera al siguiente.
+
+### La historia es de la alianza
+
+- El servidor guarda por qué capítulo va la alianza en cada sistema. Al completarse uno, la alianza pasa al siguiente para todos sus miembros, hayan ido o no. Quien no fue se lo pierde: lo ve en el chat, pero no recibe el relato ni la paga.
+- `state.ship.story` pasa a ser la copia local de la historia de la alianza: el cliente la toma de la foto.
+- Quien entra en una alianza toma su historia. Quien sale se queda con la que tenía (su última copia) y, con una alianza de uno, sigue desde ahí.
+- Cuando se acaba la historia del sistema, ya no se proponen capítulos.
+
+### En el chat
+
+Hitos como los del viaje, con el número y el título del capítulo: `chapter_propose`, `chapter_go` (salen, con quiénes van) y `chapter_done` destacan; `chapter_withdraw`, `chapter_cancel` y `chapter_leave` (quien abandona) van como avisos.
+
+### Pruebas
+
+- Las reglas de la votación son las del viaje, y quien dice que no sigue en la alianza.
+- La cuota crece con los participantes y baja con cada abandono, sin bajar de lo reunido; si con la bajada se llega, termina.
+- Enviar el mismo total dos veces no cuenta doble, y deshacer lo baja.
+- Al completarse cobran los participantes, no los demás, y la historia de la alianza avanza para todos.
+- Quien entra con un capítulo en curso no se suma; salir de la alianza lo abandona.
+- No se puede proponer un viaje con un capítulo en curso, ni un capítulo durante un salto.
+- El número de capítulos por sistema del servidor coincide con `systems.js`, y su cuota por participante con `SIZES.mid.pts`.
 
 ## Invitaciones entre sistemas
 
@@ -153,11 +213,23 @@ La alianza deja de ser solo «quién está con quién»: pasa a tener ubicación
 - Avisos en el chat: `trip_propose` y `trip_sail` destacan; `trip_withdraw`, `trip_cancel` (con el fundador como autor si fue su no) y `trip_stay` (quien se queda y sale) van como avisos. Llevan en `body` el sistema.
 - La foto de `GET /api/alliance` incluye `system`, la votación abierta (`trip`, con los votos) y el último salto (`jump`), aunque ya haya llegado. Las invitaciones dicen dónde está la alianza (`system`) y adónde salta si está saltando (`bound`).
 
+Los capítulos en grupo usan las mismas tablas (migración `0010_alliance_chapters.sql`):
+
+- `alliance_trips` gana `kind` (`'trip'` por defecto o `'chapter'`), `chapter` (el número), `quota` y `done_at`. En un capítulo, `from_system` y `to_system` son el sistema de la alianza. Los estados son los mismos: `sailing` es el capítulo en curso. El índice único ya impide un viaje y un capítulo abiertos a la vez.
+- Los votos van en `alliance_trip_votes`, sin cambios.
+- Tabla nueva `alliance_trip_crew`: propuesta, jugador, puntos aportados y `left_at`. Se llena al salir con los del sí.
+- `alliances.story`: JSON con los capítulos hechos por sistema.
+- El servidor tiene su copia del número de capítulos por sistema (`SYSTEM_CHAPTERS`) y de la cuota por participante; un test comprueba que coinciden con `systems.js` y `SIZES`.
+- Rutas: `POST /api/alliance/chapter` (propone el siguiente y vota sí), `/chapter/progress` (`{tripId, points}`, el total de quien envía, como mucho la cuota) y `/chapter/leave`. Votar y retirar usan `/trip/vote` y `/trip/withdraw`, que valen para la propuesta abierta sea del tipo que sea. Todo detrás de la misma variable `TRAVEL_ON`.
+- `settle` también resuelve los capítulos: la votación como la del viaje, pero al salir no saca a nadie de la alianza; con un capítulo en curso, si la suma llega a la cuota lo marca hecho, avanza `alliances.story` y escribe el hito.
+- La foto incluye `story`, la propuesta abierta con su `kind` y el capítulo en curso o el último terminado (`chapter`: cuota, participantes y sus puntos).
+
 En el cliente:
 
 - Al recibir una salida que todavía no ha aplicado (`followJump`, en `core/travel.js`), la aplica: cancela la misión, vacía el tablón y crea el contrato de salto que sale a la hora del servidor y llega con su `arrives_at`. Así funciona aunque la app estuviera cerrada cuando zarpó la alianza: puede llegar al momento, con todos los fragmentos. `state.ship.trip` guarda el último salto aplicado. Quien entró después de zarpar no lo aplica, y quien aún va de camino hacia la alianza lo aplica al llegar.
 - Al entrar en una alianza que está en otro sistema, `joinAlliance` lanza tu salto hasta ella. Antes de aceptar, la invitación avisa de la ruta y de la misión que se cancela, y el botón pasa a «Unirme y zarpar». Saltando no se puede aceptar.
-- En la vista de alianza: la votación abierta (votos de cada uno, Sí / No y retirar) o el salto en curso van arriba, antes del chat; la lista de destinos para proponer, debajo de los miembros. Todo esto solo con `TRAVEL_ON`.
+- En la vista de alianza: la votación abierta (votos de cada uno, Sí / No y retirar), el salto en curso o el capítulo en curso van arriba, antes del chat; la lista de destinos para proponer y el botón del capítulo siguiente, debajo de los miembros. Todo esto solo con `TRAVEL_ON`.
+- Capítulos: `followChapter` aplica la salida, la cuota que cambia y el final que decide el servidor (en `core/chapters.js`, nuevo). `storyOffer` deja de llegar al tablón. `addEffort` y deshacer guardan los puntos del capítulo, y `sync/alliance.js` los envía con una cola como la de los hitos. El panel de misión muestra la barra compartida y la parte de cada uno.
 - Votar necesita conexión; el salto en sí corre sin conexión, como cualquier misión.
 
 ## Partidas guardadas
@@ -165,6 +237,8 @@ En el cliente:
 - Sin `system` → `'madre'`.
 - Sin `trip` → `null`.
 - Contratos sin `kind` → `'run'`.
+- Las ofertas de historia del tablón (`story: true`) se descartan.
+- Un capítulo aceptado antes del cambio (sin `group`) sigue como antes, solo, hasta que se complete o se abandone.
 
 ## Fases
 
@@ -172,15 +246,20 @@ En el cliente:
 2. **Misiones sin plazo** (hecha, sin activar): el tipo `open`, su oferta en el tablón (`genOpenOffer`), aceptarlas (`contractFrom`), las 8 misiones sin plazo del Sistema Madre y la escena del salto en el dibujo de la nave. Para que lleguen al tablón basta con subir `OPEN_P`; entonces tocará anunciarlo en las novedades.
 3. **Salto** (hecha, oculta): `core/travel.js` con `startJump`, los fragmentos diarios y la llegada; la historia del sistema en el tablón; la vista del salto y los informes con cita. No hay ningún botón para viajar: lo lanzará la votación de la fase 4, y la alianza de uno se prueba allí.
 4. **Votación en el servidor** (hecha, oculta): tablas, propuesta, votos, salida perezosa e hitos en el chat; en el cliente, aplicar la salida, saltar al entrar en una alianza de otro sistema y la parte de viajes de la vista de alianza.
-5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia; los capítulos llegan al tablón desde la fase 3. Para abrir los viajes hacen falta dos interruptores: `TRAVEL_ON` a `true` en `config.js` y la variable `TRAVEL_ON` a `"1"` en el Worker (`vars` en `wrangler.jsonc`), con la migración `0009` aplicada. Entonces tocará anunciarlo en las novedades.
+5. **Contenido** (escrito, sin activar): los cuatro sistemas de destino con su ficha, su catálogo y su historia; los capítulos llegan al tablón desde la fase 3 (hasta que la fase 6 los pase a la alianza).
+6. **Capítulos en grupo** (por hacer): la migración `0010`, las rutas y `settle` de capítulos en el servidor; en el cliente `core/chapters.js`, la cola de puntos, la vista de alianza y el panel de misión; y los tests. Se hace antes de abrir los viajes.
+
+Para abrir los viajes, después de la fase 6, hacen falta dos interruptores: `TRAVEL_ON` a `true` en `config.js` y la variable `TRAVEL_ON` a `"1"` en el Worker (`vars` en `wrangler.jsonc`), con la migración `0009` aplicada. Entonces tocará anunciarlo en las novedades.
 
 ## Decidido
 
 - **Quien sale de la alianza en otro sistema** se queda allí. Basta con eso: puede crear una alianza de uno y proponer un viaje de vuelta.
 - **Cobro al cancelar por zarpar**: se cobra la parte hecha, como cuando una misión expira.
 - **Motores**: no afectan al salto. Dura los días del destino para todos, así la alianza llega junta.
+- **Capítulos en grupo**: la historia es de la alianza y cada capítulo se vota como un viaje. Quien no va sigue en la alianza. Una sola cuota compartida, de 30 puntos por participante, y cada uno cobra la paga entera.
 - **El fundador decide**: un viaje necesita su sí. Se descartaron que nadie saliera de la alianza (repartida entre sistemas), que solo el fundador propusiera y partir la alianza en dos.
 
 ## Por decidir
 
-- **Misiones en grupo**: plan aparte.
+- **Quien dice que sí y luego no aporta** hace más grande la cuota de los demás. Se puede esperar a ver si pasa; si pasa, que salga del capítulo tras unos días sin aportar.
+- **Misiones en grupo del tablón** (las que no son de historia): plan aparte.
