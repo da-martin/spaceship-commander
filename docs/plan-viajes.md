@@ -122,17 +122,17 @@ Las mismas reglas que el viaje (ver «Propuesta y votación»), con estas difere
 
 ### Cuota compartida
 
-- **Una sola barra para todos.** La cuota es la de un capítulo (30 puntos, el tamaño medio de `SIZES`) por cada participante: con 3 a bordo, 90 puntos.
+- **Una sola barra para todos.** La cuota es de **50 puntos por participante** (`STORY_PTS` en `config.js`, aparte de los tamaños de `SIZES`): con 3 a bordo, 150 puntos. La bonificación de rapidez cuenta 6 días (`window`), al mismo ritmo que una misión larga (60 puntos en 7 días).
 - Cada uno suma a la barra con sus tareas y hábitos, como en cualquier misión, y envía al servidor su total de puntos en el capítulo, no la diferencia: reenviar no cuenta doble, y deshacer lo baja. Sin conexión, los puntos esperan en el dispositivo y se envían al volver.
 - La barra muestra el total de la última foto de la alianza más lo tuyo aún sin enviar, y debajo la parte de cada participante.
 - **Termina para todos a la vez**, cuando la suma llega a la cuota. Lo decide el servidor (`settle`), con su hora, y cada cliente lo aplica en cuanto lo ve, aunque ese día no haya aportado nada.
-- **Cada participante cobra la paga entera del capítulo**, la de un capítulo de 30 puntos (no se multiplica ni se reparte), y la bonificación de rapidez si la alianza termina en `window` días desde la salida.
+- **Cada participante cobra la paga entera del capítulo**, la de un capítulo de 50 puntos (no se multiplica ni se reparte), y la bonificación de rapidez si la alianza termina en `window` días desde la salida.
 - Lo que no se comparte: la amenaza, los impactos de cada noche y el escudo son de cada nave, como ahora. Los capítulos siguen sin rasgos ni rutas por etapas.
 
 ### Abandonar
 
 - Cada uno puede abandonar el capítulo cuando quiera y vuelve al sistema sin cobrar, como en cualquier misión sin plazo. Lo que ya aportó sigue contando para los demás.
-- La cuota baja 30 puntos por cada uno que se va, pero nunca por debajo de lo ya reunido: si con la bajada ya se llega, el capítulo termina para los que quedan.
+- La cuota baja 50 puntos por cada uno que se va, pero nunca por debajo de lo ya reunido: si con la bajada ya se llega, el capítulo termina para los que quedan.
 - Salir de la alianza durante un capítulo es abandonarlo.
 - Si abandonan todos, el capítulo se cancela sin completarse y se puede volver a proponer.
 - Quien entra en la alianza con un capítulo en curso no se suma: espera al siguiente.
@@ -156,7 +156,7 @@ Hitos como los del viaje, con el número y el título del capítulo: `chapter_pr
 - Al completarse cobran los participantes, no los demás, y la historia de la alianza avanza para todos.
 - Quien entra con un capítulo en curso no se suma; salir de la alianza lo abandona.
 - No se puede proponer un viaje con un capítulo en curso, ni un capítulo durante un salto.
-- El número de capítulos por sistema del servidor coincide con `systems.js`, y su cuota por participante con `SIZES.mid.pts`.
+- El número de capítulos por sistema del servidor coincide con `systems.js`, y su cuota por participante con `STORY_PTS`.
 
 ## Invitaciones entre sistemas
 
@@ -219,7 +219,7 @@ Los capítulos en grupo usan las mismas tablas (migración `0010_alliance_chapte
 - Los votos van en `alliance_trip_votes`, sin cambios.
 - Tabla nueva `alliance_trip_crew`: propuesta, jugador, puntos aportados y `left_at`. Se llena al salir con los del sí.
 - `alliances.story`: JSON con los capítulos hechos por sistema.
-- El servidor tiene su copia del número de capítulos por sistema (`SYSTEM_CHAPTERS`) y de la cuota por participante; un test comprueba que coinciden con `systems.js` y `SIZES`.
+- El servidor tiene su copia del número de capítulos por sistema (`SYSTEM_CHAPTERS`) y de la cuota por participante; un test comprueba que coinciden con `systems.js` y `STORY_PTS`.
 - Rutas: `POST /api/alliance/chapter` (propone el siguiente y vota sí), `/chapter/progress` (`{tripId, points}`, el total de quien envía, como mucho la cuota) y `/chapter/leave`. Votar y retirar usan `/trip/vote` y `/trip/withdraw`, que valen para la propuesta abierta sea del tipo que sea. Todo detrás de la misma variable `TRAVEL_ON`.
 - `settle` también resuelve los capítulos: la votación como la del viaje, pero al salir no saca a nadie de la alianza; con un capítulo en curso, si la suma llega a la cuota lo marca hecho, avanza `alliances.story` y escribe el hito.
 - La foto incluye `story`, la propuesta abierta con su `kind` y el capítulo en curso o el último terminado (`chapter`: cuota, participantes y sus puntos).
@@ -256,7 +256,7 @@ Para abrir los viajes, después de la fase 6, hacen falta dos interruptores: `TR
 - **Quien sale de la alianza en otro sistema** se queda allí. Basta con eso: puede crear una alianza de uno y proponer un viaje de vuelta.
 - **Cobro al cancelar por zarpar**: se cobra la parte hecha, como cuando una misión expira.
 - **Motores**: no afectan al salto. Dura los días del destino para todos, así la alianza llega junta.
-- **Capítulos en grupo**: la historia es de la alianza y cada capítulo se vota como un viaje. Quien no va sigue en la alianza. Una sola cuota compartida, de 30 puntos por participante, y cada uno cobra la paga entera.
+- **Capítulos en grupo**: la historia es de la alianza y cada capítulo se vota como un viaje. Quien no va sigue en la alianza. Una sola cuota compartida, de 50 puntos por participante, y cada uno cobra la paga entera.
 - **El fundador decide**: un viaje necesita su sí. Se descartaron que nadie saliera de la alianza (repartida entre sistemas), que solo el fundador propusiera y partir la alianza en dos.
 
 ## Por decidir
