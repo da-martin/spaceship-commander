@@ -51,7 +51,7 @@ test('los multiplicadores de cada rasgo', () => {
   assert.equal(m(['solar'], task('hard')), 1.5);
   assert.equal(m(['solar'], habit('epic')), 1.5);
   assert.equal(m(['solar'], task('normal')), 1);
-  assert.equal(m(['window'], task()), 3);
+  assert.equal(m(['window'], task()), 2);
   assert.equal(m(['window'], task(), { '2026-11-14': 1 }), 1);
   assert.equal(m(['habits'], habit()), 1.5);
   assert.equal(m(['habits'], task()), 0.5);
@@ -74,19 +74,19 @@ test('los rasgos cambian el avance de la misión, no la actividad del día', () 
   assert.equal(s.ship.activity['2026-11-14'], 1);
 });
 
-test('Ventana de lanzamiento: lo primero del día cuenta ×3; deshacerlo la deja libre otra vez', () => {
+test('Ventana de lanzamiento: lo primero del día cuenta ×2; deshacerlo la deja libre otra vez', () => {
   const s = fresh();
   s.ship.contract = mission(['window']);
   const a = { ef: 1, day: '2026-11-14' }, b = { ef: 1, day: '2026-11-14' };
   addEffort(1, '2026-11-14', a, task()); a.c = 'm1';
   addEffort(1, '2026-11-14', b, task()); b.c = 'm1';
-  assert.deepEqual([a.cef, b.cef, s.ship.contract.progress], [3, 1, 14]);
+  assert.deepEqual([a.cef, b.cef, s.ship.contract.progress], [2, 1, 13]);
   onUndo(b); onUndo(a);
   assert.equal(s.ship.contract.progress, 10);
   assert.equal(s.ship.contract.daily['2026-11-14'], undefined);
   const c = { ef: 1 };
   addEffort(1, '2026-11-14', c, task());
-  assert.equal(c.cef, 3);
+  assert.equal(c.cef, 2);
 });
 
 test('Regenerativo: una noche sin avance la misión retrocede un 10 %, aunque el escudo pare el impacto', () => {

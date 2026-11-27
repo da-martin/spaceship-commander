@@ -1,6 +1,6 @@
 /* Vista Spaceship: ilustración, sistemas, misión en curso, tablón y pestañas
  * del sistema en el que está la nave. */
-import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, HIT, SHIELD_GAP, THREATS, TRAITS, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
+import { AGE_BONUS, AREA_COLORS, DIFFS, ENGINE_PUSH, hasDeadline, HIT, SHIELD_GAP, THREATS, TRAITS, WINDOW_MULT, isAway, MATS, MISSION_BY_ID, MODS, REP_DAYS, RES, SELFHEAL, SHIP_LV_MAX, SIZES, SPEED_BONUS, WAGE_CUT, XP_BONUS, YARD_CUT } from '../config.js';
 import { crewUnlocked } from '../core/crew.js';
 import { on } from '../core/events.js';
 import { agedMc, hitOf, missionHint, missionsUnlocked, offerAge, shieldReady, slotsUsed, sweepCost } from '../core/missions.js';
@@ -271,12 +271,12 @@ function threatBox(c){
     </div>`;
 }
 // Rasgos (fase C): chip con el nombre y lo que hace. En la misión en curso, Ventana de
-// lanzamiento avisa si lo próximo de hoy aún cuenta ×3.
+// lanzamiento avisa si lo próximo de hoy aún cuenta doble.
 const TRAIT_CHIP={good:'border-emerald-600 text-emerald-300',mid:'border-slate-600 text-slate-300',bad:'border-red-600 text-red-300'};
 function traitList(o,live=false){
   const ts=(o.traits||[]).filter(k=>TRAITS[k]); if(!ts.length) return '';
   return `<div class="flex flex-col gap-1 mt-2">${ts.map(k=>{ const T=TRAITS[k];
-    const now=live&&k==='window'?(o.daily?.[todayStr()]>0?' · ya usada hoy':' · <span class="text-emerald-300">lo próximo de hoy cuenta ×3</span>'):'';
+    const now=live&&k==='window'?(o.daily?.[todayStr()]>0?' · ya usada hoy':' · <span class="text-emerald-300">lo próximo de hoy cuenta ×${WINDOW_MULT}</span>'):'';
     return `<div class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="mono text-[11px] px-1.5 py-0.5 rounded border ${TRAIT_CHIP[T.kind]}">${T.name.toUpperCase()}</span><span class="mono text-[11px] text-slate-400">${T.desc}${now}</span></div>`; }).join('')}</div>`;
 }
 function bonusLine(c){

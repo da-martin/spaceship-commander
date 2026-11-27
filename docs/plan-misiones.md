@@ -125,7 +125,7 @@ Cada misión sin plazo trae rasgos que cambian cómo cuenta el esfuerzo **para l
 | Rasgo | Tipo | Efecto |
 |---|---|---|
 | Viento solar | favorable | Lo Difícil y lo Épico cuenta ×1,5 |
-| Ventana de lanzamiento | favorable | Lo primero que completas cada día cuenta ×3 |
+| Ventana de lanzamiento | favorable | Lo primero que completas cada día cuenta ×2 |
 | Ruta de hábitos | neutro | Los hábitos cuentan ×1,5; las tareas, ×0,5 |
 | Ruta de encargos | neutro | Las tareas cuentan ×1,5; los hábitos, ×0,5 |
 | Blindado | adverso | Lo Micro y lo Fácil cuenta ×0,5 |

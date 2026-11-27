@@ -1,4 +1,4 @@
-import { AGE_BONUS, DIFFS, effOf, hasDeadline, HEAVY_P, HEAVY_P_ART, HIT, isAway, MATS, MISSION_BY_ID, MODS, OFFER_TTL, REGEN, REP_DAYS, RES, SHIELD_GAP, SIZES, SPEED_BONUS, SWEEP_MC, threatFor, THREATS, TRAIT_ROLL, TRAITS, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, HEAVY_P, HEAVY_P_ART, HIT, isAway, MATS, MISSION_BY_ID, MODS, OFFER_TTL, REGEN, REP_DAYS, RES, SHIELD_GAP, SIZES, SPEED_BONUS, SWEEP_MC, threatFor, THREATS, TRAIT_ROLL, TRAITS, URGENT_BONUS, WINDOW_MULT, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
@@ -101,7 +101,7 @@ export function traitMult(c,src={},day=todayStr()){
   let m=1;
   for(const t of c?.traits||[]){
     if(t==='solar'&&(diff==='hard'||diff==='epic')) m*=1.5;
-    else if(t==='window'&&!(c.daily?.[day]>0)) m*=3;
+    else if(t==='window'&&!(c.daily?.[day]>0)) m*=WINDOW_MULT;
     else if(t==='habits') m*=kind==='habit'?1.5:0.5;
     else if(t==='errands') m*=kind==='task'?1.5:0.5;
     else if(t==='armored'&&(diff==='micro'||diff==='easy')) m*=0.5;

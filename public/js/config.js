@@ -127,7 +127,7 @@ export const SHIELD_GAP = 2;    // tras bloquear, impactos que pasan antes de po
 // (¢, méritos y material no cambian). `kind`: good (favorable), mid (neutro) o bad (adverso).
 export const TRAITS = {
   solar:    {name:'Viento solar',           kind:'good', desc:'Lo Difícil y lo Épico cuenta ×1,5'},
-  window:   {name:'Ventana de lanzamiento', kind:'good', desc:'Lo primero que completas cada día cuenta ×3'},
+  window:   {name:'Ventana de lanzamiento', kind:'good', desc:'Lo primero que completas cada día cuenta ×2'},
   habits:   {name:'Ruta de hábitos',        kind:'mid',  desc:'Los hábitos cuentan ×1,5 y las tareas ×0,5'},
   errands:  {name:'Ruta de encargos',       kind:'mid',  desc:'Las tareas cuentan ×1,5 y los hábitos ×0,5'},
   armored:  {name:'Blindado',               kind:'bad',  desc:'Lo Micro y lo Fácil cuenta ×0,5'},
@@ -138,7 +138,7 @@ export const TRAITS = {
 };
 // Rasgos por dificultad: fácil, 1 favorable; normal, 1 neutro o adverso; difícil, 2 adversos.
 export const TRAIT_ROLL = {easy:[['good']], normal:[['mid','bad']], hard:[['bad'],['bad']]};
-export const REGEN = 0.1, HEAVY_P_ART = 0.5;
+export const REGEN = 0.1, HEAVY_P_ART = 0.5, WINDOW_MULT = 2;   // Ventana de lanzamiento: lo primero del día
 // Viajes a otros sistemas (docs/plan-viajes.md): cerrados hasta que estén el salto y la votación.
 export const TRAVEL_ON = false;
 export const URGENT_P = 0.2, URGENT_TTL = [1,2], URGENT_BONUS = 0.5, REP_DAYS = 3;
@@ -244,7 +244,7 @@ export const UPDATES = [
   ]},
   {id:'missions-traits-2026-11', kind:'mission', title:'Novedades: rasgos de misión', lines:[
     'Las misiones sin plazo traen rasgos que cambian cuánto cuenta lo que haces para la misión. Las ¢, los méritos y el material de cada tarea o hábito no cambian.',
-    'Fáciles: un rasgo a favor, como Viento solar (lo Difícil y lo Épico cuenta ×1,5) o Ventana de lanzamiento (lo primero de cada día cuenta ×3).',
+    'Fáciles: un rasgo a favor, como Viento solar (lo Difícil y lo Épico cuenta ×1,5) o Ventana de lanzamiento (lo primero de cada día cuenta ×2).',
     'Normales: un rasgo neutro o en contra, como Ruta de hábitos (los hábitos cuentan ×1,5 y las tareas ×0,5).',
     'Difíciles: dos rasgos en contra, como Blindado (lo Micro y lo Fácil cuenta la mitad), Regenerativo (una noche sin avance, la misión retrocede un 10 %), Tormenta iónica, Saqueadores o Artillería pesada.',
     'Los ves en el tablón antes de aceptar y en el panel de la misión. Los capítulos de historia no traen rasgos.',
