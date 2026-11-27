@@ -1,9 +1,9 @@
-import { AGE_BONUS, DIFFS, effOf, hasDeadline, isAway, MATS, MISSION_BY_ID, OFFER_TTL, REP_DAYS, SIZES, SPEED_BONUS, SWEEP_MC, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
+import { AGE_BONUS, DIFFS, effOf, hasDeadline, HEAVY_P, HIT, isAway, MATS, MISSION_BY_ID, MODS, OFFER_TTL, REP_DAYS, SHIELD_GAP, SIZES, SPEED_BONUS, SWEEP_MC, threatFor, THREATS, URGENT_BONUS, URGENT_P, URGENT_TTL } from '../config.js';
 import { missionCrewXp, returnHome } from './crew.js';
 import { earn } from './books.js';
 import { logShip } from './log.js';
 import { addW, perk } from './rewards.js';
-import { boardCap, cargoMult, here, herePrep, maxDays, mod, repDamaged, signalRate } from './ship.js';
+import { boardCap, cargoMult, here, herePrep, maxDays, mod, repDamaged, signalRate, wear } from './ship.js';
 import { fmtCost, modCost } from './shipyard.js';
 import { arrive, isJump, tellJump } from './travel.js';
 import { MISSIONS } from '../missions.js';
@@ -97,7 +97,7 @@ export function genOpenOffer(day,safe=false){
   const diff=safe?pickDiff(['easy','normal']):pickDiff(), D=DIFFS[diff];
   const quota=S.pts, mc=Math.round(quota*12*D.pay);
   const mats=rollMats(S.days,D), [tlo,thi]=OFFER_TTL;
-  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,size,window:S.days,quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
+  return {id:uid(),kind:'open',mid:m.id,topic:m.topic,flavor:m.flavor,size,window:S.days,threat:threatFor(m.topic),quota,diff,reward:{mc,mats},urgent:false,postedOn:day,expiresOn:addDays(day,tlo+Math.floor(Math.random()*(thi-tlo+1))-1)};
 }
 // Historia del sistema: el capítulo pendiente llega al tablón como misión sin plazo,
 // media y de dificultad normal. No caduca ni ocupa hueco, y vuelve si se abandona.
@@ -107,7 +107,7 @@ export const nextChapter=()=>here().story[storyDone(here().id)]||null;
 export function storyOffer(day=todayStr()){
   const ch=nextChapter(); if(!ch) return null;
   const S=SIZES.mid, D=DIFFS.normal, quota=S.pts;
-  return {id:uid(),kind:'open',story:true,chapter:ch.chapter,mid:ch.id,topic:ch.topic,flavor:ch.flavor,size:'mid',window:S.days,quota,diff:'normal',
+  return {id:uid(),kind:'open',story:true,chapter:ch.chapter,mid:ch.id,topic:ch.topic,flavor:ch.flavor,size:'mid',window:S.days,threat:threatFor(ch.topic),quota,diff:'normal',
     reward:{mc:Math.round(quota*12*D.pay),mats:rollMats(S.days,D)},urgent:false,postedOn:day,expiresOn:STORY_TTL};
 }
 // Las ofertas que ocupan hueco en el tablón (las de historia, no).
@@ -121,7 +121,12 @@ export function onAccepted(c){
 // Sin plazo, `bonusAt` es hasta cuándo cuenta la bonificación de rapidez.
 export function contractFrom(o,now=new Date()){
   const c={...o,reward:{...o.reward,mc:agedMc(o)},acceptedOn:todayStr(now),acceptedAt:now.getTime(),progress:0};
-  if(!hasDeadline(o)){ if(o.window) c.bonusAt=now.getTime()+o.window*864e5; return c; }
+  if(!hasDeadline(o)){
+    if(o.window) c.bonusAt=now.getTime()+o.window*864e5;
+    // amenaza: el escudo empieza cargado y el primer impacto ya se sabe si será fuerte
+    if(THREATS[o.threat]) Object.assign(c,{shield:{armed:false,readyOn:c.acceptedOn},heavy:Math.random()<HEAVY_P,hits:0,blocked:0});
+    return c;
+  }
   const end=new Date(now); end.setDate(end.getDate()+o.days);
   return {...c,endsOn:todayStr(end),endsAt:end.getTime()};
 }
@@ -188,6 +193,34 @@ export function checkContractEnd(){
     logShip({kind:'mission',big:true,tone:'warn',title:`Misión ${c.topic} expirada`,rew:p,story:missionStory(c,c.progress>0?'partial':'fail'),
       lines:[`Plazo agotado con ${fmtEf(c.progress)}/${c.quota}: cobras la parte hecha.`,...home]});
   }
+  return true;
+}
+// Amenaza (docs/plan-misiones.md, fase B): el impacto de la noche que cierra `day`.
+// El día en que se acepta no hay impacto. El daño es fijo, no depende del ritmo.
+export const hitOf=(c,heavy=c.heavy)=>(HIT[c.diff]||HIT.normal)*(heavy?2:1);
+export function missionNight(day){
+  const c=state.ship.contract;
+  if(!c||!THREATS[c.threat]||!c.shield||hasDeadline(c)||day<=c.acceptedOn) return;
+  const T=THREATS[c.threat], heavy=!!c.heavy, sh=c.shield;
+  c.heavy=Math.random()<HEAVY_P;   // el siguiente se sortea ya, para poder avisar
+  if(sh.armed){
+    sh.armed=false; sh.readyOn=addDays(day,SHIELD_GAP+1); c.blocked++;
+    logShip({kind:'mission',tone:'info',title:`Escudo: impacto${heavy?' fuerte':''} bloqueado`,
+      lines:[pick(T.blocks),`Vuelve a estar listo el ${fDate(sh.readyOn)}.`]});
+    return;
+  }
+  c.hits++;
+  const w=wear({},hitOf(c,heavy));
+  logShip({kind:'mission',tone:'warn',title:`${T.name}: impacto${heavy?' fuerte':''}${w?` en ${MODS[w.k].name} −${w.n} %`:''}`,
+    lines:[w?pick(T.hits).replace('{m}',MODS[w.k].the):T.hit+'.']});   // sin daño (Ingeniería lo absorbe todo), la frase general
+}
+// El escudo bloquea el siguiente impacto. Tras bloquear, se recarga durante SHIELD_GAP impactos.
+// Desactivarlo no lo gasta.
+export const shieldReady=(c,day=todayStr())=>!!c?.shield&&!c.shield.armed&&day>=c.shield.readyOn;
+export function armShield(on=true){
+  const c=state.ship.contract; if(!c?.shield) return false;
+  if(on&&!shieldReady(c)) return false;
+  c.shield.armed=on;
   return true;
 }
 // Atracado en el sistema: sin contrato, o con uno que no te saca de él. Fuera no hay tablón, mercado ni astillero.
