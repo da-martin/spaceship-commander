@@ -206,12 +206,13 @@ export function missionNight(day){
   if(sh.armed){
     sh.armed=false; sh.readyOn=addDays(day,SHIELD_GAP+1); c.blocked++;
     logShip({kind:'mission',tone:'info',title:`Escudo: impacto${heavy?' fuerte':''} bloqueado`,
-      lines:[`${T.hit}, pero el escudo aguanta.`,`Vuelve a estar listo el ${fDate(sh.readyOn)}.`]});
+      lines:[pick(T.blocks),`Vuelve a estar listo el ${fDate(sh.readyOn)}.`]});
     return;
   }
   c.hits++;
   const w=wear({},hitOf(c,heavy));
-  logShip({kind:'mission',tone:'warn',title:`${T.name}: impacto${heavy?' fuerte':''}${w?` en ${MODS[w.k].name} −${w.n} %`:''}`,lines:[T.hit+'.']});
+  logShip({kind:'mission',tone:'warn',title:`${T.name}: impacto${heavy?' fuerte':''}${w?` en ${MODS[w.k].name} −${w.n} %`:''}`,
+    lines:[w?pick(T.hits).replace('{m}',MODS[w.k].the):T.hit+'.']});   // sin daño (Ingeniería lo absorbe todo), la frase general
 }
 // El escudo bloquea el siguiente impacto. Tras bloquear, se recarga durante SHIELD_GAP impactos.
 // Desactivarlo no lo gasta.

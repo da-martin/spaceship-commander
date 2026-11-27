@@ -2,7 +2,7 @@
 // un impacto de daño fijo cada noche de misión; el escudo bloquea uno y luego se recarga.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { HIT, SHIELD_GAP, THREATS, threatFor } from '../public/js/config.js';
+import { HIT, MODS, SHIELD_GAP, THREATS, threatFor } from '../public/js/config.js';
 import { processDays } from '../public/js/core/day.js';
 import { armShield, contractFrom, genOpenOffer, missionNight, shieldReady } from '../public/js/core/missions.js';
 import { addEffort } from '../public/js/core/ship.js';
@@ -128,4 +128,25 @@ test('las partidas guardan la amenaza y el escudo; una amenaza desconocida no tr
   assert.deepEqual([bad.threat, bad.shield], [undefined, undefined]);
   const [o] = normShip({ board: { offers: [{ ...mission(), acceptedOn: undefined, expiresOn: '2026-11-16' }] } }).board.offers;
   assert.deepEqual([o.threat, o.shield], ['pirates', undefined]);
+});
+
+test('cada amenaza tiene varias frases de impacto, todas con el módulo, y frases de escudo', () => {
+  for (const [k, T] of Object.entries(THREATS)) {
+    assert.ok(T.hits.length >= 3, k);
+    assert.ok(T.hits.every((h) => h.includes('{m}')), k);
+    assert.ok(T.blocks.length >= 2 && T.blocks.every((h) => !h.includes('{m}')), k);
+  }
+  for (const [k, m] of Object.entries(MODS)) assert.match(m.the, new RegExp(`^(el|la|los|las) ${m.name}$`), k);
+});
+
+test('el impacto cuenta qué pasó y nombra el módulo dañado; el bloqueo, cómo aguantó el escudo', () => {
+  const s = withComms();
+  s.ship.contract = mission();
+  missionNight('2026-11-13');
+  const [line] = s.ship.log.at(-1).lines;
+  assert.ok(THREATS.pirates.hits.some((h) => h.replace('{m}', 'la Antena') === line), line);
+  armShield(); missionNight('2026-11-14');
+  const e = s.ship.log.at(-1);
+  assert.ok(THREATS.pirates.blocks.includes(e.lines[0]), e.lines[0]);
+  assert.match(e.lines[1], /^Vuelve a estar listo el /);
 });

@@ -94,6 +94,7 @@ Datos: `THREATS` en `config.js` (`id`, `name`, `bar`, `hit`, que es la frase del
 
 - **Se avisa antes**: después de cada impacto (y al aceptar) se sortea si el siguiente será fuerte (30 %). El panel lo dice: «Próximo impacto esta noche · **fuerte**». Es lo que da sentido a elegir cuándo usar el escudo.
 - Cada impacto va a la bitácora como entrada pequeña (`kind:'mission'`, `tone:'warn'`): «Piratas: impacto en Motores −6 %» o «Escudo: impacto bloqueado».
+- Cada amenaza tiene cuatro frases de impacto, que nombran el módulo dañado con su artículo (`MODS[k].the`), y dos de bloqueo. Se elige una al azar: «Dos cazas piratas pasan rozando el casco y ametrallan los Motores».
 
 Referencia: una misión larga normal hecha en 7 días (7 noches, 2 bloqueadas, 30 % fuertes) deja unos 40 puntos de estado repartidos entre los módulos. Es más o menos lo que desgastan 8 hábitos fallados, y se repara en el astillero o a bordo como siempre.
 

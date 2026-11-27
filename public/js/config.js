@@ -28,15 +28,15 @@ export const MATS = ['ecos','nexos','ale','bio'];
 // Los de área son el único sumidero de materiales, y a cambio dan ventajas
 // generales que sirvan etiquetes o no por áreas.
 export const MODS = {
-  bridge: {name:'Puente',       kind:'gen',  mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
-  engines:{name:'Motores',      kind:'gen',  desc:'+6% de avance en misión por nivel; urgentes de hasta 1 día más'},
-  cargo:  {name:'Bodega',       kind:'gen',  desc:'+10% ¢ en recompensas de misión por nivel'},
-  comms:  {name:'Antena',       kind:'gen',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
-  quarters:{name:'Camarotes',   kind:'gen',  desc:'+1 litera para la tripulación por nivel'},
-  spirit: {name:'Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+8% de méritos por nivel'},
-  social: {name:'Salón',        kind:'area', area:'Social', res:'nexos', desc:'−8% en los sueldos de la tripulación por nivel'},
-  craft:  {name:'Taller',       kind:'area', area:'Craft',  res:'ale',   desc:'−10% en el coste ¢ del astillero por nivel'},
-  health: {name:'Enfermería',   kind:'area', area:'Health', res:'bio',   desc:'+1 punto de estado al día por nivel en el módulo más dañado'}
+  bridge:  {name:'Puente',      the:'el Puente',      kind:'gen',  mcMult:1.2, desc:'+1 hueco en el tablón de misiones por nivel'},
+  engines: {name:'Motores',     the:'los Motores',    kind:'gen',  desc:'+6% de avance en misión por nivel; urgentes de hasta 1 día más'},
+  cargo:   {name:'Bodega',      the:'la Bodega',      kind:'gen',  desc:'+10% ¢ en recompensas de misión por nivel'},
+  comms:   {name:'Antena',      the:'la Antena',      kind:'gen',  mcMult:0.5, desc:'+0,5 misiones al día en el tablón por nivel'},
+  quarters:{name:'Camarotes',   the:'los Camarotes',  kind:'gen',  desc:'+1 litera para la tripulación por nivel'},
+  spirit:  {name:'Observatorio', the:'el Observatorio', kind:'area', area:'Spirit', res:'ecos',  desc:'+8% de méritos por nivel'},
+  social:  {name:'Salón',       the:'el Salón',       kind:'area', area:'Social', res:'nexos', desc:'−8% en los sueldos de la tripulación por nivel'},
+  craft:   {name:'Taller',      the:'el Taller',      kind:'area', area:'Craft',  res:'ale',   desc:'−10% en el coste ¢ del astillero por nivel'},
+  health:  {name:'Enfermería',  the:'la Enfermería',  kind:'area', area:'Health', res:'bio',   desc:'+1 punto de estado al día por nivel en el módulo más dañado'}
 };
 export const SHIP_LV_MAX = Object.keys(MODS).length*5;   // nivel total de la nave con todo al máximo
 // Sigue haciendo falta para repartir desgaste y reparación, no para ganar material.
@@ -71,12 +71,53 @@ export const ENGINE_PUSH = 0.06;   // Motores: avance extra en misión por nivel
 // Amenazas de las misiones sin plazo (fase B): cada noche de misión, un impacto de daño fijo
 // (HIT, puntos de estado según la dificultad; ×2 si es fuerte) en un módulo general.
 // `bar`: lo que mide la barra de progreso; `hit`: la frase del impacto en la bitácora.
+// `hits`: frases del impacto, con {m} = el módulo dañado con su artículo; `blocks`: las del escudo.
 export const THREATS = {
-  pirates:  {name:'Piratas',              bar:'Casco enemigo',    hit:'Los piratas abren fuego contra la nave',        topics:['Escolta','Patrulla']},
-  asteroids:{name:'Lluvia de asteroides', bar:'Mineral extraído', hit:'Una lluvia de asteroides golpea la nave', topics:['Minería']},
-  radiation:{name:'Radiación',            bar:'Distancia',        hit:'Una tormenta de radiación azota la nave', topics:['Exploración','Reconocimiento']},
-  structure:{name:'Fallos estructurales', bar:'Rescate',          hit:'Un fallo estructural sacude la nave',     topics:['Rescate']},
-  saboteurs:{name:'Saboteadores',         bar:'Distancia',        hit:'Los saboteadores dañan la nave',          topics:['Transporte','Chárter']},
+  pirates:  {name:'Piratas', bar:'Casco enemigo', hit:'Los piratas abren fuego contra la nave', topics:['Escolta','Patrulla'], hits:[
+    'Un misil pirata estalla junto a {m}.',
+    'Una corbeta pirata sale de detrás de un asteroide y dispara contra {m}.',
+    'Dos cazas piratas pasan rozando el casco y ametrallan {m}.',
+    'La tripulación rechaza un abordaje pirata, pero los asaltantes dejan cargas de corte en {m}.',
+  ], blocks:[
+    'Los piratas abren fuego, pero el escudo desvía cada disparo.',
+    'Un misil pirata estalla contra el escudo sin llegar a tocar el casco.',
+  ]},
+  asteroids:{name:'Lluvia de asteroides', bar:'Mineral extraído', hit:'Una lluvia de asteroides golpea la nave', topics:['Minería'], hits:[
+    'Una roca del tamaño de un carguero roza el casco y golpea {m}.',
+    'Una lluvia de fragmentos repiquetea durante horas sobre {m}.',
+    'Un asteroide se parte en dos delante de la proa y un trozo alcanza {m}.',
+    'El campo de escombros se cierra de golpe y una piedra atraviesa el blindaje cerca de {m}.',
+  ], blocks:[
+    'Las rocas rebotan contra el escudo como granizo.',
+    'Un asteroide se deshace en polvo al chocar con el escudo.',
+  ]},
+  radiation:{name:'Radiación', bar:'Distancia', hit:'Una tormenta de radiación azota la nave', topics:['Exploración','Reconocimiento'], hits:[
+    'Una tormenta de radiación azota la nave y fríe los circuitos de {m}.',
+    'Un pulso de partículas atraviesa el blindaje y deja sin energía {m}.',
+    'La radiación sube de golpe y satura los sensores de {m}.',
+    'Una llamarada estelar barre el casco y castiga {m}.',
+  ], blocks:[
+    'El escudo absorbe la tormenta de radiación.',
+    'La llamarada choca contra el escudo y se disipa.',
+  ]},
+  structure:{name:'Fallos estructurales', bar:'Rescate', hit:'Un fallo estructural sacude la nave', topics:['Rescate'], hits:[
+    'Un mamparo cede con un crujido cerca de {m}.',
+    'Una vibración recorre la nave y abre una grieta junto a {m}.',
+    'Se suelta un soporte del casco y golpea {m}.',
+    'Al maniobrar, los restos de la nave rescatada chocan contra {m}.',
+  ], blocks:[
+    'El campo del escudo sujeta el casco justo cuando un mamparo empieza a ceder.',
+    'El escudo mantiene la presión mientras la tripulación sella una grieta.',
+  ]},
+  saboteurs:{name:'Saboteadores', bar:'Distancia', hit:'Los saboteadores dañan la nave', topics:['Transporte','Chárter'], hits:[
+    'Alguien ha manipulado los conductos de {m}.',
+    'Un bulto de la carga resulta ser un explosivo y estalla junto a {m}.',
+    'Un pasajero desaparece después de cortar los cables de {m}.',
+    'Un virus en el ordenador de a bordo desajusta {m}.',
+  ], blocks:[
+    'Los sensores del escudo detectan el sabotaje a tiempo y aíslan la zona.',
+    'El escudo contiene la explosión de una carga trampa.',
+  ]},
 };
 export const threatFor = (topic) => Object.keys(THREATS).find(k=>THREATS[k].topics.includes(topic)) || 'radiation';
 export const HIT = {easy:4, normal:6, hard:8};
